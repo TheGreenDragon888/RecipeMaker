@@ -10,15 +10,15 @@ This file tells AI coding agents (Claude Code, Copilot, Cursor, Codex, etc.) how
 
 - **App name:** RecipeMaker
 - **One-sentence description:** User inputs what ingredients they have, and the app can sort through recipes based if they need only a few more ingredients, the price to buy the ingredients, and other filters.
-- **Platform:** Mobile IOS
-- **Language(s):** Typescript (for now)
+- **Platform:** Expo Go (Android and iOS)
+- **Language(s):** Typescript
 - **Frameworks:** React Native
-- **Data storage:** undecided
-- **Test framework(s):** undecided
-- **Command to run the app:** npn run start
-- **Command to run all tests:** n/a
-- **Command to run a single test file:** n/a
-- **Command to run the linter/formatter:** n/a
+- **Data storage:** SQLite
+- **Test framework(s):** tbd
+- **Command to run the app:** `npn run start`
+- **Command to run all tests:** tbd
+- **Command to run a single test file:** tbd
+- **Command to run the linter/formatter:** tbd
 
 ---
 
