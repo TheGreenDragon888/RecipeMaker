@@ -8,17 +8,17 @@ This file tells AI coding agents (Claude Code, Copilot, Cursor, Codex, etc.) how
 
 ## 1. Project Details (student fills this in)
 
-- **App name:**
-- **One-sentence description:**
-- **Platform:** Web / Mobile (circle one)
-- **Language(s):**
-- **Frameworks:** (e.g., React, Next.js, Express, Flutter, React Native, SwiftUI, Django)
-- **Data storage:** (e.g., PostgreSQL, SQLite, Firebase, local device storage, external API)
-- **Test framework(s):** (e.g., Jest, Vitest, pytest, JUnit, XCTest, flutter_test)
-- **Command to run the app:**
-- **Command to run all tests:**
-- **Command to run a single test file:**
-- **Command to run the linter/formatter:**
+- **App name:** RecipeMaker
+- **One-sentence description:** User inputs what ingredients they have, and the app can sort through recipes based if they need only a few more ingredients, the price to buy the ingredients, and other filters.
+- **Platform:** Mobile IOS
+- **Language(s):** Typescript (for now)
+- **Frameworks:** React Native
+- **Data storage:** undecided
+- **Test framework(s):** undecided
+- **Command to run the app:** npn run start
+- **Command to run all tests:** n/a
+- **Command to run a single test file:** n/a
+- **Command to run the linter/formatter:** n/a
 
 ---
 
