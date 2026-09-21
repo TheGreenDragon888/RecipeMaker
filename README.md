@@ -4,15 +4,7 @@
 
 1. Clone this repo
 2. Switch to the repo in the terminal `cd RecipeMaker`
-3. Run `npm install`
-
-## Making changes
-
-1. Create a branch with your changes e.g. `git checkout -b [yourinitials]/[branchname]`
-2. Push those changes and publish the branch
-3. Create a pull request
-4. If it looks good, do 'Squash & merge' (you will have to click the dropdown menu the first time)
-5. Delete the branch
+3. Run `npm install` (if this doesn't work, make sure you have [node](https://nodejs.org/en/download/current) installed)
 
 ## Testing the app
 
@@ -28,3 +20,11 @@
 
 1. Run `npm run start`
 2. Scan the QR code that shows up in the terminal
+
+## Suggestion for committing changes
+
+1. Create a branch with your changes e.g. `git checkout -b [yourinitials]/[branchname]`
+2. Push those changes and publish the branch
+3. Create a pull request
+4. If it looks good, do 'Squash & merge' (you will have to click the dropdown menu the first time)
+5. Delete the branch
