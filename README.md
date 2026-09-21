@@ -6,6 +6,14 @@
 2. Switch to the repo in the terminal `cd RecipeMaker`
 3. Run `npm install`
 
+## Making changes
+
+1. Create a branch with your changes e.g. `git checkout -b [yourinitials]/[branchname]`
+2. Push those changes and publish the branch
+3. Create a pull request
+4. If it looks good, do 'Squash & merge commit'
+5. Delete the branch
+
 ## Testing the app
 
 ### First-time setup
