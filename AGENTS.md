@@ -15,10 +15,11 @@ This file tells AI coding agents (Claude Code, Copilot, Cursor, Codex, etc.) how
 - **Frameworks:** React Native, Expo SDK 57 (managed workflow)
 - **Data storage:** SQLite on the device via `expo-sqlite` (not the Node `sqlite3` package, which does not run in Expo Go). Only files in the Data Access layer (`src/data/`) may import `expo-sqlite`.
 - **Adding dependencies:** use `npx expo install <package>` so the version matches the Expo SDK.
-- **Test framework(s):** tbd
+- **Test framework(s):** Jest with the `jest-expo` preset. Data-layer integration tests run the real SQL against `assets/data/recipes.db` using Node's built-in `node:sqlite` (see §5.2), because `expo-sqlite` only runs on a device.
 - **Command to run the app:** `npm run start`
-- **Command to run all tests:** tbd
-- **Command to run a single test file:** tbd
+- **Command to run all tests:** `npm test`
+- **Command to run a single test file:** `npx jest <path>`, e.g. `npx jest tests/unit/services/filterRecipes.test.ts`
+- **Command to type-check:** `npx tsc --noEmit`
 - **Command to run the linter/formatter:** tbd
 
 ---
@@ -289,6 +290,44 @@ tests/
 ├── e2e/             # End-to-end tests
 └── fakes/           # In-memory repositories and other test doubles
 ```
+
+### 5.1 RecipeMaker's Actual Structure
+
+This is the layout the project uses. New code goes in the matching folder.
+
+```
+assets/data/recipes.db       # Bundled, read-only recipe database (see §5.2)
+metro.config.js              # Adds 'db' to Metro's assetExts so require() can load recipes.db
+src/
+├── domain/                  # BUSINESS: recipe types, RecipeRepository interface, errors,
+│                            #   staples list, search-term normalization, serving scaling
+├── services/                # BUSINESS: one use case per file (search, pantry match, filter,
+│                            #   recipe detail, similar recipes, ingredient suggestions)
+├── data/                    # DATA ACCESS: SqliteRecipeRepository (all SQL), row mappers,
+│                            #   SqlDatabase interface, data version check, openRecipeDatabase
+├── ui/
+│   └── format/              # PRESENTATION: pure display functions (fractions, plurals,
+│                            #   ingredient lines, times, servings, yield, source name)
+├── createRecipeServices.ts  # Binds services to a repository; the object the UI calls
+└── main.ts                  # Composition root: startRecipeServices() opens the database and
+                             #   wires SqliteRecipeRepository into the services
+tests/
+├── unit/                    # Services and domain rules, using fakes (no database)
+├── integration/             # SqliteRecipeRepository + §8 acceptance checks against recipes.db
+├── ui/                      # Presentation tests (format functions; components later)
+├── fakes/                   # InMemoryRecipeRepository, makeRecipe(), makeIngredient()
+└── support/                 # nodeSqliteDatabase: SqlDatabase adapter over node:sqlite
+```
+
+### 5.2 Project-Specific Rules
+
+- **Only `src/data/openRecipeDatabase.ts` imports `expo-sqlite`.** Repositories depend on the small `SqlDatabase` interface in `src/data/SqlDatabase.ts` instead. expo-sqlite's `SQLiteDatabase` satisfies it on the device; `tests/support/nodeSqliteDatabase.ts` satisfies it in tests.
+- **The UI gets services, never a database or repository.** Screens receive the object returned by `startRecipeServices()` (type `RecipeServices`). Do not use `SQLiteProvider` or `useSQLiteContext()` in components.
+- **Rules live in services, not SQL.** Repository methods are plain lookups (by id, by ingredient, by alias, lists). Decisions such as which ingredients count as missing, what "serves N people" means, ranking order, and result limits belong in `src/services/` or `src/domain/`, where they are unit-tested with `InMemoryRecipeRepository`.
+- **Display text lives in `src/ui/format/`.** Business and data code return raw values (numbers, booleans, singular names); pluralizing, fractions, "≈" markers and joined strings are presentation.
+- **`recipes.db` is read-only.** It is copied over the device copy on every launch (`forceOverwrite: true`), so never write user data to it and never enable WAL on it. User data (favorites, pantry) goes in a separate database that references recipes by `recipe_id`.
+- **Updating the recipe data:** replace `assets/data/recipes.db`, bump its `PRAGMA user_version`, and bump `RECIPE_DATA_VERSION` in `src/data/recipeDataVersion.ts` to match. Keep existing `recipe_id` values stable and never reuse a deleted ID.
+- **Device-only files** (`src/data/openRecipeDatabase.ts`, `src/main.ts`) cannot run under Jest. Keep them to wiring only, and put any logic they need in a separate, tested function (as with `assertRecipeDataVersion`).
 
 ---
 
