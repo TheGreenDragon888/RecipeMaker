@@ -12,10 +12,11 @@ This file tells AI coding agents (Claude Code, Copilot, Cursor, Codex, etc.) how
 - **One-sentence description:** User inputs what ingredients they have, and the app can sort through recipes based if they need only a few more ingredients, the price to buy the ingredients, and other filters.
 - **Platform:** Expo Go (Android and iOS)
 - **Language(s):** Typescript
-- **Frameworks:** React Native
-- **Data storage:** SQLite
+- **Frameworks:** React Native, Expo SDK 57 (managed workflow)
+- **Data storage:** SQLite on the device via `expo-sqlite` (not the Node `sqlite3` package, which does not run in Expo Go). Only files in the Data Access layer (`src/data/`) may import `expo-sqlite`.
+- **Adding dependencies:** use `npx expo install <package>` so the version matches the Expo SDK.
 - **Test framework(s):** tbd
-- **Command to run the app:** `npn run start`
+- **Command to run the app:** `npm run start`
 - **Command to run all tests:** tbd
 - **Command to run a single test file:** tbd
 - **Command to run the linter/formatter:** tbd
