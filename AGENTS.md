@@ -10,16 +10,17 @@ This file tells AI coding agents (Claude Code, Copilot, Cursor, Codex, etc.) how
 
 - **App name:** RecipeMaker
 - **One-sentence description:** User inputs what ingredients they have, and the app can sort through recipes based if they need only a few more ingredients, the price to buy the ingredients, and other filters.
+- **Current state:** The business and data layers are built and tested (`src/domain/`, `src/services/`, `src/data/`, `src/ui/format/`, and the wiring in `src/main.ts` and `src/createRecipeServices.ts`). The UI has not been started: there are no screens, components, or navigation yet, and `App.tsx` still has the Expo template's placeholder UI.
 - **Platform:** Expo Go (Android and iOS)
 - **Language(s):** Typescript
 - **Frameworks:** React Native, Expo SDK 57 (managed workflow)
 - **Data storage:** SQLite on the device via `expo-sqlite` (not the Node `sqlite3` package, which does not run in Expo Go). Only files in the Data Access layer (`src/data/`) may import `expo-sqlite`.
 - **Adding dependencies:** use `npx expo install <package>` so the version matches the Expo SDK.
 - **Test framework(s):** Jest with the `jest-expo` preset. Data-layer integration tests run the real SQL against `assets/data/recipes.db` using Node's built-in `node:sqlite` (see §5.2), because `expo-sqlite` only runs on a device.
-- **Command to run the app:** `npm run start`
+- **Command to run the app:** `npm run start` starts the Expo dev server (Metro); scan the QR code with Expo Go, or press `a`/`i`/`w` to launch on Android/iOS/web. `npm run android` / `npm run ios` / `npm run web` start it targeting one platform directly.
 - **Command to run all tests:** `npm test`
 - **Command to run a single test file:** `npx jest <path>`, e.g. `npx jest tests/unit/services/filterRecipes.test.ts`
-- **Command to type-check:** `npx tsc --noEmit`
+- **Command to type-check:** `npx tsc --noEmit`. `tsconfig.json` extends `expo/tsconfig.base` with `strict: true`, so keep new code strict-mode clean.
 - **Command to run the linter/formatter:** tbd
 
 ---
@@ -296,6 +297,9 @@ tests/
 This is the layout the project uses. New code goes in the matching folder.
 
 ```
+index.ts                     # Entry point: registerRootComponent(App) (see §5.2)
+App.tsx                      # PRESENTATION: app shell; calls startRecipeServices() and shows screens
+app.json                     # Expo config under the `expo` key: app name, icons, per-platform settings
 assets/data/recipes.db       # Bundled, read-only recipe database (see §5.2)
 metro.config.js              # Adds 'db' to Metro's assetExts so require() can load recipes.db
 src/
@@ -306,6 +310,9 @@ src/
 ├── data/                    # DATA ACCESS: SqliteRecipeRepository (all SQL), row mappers,
 │                            #   SqlDatabase interface, data version check, openRecipeDatabase
 ├── ui/
+│   ├── screens/             # PRESENTATION: full pages (pantry input, results, recipe detail)
+│   ├── components/          # PRESENTATION: reusable pieces shared by screens (recipe card,
+│   │                        #   ingredient chip, filter controls)
 │   └── format/              # PRESENTATION: pure display functions (fractions, plurals,
 │                            #   ingredient lines, times, servings, yield, source name)
 ├── createRecipeServices.ts  # Binds services to a repository; the object the UI calls
@@ -313,8 +320,10 @@ src/
                              #   wires SqliteRecipeRepository into the services
 tests/
 ├── unit/                    # Services and domain rules, using fakes (no database)
-├── integration/             # SqliteRecipeRepository + §8 acceptance checks against recipes.db
-├── ui/                      # Presentation tests (format functions; components later)
+├── integration/             # SqliteRecipeRepository + acceptance checks (known recipe counts and
+│                            #   search results) run through the real services against recipes.db
+├── ui/                      # Presentation tests, mirroring src/ui/: format/, screens/,
+│                            #   components/ (screens and components use mocked RecipeServices)
 ├── fakes/                   # InMemoryRecipeRepository, makeRecipe(), makeIngredient()
 └── support/                 # nodeSqliteDatabase: SqlDatabase adapter over node:sqlite
 ```
@@ -324,9 +333,12 @@ tests/
 - **Only `src/data/openRecipeDatabase.ts` imports `expo-sqlite`.** Repositories depend on the small `SqlDatabase` interface in `src/data/SqlDatabase.ts` instead. expo-sqlite's `SQLiteDatabase` satisfies it on the device; `tests/support/nodeSqliteDatabase.ts` satisfies it in tests.
 - **The UI gets services, never a database or repository.** Screens receive the object returned by `startRecipeServices()` (type `RecipeServices`). Do not use `SQLiteProvider` or `useSQLiteContext()` in components.
 - **Rules live in services, not SQL.** Repository methods are plain lookups (by id, by ingredient, by alias, lists). Decisions such as which ingredients count as missing, what "serves N people" means, ranking order, and result limits belong in `src/services/` or `src/domain/`, where they are unit-tested with `InMemoryRecipeRepository`.
+- **Screens go in `src/ui/screens/`, reusable components in `src/ui/components/`.** A screen is a full page the user navigates to; a component is a piece used by one or more screens. Both are `.tsx` files and follow the Presentation layer rules in §3.1.
+- **Screens call services; components get data through props.** Only screens receive `RecipeServices` and call it, and they own the loading and error states. Components never call services. They receive the data to show (e.g. a `RecipeSummary`) and callbacks for user actions (e.g. `onPress`) as props, so they can be tested by rendering them with plain values and reused on any screen.
 - **Display text lives in `src/ui/format/`.** Business and data code return raw values (numbers, booleans, singular names); pluralizing, fractions, "≈" markers and joined strings are presentation.
 - **`recipes.db` is read-only.** It is copied over the device copy on every launch (`forceOverwrite: true`), so never write user data to it and never enable WAL on it. User data (favorites, pantry) goes in a separate database that references recipes by `recipe_id`.
 - **Updating the recipe data:** replace `assets/data/recipes.db`, bump its `PRAGMA user_version`, and bump `RECIPE_DATA_VERSION` in `src/data/recipeDataVersion.ts` to match. Keep existing `recipe_id` values stable and never reuse a deleted ID.
+- **The entry point uses `registerRootComponent`.** `index.ts` calls `registerRootComponent(App)` from `expo` rather than a plain `AppRegistry.registerComponent` call; this is what makes the same entry file work in both Expo Go and native builds.
 - **Device-only files** (`src/data/openRecipeDatabase.ts`, `src/main.ts`) cannot run under Jest. Keep them to wiring only, and put any logic they need in a separate, tested function (as with `assertRecipeDataVersion`).
 
 ---
