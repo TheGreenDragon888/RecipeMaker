@@ -16,7 +16,7 @@ RecipeMaker uses a **three-tier architecture**. Dependencies point downward only
 
 ```
 ┌─────────────────────────────────────────┐
-│  PRESENTATION   src/ui/                 │  Screens, components, display formatting
+│  PRESENTATION   app/, src/ui/           │  Routes, screens, components, display formatting
 └───────────────────┬─────────────────────┘
                     │ calls RecipeServices
 ┌───────────────────▼─────────────────────┐
@@ -31,6 +31,7 @@ RecipeMaker uses a **three-tier architecture**. Dependencies point downward only
 | Layer | Folder | What it contains |
 |---|---|---|
 | Presentation | `src/ui/screens/`, `src/ui/components/` | Screens that call services and manage loading and error states, plus reusable components that receive data through props |
+| Presentation | `app/`, `src/ui/navigation/` | Expo Router route files: the root layout, plus one thin file per screen that hands it the services and its route params. `src/ui/navigation/` turns screen data into route params and back |
 | Presentation | `src/ui/format/` | Pure display functions: fractions, plurals, ingredient lines, times, servings |
 | Business | `src/domain/` | Recipe types, the `RecipeRepository` interface, domain errors, the kitchen staples list, search-term normalization, serving scaling |
 | Business | `src/services/` | One use case per file: search by ingredient, match a pantry, filter, recipe detail, similar recipes, ingredient autocomplete |
@@ -42,20 +43,21 @@ RecipeMaker uses a **three-tier architecture**. Dependencies point downward only
 **Testing:** the project is developed test-first with Jest (`jest-expo` preset).
 - `tests/unit/`: business rules tested against an in-memory fake repository
 - `tests/integration/`: the real SQL run against `recipes.db` using Node's built-in `node:sqlite`
-- `tests/ui/`: display formatting and screens rendered with mocked services
+- `tests/ui/`: display formatting, navigation helpers, components, and screens rendered with mocked services
+- `tests/app/`: the route files, with `expo-router` mocked
 
 ## Software Features
-* [x] Search for recipes by a single ingredient, with alias-aware matching and a partial-match fallback
-* [ ] "What can I make?": enter your pantry and see recipes ranked by fewest missing ingredients (common staples such as salt, pepper and oil are never counted as missing)
+* [ ] Search for recipes by a single ingredient, with alias-aware matching and a partial-match fallback
+* [x] "What can I make?": enter your pantry and see recipes ranked by fewest missing ingredients (common staples such as salt, pepper and oil are never counted as missing)
 * [ ] Filter recipes by maximum hands-on time and number of people
-* [ ] Ingredient autocomplete while typing
-* [ ] Recipe detail page with the full ingredient list
+* [x] Ingredient autocomplete while typing
+* [x] Recipe detail page with the full ingredient list
 * [ ] Scale ingredient amounts to a different number of people
-* [ ] "Similar recipes": the same dish from other sources
+* [x] "Similar recipes": the same dish from other sources
 * [ ] Estimated cost to buy the missing ingredients
 * [ ] Save favorite recipes and your pantry between sessions
 
-*Business logic for the pantry match, filters, autocomplete, recipe detail, scaling and similar recipes is built and tested. Their screens are still in progress.*
+*The app has three screens: Pantry (enter ingredients, with autocomplete), Results (recipes ranked for your pantry) and Recipe detail (ingredients, steps, the source, and similar recipes). Single-ingredient search, filters and serving scaling are built and tested in the business layer, but no screen uses them yet. Estimated cost, favorites and a saved pantry are not built yet.*
 
 ## Team Communication
 
