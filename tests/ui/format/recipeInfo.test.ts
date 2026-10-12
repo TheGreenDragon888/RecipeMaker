@@ -1,8 +1,12 @@
 import {
   formatDuration,
+  formatIngredientGroupHeading,
+  formatServes,
   formatServings,
+  formatSourceDomain,
   formatSourceName,
   formatTimes,
+  formatViewSourceLabel,
   formatYield,
   groupIngredientsByComponent,
 } from '../../../src/ui/format/recipeInfo';
@@ -54,6 +58,12 @@ describe('formatServings', () => {
   });
 });
 
+describe('formatServes', () => {
+  it('puts "Serves" before the number of servings', () => {
+    expect(formatServes(makeRecipe({ id: 1, servingsMin: 3, servingsMax: 4 }))).toBe('Serves 3–4');
+  });
+});
+
 describe('formatYield', () => {
   it('describes a yield that is not in servings', () => {
     expect(formatYield(makeRecipe({ id: 1, yieldQuantity: 24, yieldUnit: 'piece' }))).toBe('Makes 24 pieces');
@@ -84,6 +94,34 @@ describe('formatSourceName', () => {
       sourceUrl: 'https://www.sallysbakingaddiction.com/quick-healthy-dinner/',
     });
     expect(formatSourceName(recipe)).toBe('sallysbakingaddiction.com');
+  });
+});
+
+describe('formatSourceDomain', () => {
+  it('shows the domain of the source URL without "www."', () => {
+    expect(formatSourceDomain(makeRecipe({ id: 1, sourceUrl: 'https://www.budgetbytes.com/sloppy-joes/' }))).toBe('budgetbytes.com');
+  });
+
+  it('returns null when the source URL has no domain', () => {
+    expect(formatSourceDomain(makeRecipe({ id: 1, sourceUrl: 'not a link' }))).toBeNull();
+  });
+});
+
+describe('formatViewSourceLabel', () => {
+  it('names the domain the link opens', () => {
+    expect(formatViewSourceLabel(makeRecipe({ id: 1, sourceUrl: 'https://www.budgetbytes.com/sloppy-joes/' }))).toBe(
+      'View on budgetbytes.com',
+    );
+  });
+
+  it('uses a general label when the source URL has no domain', () => {
+    expect(formatViewSourceLabel(makeRecipe({ id: 1, sourceUrl: 'not a link' }))).toBe('View the original recipe');
+  });
+});
+
+describe('formatIngredientGroupHeading', () => {
+  it('introduces the ingredients of a sub-recipe', () => {
+    expect(formatIngredientGroupHeading('stir fry sauce')).toBe('For the stir fry sauce');
   });
 });
 

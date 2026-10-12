@@ -139,6 +139,28 @@ describe('SqliteRecipeRepository', () => {
     });
   });
 
+  describe('findIngredient', () => {
+    it('finds an ingredient by its own name', async () => {
+      expect(await repo.findIngredient('tomato')).toBe('tomato');
+    });
+
+    it('finds the canonical name through an alias', async () => {
+      expect(await repo.findIngredient('scallions')).toBe('green onion');
+    });
+
+    it('ignores case and returns the name as stored', async () => {
+      expect(await repo.findIngredient('parmesan cheese')).toBe('Parmesan cheese');
+    });
+
+    it('returns null for part of a name', async () => {
+      expect(await repo.findIngredient('tom')).toBeNull();
+    });
+
+    it('returns null for an unknown ingredient', async () => {
+      expect(await repo.findIngredient('dragonfruit')).toBeNull();
+    });
+  });
+
   describe('listRecipeSummaries and listIngredientUsage', () => {
     it('lists every recipe', async () => {
       expect(await repo.listRecipeSummaries()).toHaveLength(130);

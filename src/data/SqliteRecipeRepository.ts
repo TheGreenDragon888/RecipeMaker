@@ -52,6 +52,13 @@ UNION
 SELECT ingredient FROM ingredient_aliases WHERE alias LIKE $prefix || '%' ESCAPE '\'
 ORDER BY name LIMIT $limit;`;
 
+/** Alias first (it also maps each canonical name to itself), then a direct ingredient name. Both columns are NOCASE. */
+export const FIND_INGREDIENT_SQL = `
+SELECT COALESCE(
+  (SELECT a.ingredient FROM ingredient_aliases AS a WHERE a.alias = $name),
+  (SELECT ri.ingredient FROM recipe_ingredients AS ri WHERE ri.ingredient = $name LIMIT 1)
+) AS ingredient;`;
+
 export const FIND_BY_DUPLICATE_GROUP_SQL = `
 SELECT ${SUMMARY_COLUMNS} FROM recipes AS r WHERE r.duplicate_group = $group ORDER BY r.recipe_id;`;
 
@@ -106,6 +113,11 @@ export class SqliteRecipeRepository implements RecipeRepository {
       $limit: limit,
     });
     return rows.map((r) => r.name);
+  }
+
+  async findIngredient(name: string) {
+    const row = await this.db.getFirstAsync<{ ingredient: string | null }>(FIND_INGREDIENT_SQL, { $name: name });
+    return row?.ingredient ?? null;
   }
 
   async findByDuplicateGroup(group: string) {
