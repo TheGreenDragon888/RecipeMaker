@@ -113,6 +113,16 @@ export class InMemoryRecipeRepository implements RecipeRepository {
     return [...names].sort((a, b) => a.localeCompare(b)).slice(0, limit);
   }
 
+  async findIngredient(name: string) {
+    const alias = this.aliases.get(name.toLowerCase());
+    if (alias) return alias;
+    for (const ings of this.ingredients.values()) {
+      const match = ings.find((ing) => ing.ingredient.toLowerCase() === name.toLowerCase());
+      if (match) return match.ingredient;
+    }
+    return null;
+  }
+
   async findByDuplicateGroup(group: string) {
     return this.recipes.filter((r) => r.duplicateGroup === group).map(toSummary);
   }
