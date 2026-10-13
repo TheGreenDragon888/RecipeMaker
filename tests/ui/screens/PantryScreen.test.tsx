@@ -1,6 +1,7 @@
 import React from 'react';
 import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
 import type { RecipeServices } from '../../../src/createRecipeServices';
+import { Icon } from '../../../src/ui/components/Icon';
 import { PantryItemRow } from '../../../src/ui/components/PantryItemRow';
 import { SuggestionList } from '../../../src/ui/components/SuggestionList';
 import { PantryScreen } from '../../../src/ui/screens/PantryScreen';
@@ -63,6 +64,11 @@ describe('PantryScreen', () => {
     it('shows the tagline for the time of day', () => {
       const { renderer } = setup();
       expect(shownText(renderer)).toContain("what's for dinner?");
+    });
+
+    it('draws a search icon in the text field', () => {
+      const { renderer } = setup();
+      expect(renderer.root.findAllByType(Icon).map((icon) => icon.props.name)).toContain('search');
     });
 
     it('shows a hint when the pantry is empty', () => {

@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import type { RecipeServices } from '../createRecipeServices';
-import { colors, fontSize, spacing } from './theme';
+import { colors, fonts, fontSize, spacing } from './theme';
 
 const RecipeServicesContext = createContext<RecipeServices | null>(null);
 
@@ -49,5 +49,5 @@ const styles = StyleSheet.create({
     padding: spacing.screen,
     backgroundColor: colors.background,
   },
-  message: { fontSize: fontSize.emphasis, color: colors.text, textAlign: 'center' },
+  message: { fontFamily: fonts.regular, fontSize: fontSize.emphasis, color: colors.text, textAlign: 'center' },
 });

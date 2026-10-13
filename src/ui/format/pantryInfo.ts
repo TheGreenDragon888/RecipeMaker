@@ -14,3 +14,8 @@ export function formatMatchedAgainst(count: number): string {
 export function formatUnknownIngredient(typed: string): string {
   return `“${typed.trim()}” isn’t in our ingredient list.`;
 }
+
+/** An ingredient name as the mockup shows it: "green onion" -> "Green Onion", "all-purpose flour" -> "All-purpose Flour". */
+export function formatIngredientName(name: string): string {
+  return name.replace(/(^|\s)(\S)/g, (_, space: string, letter: string) => space + letter.toUpperCase());
+}

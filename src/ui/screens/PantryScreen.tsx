@@ -5,12 +5,13 @@ import React, { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import { addPantryItem } from '../../domain/pantry';
+import { Icon } from '../components/Icon';
 import { PantryItemRow } from '../components/PantryItemRow';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SuggestionList } from '../components/SuggestionList';
 import { formatMealTagline } from '../format/mealTagline';
 import { formatFindRecipesLabel, formatUnknownIngredient } from '../format/pantryInfo';
-import { colors, fontSize, fontWeight, fonts, radii, spacing } from '../theme';
+import { colors, fonts, fontSize, radii, spacing } from '../theme';
 
 type Props = {
   services: RecipeServices;
@@ -85,11 +86,14 @@ export function PantryScreen({ services, onFindRecipes, now = () => new Date() }
     <View style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.title}>My Pantry</Text>
-        <Text style={styles.tagline}>{formatMealTagline(now().getHours())}</Text>
+        <Text style={styles.tagline} numberOfLines={1}>
+          {formatMealTagline(now().getHours())}
+        </Text>
       </View>
 
       <View style={styles.addArea}>
         <View style={[styles.field, focused && styles.fieldFocused]}>
+          <Icon name="search" size={18} color={colors.textMuted} />
           <TextInput
             accessibilityLabel="Add an ingredient"
             autoCapitalize="none"
@@ -146,18 +150,19 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    paddingTop: 22,
+    paddingTop: spacing.screenTop,
     paddingHorizontal: spacing.screen,
     paddingBottom: spacing.xs,
   },
-  title: { fontFamily: fonts.heading, fontSize: fontSize.pantryTitle, fontWeight: fontWeight.semibold, color: colors.text },
-  // The mockup uses the handwritten Caveat font here; italic is the stand-in until fonts are approved.
-  tagline: { fontSize: 20, fontStyle: 'italic', color: colors.accent },
+  title: { fontFamily: fonts.heading, fontSize: fontSize.pantryTitle, color: colors.text },
+  tagline: { flexShrink: 1, fontFamily: fonts.handwritten, fontSize: 20, color: colors.accent },
   // Sits above the list so the dropdown can overlap it.
   addArea: { zIndex: 1, marginTop: spacing.lg, marginBottom: 6, marginHorizontal: spacing.screen },
   field: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     minHeight: 44,
-    justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
@@ -165,22 +170,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   fieldFocused: { borderWidth: 1.5, borderColor: colors.accent },
-  input: { fontSize: fontSize.input, color: colors.text, paddingVertical: 10 },
+  // paddingHorizontal 0: Android adds its own side padding to a TextInput; the field already has it.
+  input: {
+    flex: 1,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.input,
+    color: colors.text,
+    paddingVertical: 10,
+    paddingHorizontal: 0,
+  },
   // Floats over the pantry list, the same width as the text field.
-  dropdown: { position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6 },
+  dropdown: { position: 'absolute', top: '100%', left: 0, right: 0, marginTop: spacing.sm },
   notice: {
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.md,
     backgroundColor: colors.surface,
+    fontFamily: fonts.regular,
     fontSize: fontSize.caption,
     color: colors.textSecondary,
     overflow: 'hidden',
   },
   list: { flex: 1 },
   listContent: { paddingTop: 6, paddingHorizontal: spacing.screen, paddingBottom: spacing.xs },
-  hint: { paddingVertical: spacing.lg, fontSize: fontSize.body, color: colors.textSecondary },
+  hint: { paddingVertical: spacing.lg, fontFamily: fonts.regular, fontSize: fontSize.body, color: colors.textSecondary },
   footer: {
     paddingTop: spacing.lg,
     paddingHorizontal: spacing.screen,

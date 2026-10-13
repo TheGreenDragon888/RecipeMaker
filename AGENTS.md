@@ -26,10 +26,10 @@ If this file contradicts the code, trust the code, fix this file, and mention th
 
 - **App name:** RecipeMaker
 - **One-sentence description:** User inputs what ingredients they have, and the app can sort through recipes based if they need only a few more ingredients, the price to buy the ingredients, and other filters.
-- **Current state:** All three layers are built and tested. The UI is three screens on an Expo Router stack: **Pantry** (type ingredients with autocomplete; only ingredients in the database can be added), **Results** (recipes ranked by `findRecipesFromPantry`), and **Recipe detail** (times, servings, ingredients, steps, a link to the source, similar recipes). The look follows the Claude Design mockup "RecipeMaker — Core Flow", using system fonts and text stand-ins (`‹`, `→`, `×`, `↗`) until custom fonts and an icon package are approved. Mockup parts with no data or service rule behind them yet (ingredient categories, pantry quantities, photos, swaps, readiness filters and pills, favorites, a pantry saved between launches) are left out. The `searchRecipesByIngredient` and `filterRecipes` services and the `scaleIngredients` domain rule are tested but no screen uses them yet.
+- **Current state:** All three layers are built and tested. The UI is three screens on an Expo Router stack: **Pantry** (type ingredients with autocomplete; only ingredients in the database can be added), **Results** (recipes ranked by `findRecipesFromPantry`), and **Recipe detail** (times, servings, ingredients, steps, a link to the source, similar recipes). The look follows the Claude Design board "RecipeMaker — Current Mockup", with its fonts (Lora, Nunito Sans, Caveat) and its line icons. Board parts with no data or service rule behind them yet (ingredient categories, pantry quantities, photos, swaps, readiness filters and pills, favorites, a pantry saved between launches) are left out; the recipe banner is a tinted placeholder with an icon instead of a photo. Board screens not built yet: Full Recipe (Ingredients and Steps tabs), Cook Mode, Mark as Cooked, and the Pantry / Recipes / Saved tab bar. The `searchRecipesByIngredient` and `filterRecipes` services and the `scaleIngredients` domain rule are tested but no screen uses them yet.
 - **Platform:** Expo Go (Android and iOS)
 - **Language(s):** Typescript
-- **Frameworks:** React Native 0.86 with React 19.2, Expo SDK 57 (managed workflow: the `ios/` and `android/` folders are git-ignored and never committed), Expo Router for navigation (one file per route in `app/`)
+- **Frameworks:** React Native 0.86 with React 19.2, Expo SDK 57 (managed workflow: the `ios/` and `android/` folders are git-ignored and never committed), Expo Router for navigation (one file per route in `app/`), `react-native-svg` for icons, `expo-font` with `@expo-google-fonts/lora`, `nunito-sans` and `caveat` for the mockup's fonts
 - **Setup:** Node.js 22.13 or later, then `npm install`. Node 23 is outside what `react-native` 0.86 supports (24.3+ is fine), and the integration tests need `node:sqlite` without a flag, which arrived in Node 22.13.
 - **Environment variables:** none are used yet (no `process.env` reads). If you add any, put them in `.env.local`: `.gitignore` excludes `.env*.local` files, but not a plain `.env`.
 - **Data storage:** SQLite on the device via `expo-sqlite` (not the Node `sqlite3` package, which does not run in Expo Go). Only files in the Data Access layer (`src/data/`) may import `expo-sqlite`.
@@ -320,7 +320,7 @@ This is the layout the project uses. New code goes in the matching folder.
 .claude/settings.json        # Claude Code project settings (turns on the Expo plugin)
 CLAUDE.md                    # Only "@AGENTS.md", so Claude Code loads this file; edit AGENTS.md instead
 app/                         # PRESENTATION (routes): Expo Router builds the app from these files (see §5.2)
-├── _layout.tsx              #   root: safe area, status bar, RecipeServicesProvider, the Stack
+├── _layout.tsx              #   root: safe area, status bar, AppFontsGate, RecipeServicesProvider, the Stack
 ├── index.tsx                #   "/"                    → PantryScreen
 ├── results.tsx              #   "/results?pantry=[…]"  → ResultsScreen
 └── recipe/[id].tsx          #   "/recipe/42"           → RecipeDetailScreen
@@ -341,13 +341,14 @@ src/
 ├── ui/
 │   ├── screens/             # PRESENTATION: full pages (PantryScreen, ResultsScreen, RecipeDetailScreen)
 │   ├── components/          # PRESENTATION: props-only pieces used by screens (recipe card, buttons,
-│   │                        #   suggestion list, pantry row, step, source card, state message)
+│   │                        #   suggestion list, pantry row, step, source card, state message, Icon)
 │   ├── format/              # PRESENTATION: pure display functions (fractions, plurals, ingredient
-│   │                        #   lines, times, servings, yield, source, counts, tagline,
-│   │                        #   suggestion highlighting)
+│   │                        #   lines, ingredient-name capitals, times, servings, yield, source,
+│   │                        #   counts, tagline, suggestion highlighting)
 │   ├── navigation/          # PRESENTATION: routeParams — screen data to route params and back
+│   ├── AppFontsGate.tsx     # Loads the mockup's fonts; holds the app back until they load (or fail)
 │   ├── RecipeServicesContext.tsx  # Starts the services once; route files get them via useRecipeServices()
-│   └── theme.ts             # PRESENTATION: colors, spacing, radii, font sizes and weights, fonts,
+│   └── theme.ts             # PRESENTATION: colors, spacing, radii, font sizes, font families,
 │                            #   shadows from the mockup
 ├── createRecipeServices.ts  # Binds services to a repository; the object the UI calls
 └── main.ts                  # Composition root: startRecipeServices() opens the database and
@@ -357,7 +358,8 @@ tests/
 ├── integration/             # SqliteRecipeRepository, the data version check, and acceptance checks (known
 │                            #   recipe counts and search results) run through the real services against recipes.db
 ├── ui/                      # Presentation tests, mirroring src/ui/: format/, screens/, components/,
-│                            #   navigation/, RecipeServicesContext (screens use mocked RecipeServices)
+│                            #   navigation/, RecipeServicesContext, AppFontsGate (screens use mocked
+│                            #   RecipeServices; AppFontsGate mocks expo-font)
 ├── app/                     # Route files, with expo-router mocked; recipe/id.test.tsx tests
 │                            #   app/recipe/[id].tsx (no brackets: Jest path patterns treat them as special)
 ├── fakes/                   # InMemoryRecipeRepository, makeRecipe(), makeIngredient()
@@ -373,12 +375,12 @@ tests/
 - **Screens go in `src/ui/screens/`, reusable components in `src/ui/components/`.** A screen is a full page the user navigates to; a component is a piece used by one or more screens. Both are `.tsx` files and follow the Presentation layer rules in §3.1.
 - **Screens call services; components get data through props.** Only screens call `RecipeServices` (route files only hand it over), and screens own the loading and error states. Components never call services. They receive the data to show (e.g. a `RecipeSummary`) and callbacks for user actions (e.g. `onPress`) as props, so they can be tested by rendering them with plain values and reused on any screen.
 - **Route files stay thin.** Each file in `app/` gets the services, reads its route params, renders one screen from `src/ui/screens/`, and turns the screen's callbacks (`onFindRecipes`, `onOpenRecipe`, `onBack`, ...) into `router` calls. Screens never import `expo-router`, so their tests need no router. Route params are always strings: convert them with the tested helpers in `src/ui/navigation/routeParams.ts` (the pantry list travels as JSON; recipe ids go through `recipeHref` and `recipeIdFromParam`). "Back to pantry" and "Return to Pantry" use `router.dismissTo('/')`, which brings back the existing Pantry screen with its list. Route files are tested in `tests/app/` with `jest.mock('expo-router')`.
-- **Styling comes from `src/ui/theme.ts`.** Take colors from `theme.colors` instead of writing hex values, and use its spacing, radius, font-size, font-weight and shadow names where one fits. Headings use `fonts.heading` (the system serif) until custom fonts are approved.
+- **Styling comes from `src/ui/theme.ts`.** Take colors from `theme.colors` instead of writing hex values, and use its spacing, radius, font-size and shadow names where one fits. Set text weight with `fontFamily: fonts.<weight>` (`regular`, `semibold`, `bold`, `heavy`; `heading` for Lora headings, `handwritten` for Caveat), never `fontWeight`: a custom font picks its weight by family name, and every `Text` style needs a `fontFamily` because React Native has no app-wide default font. A new font weight must also be added to `AppFontsGate`. Icons come from `src/ui/components/Icon.tsx`, which copies the board's 24×24 SVG shapes; add a new icon there rather than drawing SVG in a screen.
 - **Display text lives in `src/ui/format/`.** Business and data code return raw values (numbers, booleans, singular names); pluralizing, fractions, "≈" markers and joined strings are presentation.
 - **`recipes.db` is read-only.** It is copied over the device copy on every launch (`forceOverwrite: true`), so never write user data to it and never enable WAL on it. User data (favorites, pantry) goes in a separate database that references recipes by `recipe_id`.
 - **Updating the recipe data:** replace `assets/data/recipes.db`, bump its `PRAGMA user_version`, and bump `RECIPE_DATA_VERSION` in `src/data/recipeDataVersion.ts` to match. Keep existing `recipe_id` values stable and never reuse a deleted ID.
 - **The entry point is `expo-router/entry`.** `package.json`'s `"main"` points to it. It builds the app from the `app/` folder and then calls `registerRootComponent` from `expo` rather than a plain `AppRegistry.registerComponent` call; this is what makes the same entry work in both Expo Go and native builds. There is no `index.ts` or `App.tsx`: the app shell is `app/_layout.tsx`.
-- **Device-only files** (`src/data/openRecipeDatabase.ts`, `src/main.ts`, `app/_layout.tsx`) cannot run under Jest. Keep them to wiring only, and put any logic they need in a separate, tested piece (as with `assertRecipeDataVersion`, and `RecipeServicesProvider` for the layout's loading and error states).
+- **Device-only files** (`src/data/openRecipeDatabase.ts`, `src/main.ts`, `app/_layout.tsx`) cannot run under Jest. Keep them to wiring only, and put any logic they need in a separate, tested piece (as with `assertRecipeDataVersion`, `RecipeServicesProvider` for the layout's loading and error states, and `AppFontsGate` for font loading).
 - **Each source file names its layer.** Files in `src/` (and some in `app/`) start with a comment that says which layer they belong to and what they do, e.g. `// BUSINESS LAYER: ingredient autocomplete.` or `// PRESENTATION LAYER (route "/"): …`. Start new files the same way.
 - **`.tsx` files `import React from 'react'`**, as every one does now. `tsconfig.json` sets `"jsx": "react"` (the classic JSX transform), which expects `React` in scope wherever JSX is used.
 

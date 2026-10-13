@@ -3,7 +3,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { splitOnTypedPrefix } from '../format/highlightPrefix';
-import { colors, fontSize, fontWeight, radii, shadows, spacing } from '../theme';
+import { formatIngredientName } from '../format/pantryInfo';
+import { colors, fonts, fontSize, radii, shadows, spacing } from '../theme';
 
 type Props = {
   suggestions: string[];
@@ -13,34 +14,41 @@ type Props = {
 };
 
 export function SuggestionList({ suggestions, typed, onSelect }: Props) {
+  // The shadow sits on an outer view: on iOS, overflow 'hidden' would clip a shadow on the same view.
   return (
-    <View style={styles.list}>
-      {suggestions.map((suggestion) => {
-        const split = splitOnTypedPrefix(suggestion, typed);
-        return (
-          <Pressable
-            key={suggestion}
-            accessibilityRole="button"
-            accessibilityLabel={`Add ${suggestion}`}
-            onPress={() => onSelect(suggestion)}
-            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-          >
-            {split ? (
-              <Text style={styles.name}>
-                <Text style={styles.match}>{split.match}</Text>
-                {split.rest}
-              </Text>
-            ) : (
-              <Text style={styles.name}>{suggestion}</Text>
-            )}
-          </Pressable>
-        );
-      })}
+    <View style={styles.shadow}>
+      <View style={styles.list}>
+        {suggestions.map((suggestion, index) => {
+          const shown = formatIngredientName(suggestion);
+          const split = splitOnTypedPrefix(shown, typed);
+          return (
+            <Pressable
+              key={suggestion}
+              accessibilityRole="button"
+              accessibilityLabel={`Add ${suggestion}`}
+              onPress={() => onSelect(suggestion)}
+              // The mockup highlights the first row, like the top pick of a search.
+              style={({ pressed }) => [styles.row, index === 0 && styles.rowHighlighted, pressed && styles.rowPressed]}
+            >
+              {split ? (
+                <Text style={styles.name}>
+                  <Text style={styles.match}>{split.match}</Text>
+                  {split.rest}
+                </Text>
+              ) : (
+                <Text style={styles.name}>{shown}</Text>
+              )}
+              <Text style={styles.add}>+ Add</Text>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  shadow: { borderRadius: radii.md, backgroundColor: colors.surface, ...shadows.dropdown },
   list: {
     paddingVertical: 6,
     borderWidth: 1,
@@ -48,10 +56,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     backgroundColor: colors.surface,
     overflow: 'hidden',
-    ...shadows.dropdown,
   },
-  row: { minHeight: 48, justifyContent: 'center', paddingVertical: 11, paddingHorizontal: spacing.lg },
-  rowPressed: { backgroundColor: colors.pressed },
-  name: { fontSize: fontSize.input, fontWeight: fontWeight.semibold, color: colors.text },
-  match: { fontWeight: fontWeight.heavy, color: colors.accent },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 48,
+    paddingVertical: 11,
+    paddingHorizontal: spacing.lg,
+  },
+  rowHighlighted: { backgroundColor: colors.pressed },
+  // The fade shows a press on the first row too, which already has the highlight color.
+  rowPressed: { backgroundColor: colors.pressed, opacity: 0.85 },
+  name: { flex: 1, fontSize: fontSize.input, fontFamily: fonts.semibold, color: colors.text },
+  match: { fontFamily: fonts.heavy, color: colors.accent },
+  add: { fontFamily: fonts.bold, fontSize: fontSize.caption, color: colors.accent },
 });

@@ -6,6 +6,7 @@ import { RecipeNotFoundError } from '../../../src/domain/errors';
 import type { RecipeSummary } from '../../../src/domain/recipe';
 import type { RecipeDetail } from '../../../src/services/getRecipeDetail';
 import { BackButton } from '../../../src/ui/components/BackButton';
+import { Icon } from '../../../src/ui/components/Icon';
 import { RecipeCard } from '../../../src/ui/components/RecipeCard';
 import { StepItem } from '../../../src/ui/components/StepItem';
 import { RecipeDetailScreen } from '../../../src/ui/screens/RecipeDetailScreen';
@@ -79,6 +80,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+const iconNames = (renderer: ReactTestRenderer) => renderer.root.findAllByType(Icon).map((icon) => icon.props.name);
 const isLoading = (renderer: ReactTestRenderer) => renderer.root.findAllByType(ActivityIndicator).length > 0;
 const startsWith = (renderer: ReactTestRenderer, prefix: string) =>
   shownText(renderer).some((text) => text.startsWith(prefix));
@@ -164,6 +166,16 @@ describe('RecipeDetailScreen', () => {
       expect(steps).toEqual([[1, 'Brown the beef.'], [2, 'Stir in the sauce.']]);
     });
 
+    it('draws a clock beside the times and people beside the servings', async () => {
+      const { renderer } = await setup();
+      expect(iconNames(renderer)).toEqual(expect.arrayContaining(['clock', 'people']));
+    });
+
+    it('shows a "Source" heading above where the recipe comes from', async () => {
+      const { renderer } = await setup();
+      expect(shownText(renderer)).toContain('Source');
+    });
+
     it('shows where the recipe comes from', async () => {
       const { renderer } = await setup();
       expect(shownText(renderer)).toContain('Budget Bytes');
@@ -187,6 +199,21 @@ describe('RecipeDetailScreen', () => {
       const { renderer, onBack } = await setup();
       act(() => renderer.root.findByType(BackButton).props.onPress());
       expect(onBack).toHaveBeenCalledTimes(1);
+    });
+
+    it('puts the back button on the recipe banner', async () => {
+      const { renderer } = await setup();
+      expect(renderer.root.findByType(BackButton).props.overBanner).toBe(true);
+    });
+
+    it('draws a utensils icon on the recipe banner', async () => {
+      const { renderer } = await setup();
+      expect(iconNames(renderer)).toContain('utensils');
+    });
+
+    it('still offers the back button while the recipe loads', async () => {
+      const { renderer } = await setup({ getRecipeDetail: jest.fn().mockReturnValue(deferred().promise) });
+      expect(renderer.root.findAllByType(BackButton)).toHaveLength(1);
     });
 
     it('labels the back button for screen readers', async () => {

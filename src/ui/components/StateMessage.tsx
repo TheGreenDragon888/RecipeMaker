@@ -2,7 +2,7 @@
 // with an optional button for what to do next.
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, fontSize, spacing } from '../theme';
+import { colors, fonts, fontSize, spacing } from '../theme';
 import { PrimaryButton } from './PrimaryButton';
 
 type Props = {
@@ -25,6 +25,6 @@ export function StateMessage({ message, action }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', paddingHorizontal: spacing.screen, paddingBottom: spacing.xxxl },
-  message: { fontSize: fontSize.emphasis, color: colors.textSecondary, textAlign: 'center' },
+  message: { fontFamily: fonts.regular, fontSize: fontSize.emphasis, color: colors.textSecondary, textAlign: 'center' },
   action: { marginTop: spacing.xxl },
 });

@@ -1,6 +1,6 @@
 // PRESENTATION LAYER: one recipe — times, servings, ingredients, steps, its source and similar recipes.
-// The mockup's photo banner, status pill, per-ingredient pantry checks and Save button are left out:
-// no data or service rule backs them yet.
+// The mockup's banner is drawn as a tinted placeholder with an icon, since there are no photos. Its status
+// pill, per-ingredient pantry checks and Save button are left out: no data or service rule backs them yet.
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
@@ -8,6 +8,7 @@ import { RecipeNotFoundError } from '../../domain/errors';
 import type { RecipeSummary } from '../../domain/recipe';
 import type { RecipeDetail } from '../../services/getRecipeDetail';
 import { BackButton } from '../components/BackButton';
+import { Icon } from '../components/Icon';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { RecipeCard } from '../components/RecipeCard';
 import { SourceCard } from '../components/SourceCard';
@@ -21,7 +22,7 @@ import {
   formatYield,
   groupIngredientsByComponent,
 } from '../format/recipeInfo';
-import { colors, fontSize, fontWeight, fonts, spacing } from '../theme';
+import { colors, fonts, fontSize, spacing } from '../theme';
 
 type Props = {
   services: RecipeServices;
@@ -83,63 +84,84 @@ export function RecipeDetailScreen({
     }
   }
 
+  /** The mockup's photo banner, with the back button on it. */
+  const banner = (
+    <View style={styles.banner}>
+      <Icon name="utensils" size={64} color={colors.blue} strokeWidth={1.4} />
+      <View style={styles.bannerBack}>
+        <BackButton label="Back to recipes" onPress={onBack} overBanner />
+      </View>
+    </View>
+  );
+
   function renderRecipe({ recipe, ingredients }: RecipeDetail) {
     const yieldText = formatYield(recipe);
     return (
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <Text style={styles.title}>{recipe.name}</Text>
-        <View style={styles.meta}>
-          <Text style={styles.metaText}>{formatTimes(recipe)}</Text>
-          <Text style={styles.metaText}>{formatServes(recipe)}</Text>
-          {yieldText ? <Text style={styles.metaText}>{yieldText}</Text> : null}
-        </View>
-
-        <Text style={styles.sectionTitle}>Ingredients</Text>
-        {groupIngredientsByComponent(ingredients).map((group) => (
-          <View key={group.component ?? ''}>
-            {group.component ? (
-              <Text style={styles.groupHeading}>{formatIngredientGroupHeading(group.component)}</Text>
-            ) : null}
-            {group.ingredients.map((ingredient, index) => (
-              <Text
-                key={ingredient.lineNumber}
-                style={[styles.ingredient, index < group.ingredients.length - 1 && styles.ingredientDivider]}
-              >
-                {formatIngredientLine(ingredient)}
-              </Text>
-            ))}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        {banner}
+        <View style={styles.content}>
+          <Text style={styles.title}>{recipe.name}</Text>
+          <View style={styles.meta}>
+            <View style={styles.metaItem}>
+              <Icon name="clock" size={15} color={colors.textSecondary} />
+              <Text style={styles.metaText}>{formatTimes(recipe)}</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Icon name="people" size={15} color={colors.textSecondary} />
+              <Text style={styles.metaText}>{formatServes(recipe)}</Text>
+            </View>
+            {yieldText ? <Text style={styles.metaText}>{yieldText}</Text> : null}
           </View>
-        ))}
 
-        <Text style={[styles.sectionTitle, styles.stepsTitle]}>Steps</Text>
-        {recipe.steps.map((step, index) => (
-          <StepItem key={index} number={index + 1} text={step} />
-        ))}
-
-        <View style={styles.source}>
-          <SourceCard recipe={recipe} onOpen={() => openSource(recipe.sourceUrl)} />
-          {linkFailed ? <Text style={styles.linkError}>Couldn't open the original recipe.</Text> : null}
-        </View>
-
-        {similar.length > 0 ? (
-          <View>
-            <Text style={styles.sectionTitle}>Similar recipes</Text>
-            <View style={styles.similarList}>
-              {similar.map((other) => (
-                <RecipeCard key={other.id} recipe={other} onPress={() => onOpenRecipe(other.id)} />
+          <Text style={styles.sectionTitle}>Ingredients</Text>
+          {groupIngredientsByComponent(ingredients).map((group) => (
+            <View key={group.component ?? ''}>
+              {group.component ? (
+                <Text style={styles.groupHeading}>{formatIngredientGroupHeading(group.component)}</Text>
+              ) : null}
+              {group.ingredients.map((ingredient, index) => (
+                <Text
+                  key={ingredient.lineNumber}
+                  style={[styles.ingredient, index < group.ingredients.length - 1 && styles.ingredientDivider]}
+                >
+                  {formatIngredientLine(ingredient)}
+                </Text>
               ))}
             </View>
+          ))}
+
+          <Text style={[styles.sectionTitle, styles.stepsTitle]}>Steps</Text>
+          <View style={styles.steps}>
+            {recipe.steps.map((step, index) => (
+              <StepItem key={index} number={index + 1} text={step} />
+            ))}
           </View>
-        ) : null}
+
+          <View style={styles.source}>
+            <Text style={[styles.sectionTitle, styles.sourceTitle]}>Source</Text>
+            <SourceCard recipe={recipe} onOpen={() => openSource(recipe.sourceUrl)} />
+            {linkFailed ? <Text style={styles.linkError}>Couldn't open the original recipe.</Text> : null}
+          </View>
+
+          {similar.length > 0 ? (
+            <View>
+              <Text style={styles.sectionTitle}>Similar recipes</Text>
+              <View style={styles.similarList}>
+                {similar.map((other) => (
+                  <RecipeCard key={other.id} recipe={other} onPress={() => onOpenRecipe(other.id)} />
+                ))}
+              </View>
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
     );
   }
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <BackButton label="Back to recipes" onPress={onBack} />
-      </View>
+      {/* Once the recipe is shown, the banner scrolls with it; until then it stays at the top. */}
+      {load.status === 'done' ? null : banner}
 
       {load.status === 'loading' ? (
         <View style={styles.loading}>
@@ -162,38 +184,43 @@ export function RecipeDetailScreen({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  header: { paddingTop: spacing.lg, paddingHorizontal: spacing.screen },
+  banner: { height: 200, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.blueSoft },
+  bannerBack: { position: 'absolute', top: 18, left: 18 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
-  content: { paddingTop: spacing.md, paddingHorizontal: spacing.screen, paddingBottom: spacing.xxxl },
+  scrollContent: { paddingBottom: spacing.xxxl },
+  content: { paddingTop: 18, paddingHorizontal: spacing.screen },
   title: {
     fontFamily: fonts.heading,
     fontSize: fontSize.detailTitle,
-    fontWeight: fontWeight.semibold,
     lineHeight: 30,
     color: colors.text,
   },
   meta: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, rowGap: spacing.xs, marginTop: spacing.lg },
-  metaText: { fontSize: fontSize.meta, color: colors.textSecondary },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  metaText: { fontFamily: fonts.regular, fontSize: fontSize.meta, color: colors.textSecondary },
   sectionTitle: {
     marginTop: spacing.xxl,
     marginBottom: spacing.sm,
     fontFamily: fonts.heading,
     fontSize: fontSize.sectionTitle,
-    fontWeight: fontWeight.semibold,
     color: colors.text,
   },
-  stepsTitle: { marginBottom: 10 },
+  stepsTitle: { marginTop: 22, marginBottom: 10 },
+  steps: { gap: spacing.lg },
   groupHeading: {
     marginTop: spacing.md,
     fontSize: fontSize.meta,
-    fontWeight: fontWeight.bold,
+    fontFamily: fonts.bold,
     color: colors.textSecondary,
   },
-  ingredient: { paddingVertical: 9, fontSize: fontSize.body, color: colors.text },
+  // lineHeight 22 keeps the mockup's 40px rows, which it sizes around a 22px pantry-check chip.
+  ingredient: { paddingVertical: 9, fontFamily: fonts.regular, fontSize: fontSize.body, lineHeight: 22, color: colors.text },
   ingredientDivider: { borderBottomWidth: 1, borderBottomColor: colors.divider },
-  source: { marginTop: spacing.sm },
-  linkError: { marginTop: spacing.sm, marginHorizontal: spacing.xs, fontSize: fontSize.caption, color: colors.accent },
+  // The mockup's steps section ends with 20px of padding, and its source section starts with 18px.
+  source: { marginTop: spacing.xxl + 18 },
+  sourceTitle: { marginTop: 0, marginBottom: 10 },
+  linkError: { marginTop: spacing.sm, marginHorizontal: spacing.xs, fontFamily: fonts.regular, fontSize: fontSize.caption, color: colors.accent },
   similarList: { gap: spacing.lg },
   footer: {
     paddingTop: spacing.lg,

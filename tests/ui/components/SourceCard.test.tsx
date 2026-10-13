@@ -2,6 +2,7 @@ import React from 'react';
 import { act } from 'react-test-renderer';
 import { SourceCard } from '../../../src/ui/components/SourceCard';
 import { render, shownText } from '../../support/render';
+import { Icon } from '../../../src/ui/components/Icon';
 
 const budgetBytes = { sourceSite: 'Budget Bytes', sourceUrl: 'https://www.budgetbytes.com/sloppy-joes/' };
 
@@ -26,5 +27,16 @@ describe('SourceCard', () => {
   it('says the link opens in the browser', () => {
     const renderer = render(<SourceCard recipe={budgetBytes} onOpen={() => {}} />);
     expect(shownText(renderer)).toContain('Opens in your browser.');
+  });
+
+  it('draws a link icon beside the site name', () => {
+    const renderer = render(<SourceCard recipe={budgetBytes} onOpen={() => {}} />);
+    expect(renderer.root.findAllByType(Icon).map((icon) => icon.props.name)).toContain('link');
+  });
+
+  it('draws an open-externally icon in its link', () => {
+    const renderer = render(<SourceCard recipe={budgetBytes} onOpen={() => {}} />);
+    const link = renderer.root.findByProps({ accessibilityRole: 'link' });
+    expect(link.findByType(Icon).props.name).toBe('externalLink');
   });
 });

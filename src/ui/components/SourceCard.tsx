@@ -5,7 +5,8 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Recipe } from '../../domain/recipe';
 import { formatSourceName, formatViewSourceLabel } from '../format/recipeInfo';
-import { colors, fontSize, fontWeight, fonts, radii, shadows, spacing } from '../theme';
+import { colors, fonts, fontSize, radii, shadows, spacing } from '../theme';
+import { Icon } from './Icon';
 
 type Props = {
   recipe: Pick<Recipe, 'sourceSite' | 'sourceUrl'>;
@@ -13,13 +14,22 @@ type Props = {
   onOpen: () => void;
 };
 
+const CHIP_SIZE = 44;
+
 export function SourceCard({ recipe, onOpen }: Props) {
   const linkLabel = formatViewSourceLabel(recipe);
   return (
     <View>
       <View style={styles.card}>
-        <Text style={styles.caption}>Recipe from</Text>
-        <Text style={styles.site}>{formatSourceName(recipe)}</Text>
+        <View style={styles.header}>
+          <View style={styles.chip}>
+            <Icon name="link" size={22} color={colors.amber} />
+          </View>
+          <View style={styles.headerText}>
+            <Text style={styles.caption}>Recipe from</Text>
+            <Text style={styles.site}>{formatSourceName(recipe)}</Text>
+          </View>
+        </View>
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={linkLabel}
@@ -27,8 +37,7 @@ export function SourceCard({ recipe, onOpen }: Props) {
           style={({ pressed }) => [styles.link, pressed && styles.linkPressed]}
         >
           <Text style={styles.linkText}>{linkLabel}</Text>
-          {/* A stand-in for the mockup's "open externally" icon until icons are approved. */}
-          <Text style={styles.linkText}>↗</Text>
+          <Icon name="externalLink" size={17} color={colors.accent} strokeWidth={2} />
         </Pressable>
       </View>
       <Text style={styles.note}>Opens in your browser.</Text>
@@ -45,12 +54,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     ...shadows.card,
   },
-  caption: { fontSize: fontSize.caption, fontWeight: fontWeight.bold, color: colors.textMuted },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  chip: {
+    width: CHIP_SIZE,
+    height: CHIP_SIZE,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.amberSoft,
+  },
+  headerText: { flexShrink: 1 },
+  caption: { fontSize: fontSize.caption, fontFamily: fonts.bold, color: colors.textMuted },
   site: {
-    marginTop: spacing.xxs,
     fontFamily: fonts.heading,
     fontSize: fontSize.emphasis,
-    fontWeight: fontWeight.semibold,
     color: colors.text,
   },
   link: {
@@ -66,6 +83,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   linkPressed: { backgroundColor: colors.pressed },
-  linkText: { fontSize: fontSize.input, fontWeight: fontWeight.heavy, color: colors.accent },
-  note: { marginTop: 10, marginHorizontal: spacing.xs, fontSize: fontSize.caption, color: colors.textMuted },
+  linkText: { fontSize: fontSize.input, fontFamily: fonts.heavy, color: colors.accent },
+  note: {
+    marginTop: 10,
+    marginHorizontal: spacing.xs,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.caption,
+    lineHeight: 17,
+    color: colors.textMuted,
+  },
 });

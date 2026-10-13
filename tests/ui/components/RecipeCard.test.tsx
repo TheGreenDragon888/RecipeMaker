@@ -3,6 +3,7 @@ import { act } from 'react-test-renderer';
 import type { RecipeSummary } from '../../../src/domain/recipe';
 import { RecipeCard } from '../../../src/ui/components/RecipeCard';
 import { render, shownText } from '../../support/render';
+import { Icon } from '../../../src/ui/components/Icon';
 
 const recipe: RecipeSummary = {
   id: 7,
@@ -40,5 +41,10 @@ describe('RecipeCard', () => {
     const renderer = render(<RecipeCard recipe={recipe} onHand={onHand} onPress={onPress} />);
     act(() => renderer.root.findByProps({ accessibilityRole: 'button' }).props.onPress());
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('draws a clock icon beside the total time', () => {
+    const renderer = render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
+    expect(renderer.root.findByType(Icon).props.name).toBe('clock');
   });
 });
