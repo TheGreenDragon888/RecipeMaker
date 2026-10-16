@@ -57,6 +57,9 @@ async function addIngredient(renderer: ReactTestRenderer, text: string) {
 const pantryNames = (renderer: ReactTestRenderer) =>
   renderer.root.findAllByType(PantryItemRow).map((row) => row.props.name);
 
+const pantryQuantities = (renderer: ReactTestRenderer) =>
+  renderer.root.findAllByType(PantryItemRow).map((row) => row.props.quantity);
+
 const suggestionLists = (renderer: ReactTestRenderer) => renderer.root.findAllByType(SuggestionList);
 
 describe('PantryScreen', () => {
@@ -124,6 +127,65 @@ describe('PantryScreen', () => {
       const { renderer, onFindRecipes } = setup();
       await addIngredient(renderer, 'tomato');
       await addIngredient(renderer, 'egg');
+      await press(renderer, 'Find recipes with 2 ingredients');
+      expect(onFindRecipes).toHaveBeenCalledWith(['tomato', 'egg']);
+    });
+  });
+
+  describe('quantities', () => {
+    it('starts a new ingredient at 1', async () => {
+      const { renderer } = setup();
+      await addIngredient(renderer, 'tomato');
+      expect(pantryQuantities(renderer)).toEqual([1]);
+    });
+
+    it('raises the quantity when + is pressed', async () => {
+      const { renderer } = setup();
+      await addIngredient(renderer, 'tomato');
+      await press(renderer, 'Increase tomato quantity');
+      expect(pantryQuantities(renderer)).toEqual([2]);
+    });
+
+    it('lowers the quantity when − is pressed', async () => {
+      const { renderer } = setup();
+      await addIngredient(renderer, 'tomato');
+      await press(renderer, 'Increase tomato quantity');
+      await press(renderer, 'Decrease tomato quantity');
+      expect(pantryQuantities(renderer)).toEqual([1]);
+    });
+
+    it('leaves the other ingredients alone when − is pressed twice quickly on a quantity of 1', async () => {
+      const { renderer } = setup();
+      await addIngredient(renderer, 'tomato');
+      await addIngredient(renderer, 'egg');
+      const removeTomato = byLabel(renderer, 'Remove tomato').props.onPress;
+      await act(async () => {
+        removeTomato();
+        removeTomato();
+      });
+      expect(pantryNames(renderer)).toEqual(['egg']);
+    });
+
+    it('tells the row it can no longer increase at 99', async () => {
+      const { renderer } = setup();
+      await addIngredient(renderer, 'tomato');
+      for (let i = 1; i < 99; i++) await press(renderer, 'Increase tomato quantity');
+      expect(renderer.root.findByType(PantryItemRow).props.canIncrease).toBe(false);
+    });
+
+    it('counts ingredients, not quantities, on the find button', async () => {
+      const { renderer } = setup();
+      await addIngredient(renderer, 'tomato');
+      await addIngredient(renderer, 'egg');
+      await press(renderer, 'Increase tomato quantity');
+      expect(byLabel(renderer, 'Find recipes with 2 ingredients')).toBeTruthy();
+    });
+
+    it('passes only the ingredient names to onFindRecipes', async () => {
+      const { renderer, onFindRecipes } = setup();
+      await addIngredient(renderer, 'tomato');
+      await addIngredient(renderer, 'egg');
+      await press(renderer, 'Increase tomato quantity');
       await press(renderer, 'Find recipes with 2 ingredients');
       expect(onFindRecipes).toHaveBeenCalledWith(['tomato', 'egg']);
     });

@@ -1,10 +1,18 @@
 // PRESENTATION LAYER: "My Pantry" — the user lists the ingredients they have, with autocomplete.
 // Only ingredients in the database can be added: a tapped suggestion, or typed text that findIngredient
-// recognizes. The Results screen runs the pantry search with the list from onFindRecipes.
+// recognizes. Each ingredient has a count (− / +, from 1 to 99; − at 1 removes it). The count is display
+// only: onFindRecipes gets the names, and the Results screen runs the pantry search with them.
 import React, { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
-import { addPantryItem } from '../../domain/pantry';
+import {
+  addPantryItem,
+  canIncreasePantryQuantity,
+  decreasePantryQuantity,
+  decreaseRemovesPantryItem,
+  increasePantryQuantity,
+  type PantryItem,
+} from '../../domain/pantry';
 import { Icon } from '../components/Icon';
 import { PantryItemRow } from '../components/PantryItemRow';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -21,7 +29,7 @@ type Props = {
 };
 
 export function PantryScreen({ services, onFindRecipes, now = () => new Date() }: Props) {
-  const [pantry, setPantry] = useState<string[]>([]);
+  const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [text, setText] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   /** A one-line message under the field (suggestions failed, unknown ingredient, ...), or null. */
@@ -78,8 +86,12 @@ export function PantryScreen({ services, onFindRecipes, now = () => new Date() }
     }
   }
 
-  function remove(index: number) {
-    setPantry((current) => current.filter((_, i) => i !== index));
+  function increase(name: string) {
+    setPantry((current) => increasePantryQuantity(current, name));
+  }
+
+  function decrease(name: string) {
+    setPantry((current) => decreasePantryQuantity(current, name));
   }
 
   return (
@@ -127,14 +139,24 @@ export function PantryScreen({ services, onFindRecipes, now = () => new Date() }
         {pantry.length === 0 ? (
           <Text style={styles.hint}>Add the ingredients you have.</Text>
         ) : (
-          pantry.map((name, index) => <PantryItemRow key={name} name={name} onRemove={() => remove(index)} />)
+          pantry.map((item) => (
+            <PantryItemRow
+              key={item.name}
+              name={item.name}
+              quantity={item.quantity}
+              canIncrease={canIncreasePantryQuantity(item)}
+              decreaseRemoves={decreaseRemovesPantryItem(item)}
+              onIncrease={() => increase(item.name)}
+              onDecrease={() => decrease(item.name)}
+            />
+          ))
         )}
       </ScrollView>
 
       <View style={styles.footer}>
         <PrimaryButton
           label={formatFindRecipesLabel(pantry.length)}
-          onPress={() => onFindRecipes(pantry)}
+          onPress={() => onFindRecipes(pantry.map((item) => item.name))}
           disabled={pantry.length === 0}
           showArrow
         />
