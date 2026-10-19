@@ -57,7 +57,10 @@ describe('acceptance checks', () => {
   });
 
   it('autocompleting "par" suggests Parmesan cheese and parsley', async () => {
-    expect(await suggestIngredients(repo, 'par')).toEqual(['Parmesan cheese', 'parsley']);
+    expect(await suggestIngredients(repo, 'par')).toEqual([
+      { ingredient: 'Parmesan cheese', matchedAlias: null },
+      { ingredient: 'parsley', matchedAlias: null },
+    ]);
   });
 
   it('Homemade Chicken Nuggets is similar to Pretzel Coated Chicken Nuggets', async () => {

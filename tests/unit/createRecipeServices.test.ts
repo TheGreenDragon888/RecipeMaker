@@ -33,7 +33,9 @@ describe('createRecipeServices', () => {
   });
 
   it('wires ingredient suggestions to the repository', async () => {
-    expect(await services.suggestIngredients('gro')).toEqual(['ground beef']);
+    expect(await services.suggestIngredients('gro')).toEqual([
+      { ingredient: 'ground beef', matchedAlias: null },
+    ]);
   });
 
   it('wires ingredient lookup to the repository', async () => {

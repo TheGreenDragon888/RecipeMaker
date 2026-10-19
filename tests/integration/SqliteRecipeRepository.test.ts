@@ -126,8 +126,20 @@ describe('SqliteRecipeRepository', () => {
   });
 
   describe('suggestIngredients', () => {
+    it('ranks direct name matches before aliases and returns the matching alias', async () => {
+      const suggestions = await repo.suggestIngredients('g', 100);
+      const garlicIndex = suggestions.findIndex((item) => item.ingredient.toLowerCase() === 'garlic');
+      const aliasMatch = suggestions.find((item) => item.matchedAlias?.toLowerCase() === 'ground black pepper');
+      expect(garlicIndex).toBeGreaterThanOrEqual(0);
+      expect(aliasMatch?.ingredient.toLowerCase()).toBe('black pepper');
+      expect(suggestions.indexOf(aliasMatch!)).toBeGreaterThan(garlicIndex);
+    });
+
     it('returns canonical names matching by name or alias prefix', async () => {
-      expect(await repo.suggestIngredients('par', 10)).toEqual(['Parmesan cheese', 'parsley']);
+      expect(await repo.suggestIngredients('par', 10)).toEqual([
+        { ingredient: 'Parmesan cheese', matchedAlias: null },
+        { ingredient: 'parsley', matchedAlias: null },
+      ]);
     });
 
     it('respects the limit', async () => {

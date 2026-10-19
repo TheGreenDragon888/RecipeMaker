@@ -2,16 +2,20 @@ import { suggestIngredients } from '../../../src/services/suggestIngredients';
 import { InMemoryRecipeRepository, type FakeRecipe } from '../../fakes/InMemoryRecipeRepository';
 
 describe('suggestIngredients', () => {
-  it('suggests canonical names that start with the typed prefix', async () => {
+  it('ranks direct names before alias matches and includes the matching alias', async () => {
     const repo = new InMemoryRecipeRepository(
-      [{ id: 1, ingredients: [{ ingredient: 'Parmesan cheese' }, { ingredient: 'parsley' }, { ingredient: 'egg' }] }],
+      [{ id: 1, ingredients: [{ ingredient: 'garlic' }, { ingredient: 'black pepper' }] }],
+      { 'ground black pepper': 'black pepper' },
     );
-    expect(await suggestIngredients(repo, 'par')).toEqual(['Parmesan cheese', 'parsley']);
+    expect(await suggestIngredients(repo, 'g')).toEqual([
+      { ingredient: 'garlic', matchedAlias: null },
+      { ingredient: 'black pepper', matchedAlias: 'ground black pepper' },
+    ]);
   });
 
   it('normalizes the prefix before searching', async () => {
     const repo = new InMemoryRecipeRepository([{ id: 1, ingredients: [{ ingredient: 'parsley' }] }]);
-    expect(await suggestIngredients(repo, '  PAR')).toEqual(['parsley']);
+    expect(await suggestIngredients(repo, '  PAR')).toEqual([{ ingredient: 'parsley', matchedAlias: null }]);
   });
 
   it('returns an empty list for a blank prefix', async () => {

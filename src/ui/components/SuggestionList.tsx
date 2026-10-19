@@ -2,11 +2,12 @@
 // The mockup's category dots/labels, "In pantry" markers and match-count footer are left out: no data backs them.
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { IngredientSuggestion } from '../../domain/ingredientSuggestion';
 import { splitOnTypedPrefix } from '../format/highlightPrefix';
 import { colors, fontSize, fontWeight, radii, shadows, spacing } from '../theme';
 
 type Props = {
-  suggestions: string[];
+  suggestions: IngredientSuggestion[];
   /** What the user typed, so the matching start of each suggestion can be shown in bold. */
   typed: string;
   onSelect: (suggestion: string) => void;
@@ -16,13 +17,18 @@ export function SuggestionList({ suggestions, typed, onSelect }: Props) {
   return (
     <View style={styles.list}>
       {suggestions.map((suggestion) => {
-        const split = splitOnTypedPrefix(suggestion, typed);
+        const split = suggestion.matchedAlias
+          ? null
+          : splitOnTypedPrefix(suggestion.ingredient, typed);
+        const label = suggestion.matchedAlias
+          ? `${suggestion.ingredient} (${suggestion.matchedAlias})`
+          : suggestion.ingredient;
         return (
           <Pressable
-            key={suggestion}
+            key={suggestion.ingredient}
             accessibilityRole="button"
-            accessibilityLabel={`Add ${suggestion}`}
-            onPress={() => onSelect(suggestion)}
+            accessibilityLabel={`Add ${label}`}
+            onPress={() => onSelect(suggestion.ingredient)}
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
           >
             {split ? (
@@ -31,7 +37,7 @@ export function SuggestionList({ suggestions, typed, onSelect }: Props) {
                 {split.rest}
               </Text>
             ) : (
-              <Text style={styles.name}>{suggestion}</Text>
+              <Text style={styles.name}>{label}</Text>
             )}
           </Pressable>
         );
