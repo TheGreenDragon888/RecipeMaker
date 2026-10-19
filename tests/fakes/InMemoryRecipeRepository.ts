@@ -1,5 +1,6 @@
 import type { RecipeRepository } from '../../src/domain/RecipeRepository';
 import type { IngredientUsage, Recipe, RecipeIngredient, RecipeSummary } from '../../src/domain/recipe';
+import type { IngredientSuggestion } from '../../src/domain/ingredientSuggestion';
 
 export type FakeRecipe = Partial<Recipe> & { id: number; ingredients?: Partial<RecipeIngredient>[] };
 
@@ -105,12 +106,23 @@ export class InMemoryRecipeRepository implements RecipeRepository {
 
   async suggestIngredients(prefix: string, limit: number) {
     const p = prefix.toLowerCase();
-    const names = new Set<string>();
+    const suggestions = new Map<string, IngredientSuggestion>();
     for (const ings of this.ingredients.values()) {
-      for (const ing of ings) if (ing.ingredient.toLowerCase().startsWith(p)) names.add(ing.ingredient);
+      for (const ing of ings) {
+        if (ing.ingredient.toLowerCase().startsWith(p)) {
+          suggestions.set(ing.ingredient, { ingredient: ing.ingredient, matchedAlias: null });
+        }
+      }
     }
-    for (const [alias, canonical] of this.aliases) if (alias.startsWith(p)) names.add(canonical);
-    return [...names].sort((a, b) => a.localeCompare(b)).slice(0, limit);
+    for (const [alias, canonical] of this.aliases) {
+      if (alias.startsWith(p) && !suggestions.has(canonical)) {
+        suggestions.set(canonical, { ingredient: canonical, matchedAlias: alias });
+      }
+    }
+    return [...suggestions.values()].sort((a, b) =>
+      Number(a.matchedAlias !== null) - Number(b.matchedAlias !== null) ||
+      a.ingredient.localeCompare(b.ingredient),
+    ).slice(0, limit);
   }
 
   async findIngredient(name: string) {

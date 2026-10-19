@@ -2,12 +2,13 @@
 // The mockup's category dots/labels, "In pantry" markers and match-count footer are left out: no data backs them.
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { IngredientSuggestion } from '../../domain/ingredientSuggestion';
 import { splitOnTypedPrefix } from '../format/highlightPrefix';
 import { formatIngredientName } from '../format/pantryInfo';
 import { colors, fonts, fontSize, radii, shadows, spacing } from '../theme';
 
 type Props = {
-  suggestions: string[];
+  suggestions: IngredientSuggestion[];
   /** What the user typed, so the matching start of each suggestion can be shown in bold. */
   typed: string;
   onSelect: (suggestion: string) => void;
@@ -19,14 +20,21 @@ export function SuggestionList({ suggestions, typed, onSelect }: Props) {
     <View style={styles.shadow}>
       <View style={styles.list}>
         {suggestions.map((suggestion, index) => {
-          const shown = formatIngredientName(suggestion);
-          const split = splitOnTypedPrefix(shown, typed);
+          const label = suggestion.matchedAlias
+            ? `${suggestion.ingredient} (${suggestion.matchedAlias})`
+            : suggestion.ingredient;
+          // Each name is capitalized on its own, so the alias after "(" gets a capital too.
+          const shown = suggestion.matchedAlias
+            ? `${formatIngredientName(suggestion.ingredient)} (${formatIngredientName(suggestion.matchedAlias)})`
+            : formatIngredientName(suggestion.ingredient);
+          // The typed prefix matched the alias, not the start of the name, so nothing is bold.
+          const split = suggestion.matchedAlias ? null : splitOnTypedPrefix(shown, typed);
           return (
             <Pressable
-              key={suggestion}
+              key={suggestion.ingredient}
               accessibilityRole="button"
-              accessibilityLabel={`Add ${suggestion}`}
-              onPress={() => onSelect(suggestion)}
+              accessibilityLabel={`Add ${label}`}
+              onPress={() => onSelect(suggestion.ingredient)}
               // The mockup highlights the first row, like the top pick of a search.
               style={({ pressed }) => [styles.row, index === 0 && styles.rowHighlighted, pressed && styles.rowPressed]}
             >
