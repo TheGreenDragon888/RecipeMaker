@@ -13,7 +13,7 @@ AGENTS.md is only useful if it matches the code. Update it **in the same change*
 - add, remove, or rename commands or scripts (`package.json` `scripts`, the commands in §1)
 - change the directory structure or move key files (§5.1)
 - add, remove, or upgrade major dependencies (§1)
-- add or change environment variables or config (`app.json`, `metro.config.js`, `tsconfig.json`, the `jest` block in `package.json`, `.env*.local`)
+- add or change environment variables or config (`app.json`, `metro.config.ts`, `tsconfig.json`, the `jest` block in `package.json`, `.env*.local`)
 - change the architecture or established conventions (§3, §5.2)
 
 If this file contradicts the code, trust the code, fix this file, and mention the fix in your summary. (If the code breaks one of the rules in §3–§5, that is a problem with the code, not the rule: flag it to the student instead of rewriting the rule.)
@@ -329,7 +329,9 @@ app/                         # PRESENTATION (routes): Expo Router builds the app
 └── recipe/[id].tsx          #   "/recipe/42"           → RecipeDetailScreen   (outside the tabs: no dock)
 app.json                     # Expo config under the `expo` key: app name, icons, scheme, plugins
 assets/data/recipes.db       # Bundled, read-only recipe database (see §5.2)
-metro.config.js              # Adds 'db' to Metro's assetExts so require() can load recipes.db
+metro.config.ts              # Adds 'db' to Metro's assetExts so require() can load recipes.db (Expo SDK 57's
+                             #   defaults already list it; the line keeps it explicit). Expo CLI compiles this
+                             #   file with the project's `typescript` package, so it needs no Node TypeScript flag
 package.json                 # Scripts, dependencies, "main": "expo-router/entry", and the Jest config
 tsconfig.json                # Extends expo/tsconfig.base: strict, "jsx": "react", Jest and Node types
 src/
@@ -370,6 +372,7 @@ tests/
 ├── app/                     # Route files, with expo-router mocked; recipe/id.test.tsx tests
 │                            #   app/recipe/[id].tsx and tabs/ tests app/(tabs)/ (no brackets or parentheses:
 │                            #   Jest path patterns treat them as special)
+├── config/                  # metro.config.ts, loaded through Expo CLI's own loader (runs in Jest's node environment)
 ├── fakes/                   # InMemoryRecipeRepository, makeRecipe(), makeIngredient()
 └── support/                 # nodeSqliteDatabase (SqlDatabase adapter over node:sqlite), render() and
                              #   shownText() helpers, react-test-renderer type declarations
@@ -391,6 +394,7 @@ tests/
 - **The entry point is `expo-router/entry`.** `package.json`'s `"main"` points to it. It builds the app from the `app/` folder and then calls `registerRootComponent` from `expo` rather than a plain `AppRegistry.registerComponent` call; this is what makes the same entry work in both Expo Go and native builds. There is no `index.ts` or `App.tsx`: the app shell is `app/_layout.tsx`, and `app/(tabs)/_layout.tsx` adds the dock.
 - **Device-only files** (`src/data/openRecipeDatabase.ts`, `src/main.ts`, `app/_layout.tsx`) cannot run under Jest. Keep them to wiring only, and put any logic they need in a separate, tested piece (as with `assertRecipeDataVersion`, `RecipeServicesProvider` for the layout's loading and error states, and `AppFontsGate` for font loading).
 - **Each source file names its layer.** Files in `src/` (and some in `app/`) start with a comment that says which layer they belong to and what they do, e.g. `// BUSINESS LAYER: ingredient autocomplete.` or `// PRESENTATION LAYER (route "/"): …`. Start new files the same way.
+- **Write TypeScript, not JavaScript.** Every source, test and config file is `.ts` or `.tsx`, including `metro.config.ts`; do not add `.js` files. `tests/config/metroConfig.test.ts` checks that Expo CLI can still read the Metro config.
 - **`.tsx` files `import React from 'react'`**, as every one does now. `tsconfig.json` sets `"jsx": "react"` (the classic JSX transform), which expects `React` in scope wherever JSX is used.
 
 ---
