@@ -1,8 +1,10 @@
 declare module 'react-test-renderer' {
   import type { ReactElement } from 'react';
 
-  type ReactTestInstance = {
+  export type ReactTestInstance = {
     props: Record<string, any>;
+    /** The instance this one sits in; null at the root. */
+    parent: ReactTestInstance | null;
     findByProps(props: Record<string, unknown>): ReactTestInstance;
     findByType(type: unknown): ReactTestInstance;
     findAllByType(type: unknown): ReactTestInstance[];

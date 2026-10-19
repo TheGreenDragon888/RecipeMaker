@@ -1,27 +1,33 @@
-// PRESENTATION LAYER: the round back button from the mockup's detail banner, used at the top of a screen.
+// PRESENTATION LAYER: the mockup's round back button, used at the top of a screen.
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors, fontWeight, radii } from '../theme';
+import { Pressable, StyleSheet } from 'react-native';
+import { colors, radii } from '../theme';
+import { Icon } from './Icon';
 
 type Props = {
   /** What screen readers announce, e.g. "Back to pantry". */
   label: string;
   onPress: () => void;
+  /** Sits on the recipe banner: no outline, see-through fill (the mockup's detail screen). */
+  overBanner?: boolean;
 };
 
 const SIZE = 38;
 
-export function BackButton({ label, onPress }: Props) {
+export function BackButton({ label, onPress, overBanner = false }: Props) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={6}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.button,
+        overBanner ? styles.overBanner : styles.outlined,
+        pressed && styles.pressed,
+      ]}
     >
-      {/* A stand-in for the mockup's chevron icon until icons are approved. */}
-      <Text style={styles.chevron}>‹</Text>
+      <Icon name="chevronLeft" size={20} color={colors.text} strokeWidth={2} />
     </Pressable>
   );
 }
@@ -33,10 +39,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
   },
+  outlined: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  overBanner: { backgroundColor: colors.surfaceTranslucent },
   pressed: { backgroundColor: colors.pressed },
-  chevron: { fontSize: 28, lineHeight: 30, fontWeight: fontWeight.semibold, color: colors.text, marginTop: -2 },
 });

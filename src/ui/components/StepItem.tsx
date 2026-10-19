@@ -1,7 +1,7 @@
 // PRESENTATION LAYER: one numbered step of a recipe, with the mockup's amber number circle.
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, fontSize, fontWeight, radii, spacing } from '../theme';
+import { colors, fonts, fontSize, radii, spacing } from '../theme';
 
 type Props = {
   number: number;
@@ -22,7 +22,8 @@ export function StepItem({ number, text }: Props) {
 const BADGE_SIZE = 24;
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
+  // No bottom margin: the list of steps spaces them, so the last one has no gap under it (as in the mockup).
+  row: { flexDirection: 'row', gap: spacing.md },
   badge: {
     width: BADGE_SIZE,
     height: BADGE_SIZE,
@@ -31,6 +32,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.amberSoft,
   },
-  number: { fontSize: fontSize.caption, fontWeight: fontWeight.heavy, color: colors.amber },
-  text: { flex: 1, fontSize: fontSize.body, lineHeight: 21, color: colors.text },
+  number: { fontSize: fontSize.caption, fontFamily: fonts.heavy, color: colors.amber },
+  text: { flex: 1, fontFamily: fonts.regular, fontSize: fontSize.body, lineHeight: 21, color: colors.text },
 });

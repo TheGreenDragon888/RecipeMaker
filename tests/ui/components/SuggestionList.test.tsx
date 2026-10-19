@@ -2,6 +2,8 @@ import React from 'react';
 import { act } from 'react-test-renderer';
 import { SuggestionList } from '../../../src/ui/components/SuggestionList';
 import { render, shownText } from '../../support/render';
+import { StyleSheet } from 'react-native';
+import { colors } from '../../../src/ui/theme';
 
 describe('SuggestionList', () => {
   it('shows a button to add each suggestion', () => {

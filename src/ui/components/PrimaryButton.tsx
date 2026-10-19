@@ -1,13 +1,14 @@
-// PRESENTATION LAYER: the full-width accent button ("Find recipes with 8 ingredients →", "Return to Pantry").
+// PRESENTATION LAYER: the full-width accent button ("Find recipes with 8 ingredients" plus an arrow, "Return to Pantry").
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors, fontSize, fontWeight, radii, spacing } from '../theme';
+import { colors, fonts, fontSize, radii, spacing } from '../theme';
+import { Icon } from './Icon';
 
 type Props = {
   label: string;
   onPress: () => void;
   disabled?: boolean;
-  /** Adds a trailing "→" (a stand-in for the mockup's arrow icon). Screen readers hear only the label. */
+  /** Adds the mockup's trailing arrow icon. Screen readers hear only the label. */
   showArrow?: boolean;
 };
 
@@ -22,7 +23,7 @@ export function PrimaryButton({ label, onPress, disabled = false, showArrow = fa
       style={({ pressed }) => [styles.button, pressed && styles.pressed, disabled && styles.disabled]}
     >
       <Text style={styles.label}>{label}</Text>
-      {showArrow ? <Text style={styles.label}>→</Text> : null}
+      {showArrow ? <Icon name="arrowRight" size={18} color={colors.onAccent} strokeWidth={2} /> : null}
     </Pressable>
   );
 }
@@ -39,5 +40,5 @@ const styles = StyleSheet.create({
   },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.5 },
-  label: { color: colors.onAccent, fontSize: fontSize.emphasis, fontWeight: fontWeight.heavy },
+  label: { color: colors.onAccent, fontSize: fontSize.emphasis, fontFamily: fonts.heavy },
 });

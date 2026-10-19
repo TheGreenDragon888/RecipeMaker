@@ -1,6 +1,5 @@
-// PRESENTATION LAYER: the shared look, taken from the Claude Design mockup ("RecipeMaker — Core Flow").
+// PRESENTATION LAYER: the shared look, taken from the Claude Design board ("RecipeMaker — Current Mockup").
 // Screens and components use these names instead of repeating hex values or pixel sizes.
-import { Platform } from 'react-native';
 
 export const colors = {
   /** Warm cream behind every screen. */
@@ -19,10 +18,15 @@ export const colors = {
   accent: '#A34A1B',
   /** Text and icons drawn on the accent color. */
   onAccent: '#FFFDF9',
-  /** Step numbers. */
+  /** Step numbers and the source card's link chip. */
   amber: '#8A5D0F',
   amberSoft: '#F3E6C6',
-  /** A pressed row in the suggestion dropdown. */
+  /** The recipe banner and the icon drawn on it. */
+  blue: '#2C5A7C',
+  blueSoft: '#DCE9F1',
+  /** The back button over the recipe banner (surface at 92% opacity). */
+  surfaceTranslucent: 'rgba(255,253,249,0.92)',
+  /** A pressed row, and the highlighted first row, in the suggestion dropdown. */
   pressed: '#F6EBD3',
 } as const;
 
@@ -38,6 +42,8 @@ export const spacing = {
   xxxl: 24,
   /** Left and right padding on every screen. */
   screen: 20,
+  /** Space above a screen's title. */
+  screenTop: 22,
 } as const;
 
 export const radii = {
@@ -64,20 +70,18 @@ export const fontSize = {
   pantryTitle: 30,
 } as const;
 
-export const fontWeight = {
-  regular: '400',
-  semibold: '600',
-  bold: '700',
-  heavy: '800',
-} as const;
-
 /**
- * The mockup uses Lora (serif headings) and Nunito Sans (body). Until custom fonts are approved,
- * headings use the system serif and body text uses the system font (undefined).
+ * The mockup's fonts, one family name per weight: Lora for headings, Nunito Sans for body text and
+ * Caveat for the handwritten tagline. A custom font picks its weight by family, not by fontWeight,
+ * so styles set fontFamily from here and leave fontWeight out. AppFontsGate loads these families.
  */
 export const fonts = {
-  heading: Platform.select({ ios: 'Georgia', default: 'serif' }),
-  body: undefined,
+  heading: 'Lora_600SemiBold',
+  regular: 'NunitoSans_400Regular',
+  semibold: 'NunitoSans_600SemiBold',
+  bold: 'NunitoSans_700Bold',
+  heavy: 'NunitoSans_800ExtraBold',
+  handwritten: 'Caveat_600SemiBold',
 } as const;
 
 export const shadows = {

@@ -1,4 +1,9 @@
-import { formatFindRecipesLabel, formatMatchedAgainst, formatUnknownIngredient } from '../../../src/ui/format/pantryInfo';
+import {
+  formatFindRecipesLabel,
+  formatIngredientName,
+  formatMatchedAgainst,
+  formatUnknownIngredient,
+} from '../../../src/ui/format/pantryInfo';
 
 describe('formatFindRecipesLabel', () => {
   it('uses the singular for one ingredient', () => {
@@ -23,5 +28,19 @@ describe('formatMatchedAgainst', () => {
 describe('formatUnknownIngredient', () => {
   it('quotes the typed text without its surrounding spaces', () => {
     expect(formatUnknownIngredient('  dragonfruit ')).toBe('“dragonfruit” isn’t in our ingredient list.');
+  });
+});
+
+describe('formatIngredientName', () => {
+  it('capitalizes each word', () => {
+    expect(formatIngredientName('green onion')).toBe('Green Onion');
+  });
+
+  it('capitalizes only the start of a hyphenated word', () => {
+    expect(formatIngredientName('all-purpose flour')).toBe('All-purpose Flour');
+  });
+
+  it('keeps capitals the name already has', () => {
+    expect(formatIngredientName('American cheese')).toBe('American Cheese');
   });
 });

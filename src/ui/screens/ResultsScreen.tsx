@@ -8,7 +8,7 @@ import { BackButton } from '../components/BackButton';
 import { RecipeCard } from '../components/RecipeCard';
 import { StateMessage } from '../components/StateMessage';
 import { formatMatchedAgainst } from '../format/pantryInfo';
-import { colors, fontSize, fontWeight, fonts, spacing } from '../theme';
+import { colors, fonts, fontSize, spacing } from '../theme';
 
 type Props = {
   services: RecipeServices;
@@ -73,16 +73,15 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props)
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  header: { paddingTop: spacing.lg, paddingHorizontal: spacing.screen, paddingBottom: spacing.xxs },
+  header: { paddingTop: spacing.screenTop, paddingHorizontal: spacing.screen, paddingBottom: spacing.xxs },
   title: {
     marginTop: spacing.md,
     fontFamily: fonts.heading,
     fontSize: fontSize.screenTitle,
-    fontWeight: fontWeight.semibold,
     color: colors.text,
   },
-  subtitle: { marginTop: spacing.xs, fontSize: fontSize.body, color: colors.textSecondary },
+  subtitle: { marginTop: spacing.xs, fontFamily: fonts.regular, fontSize: fontSize.body, color: colors.textSecondary },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { flex: 1 },
-  listContent: { gap: spacing.lg, paddingTop: spacing.lg, paddingHorizontal: spacing.screen, paddingBottom: spacing.xxl },
+  listContent: { gap: spacing.lg, paddingTop: spacing.lg, paddingHorizontal: spacing.screen, paddingBottom: spacing.sm },
 });
