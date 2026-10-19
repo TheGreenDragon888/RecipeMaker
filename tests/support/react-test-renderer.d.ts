@@ -3,6 +3,8 @@ declare module 'react-test-renderer' {
 
   export type ReactTestInstance = {
     props: Record<string, any>;
+    /** What a ref to this element would hold (e.g. a mounted View), or null. */
+    instance: any;
     /** The instance this one sits in; null at the root. */
     parent: ReactTestInstance | null;
     findByProps(props: Record<string, unknown>): ReactTestInstance;

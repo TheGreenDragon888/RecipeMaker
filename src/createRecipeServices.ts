@@ -5,6 +5,7 @@ import { findIngredient } from './services/findIngredient';
 import { findRecipesFromPantry } from './services/findRecipesFromPantry';
 import { getRecipeDetail } from './services/getRecipeDetail';
 import { getSimilarRecipes } from './services/getSimilarRecipes';
+import { listAllRecipes } from './services/listAllRecipes';
 import { searchRecipesByIngredient } from './services/searchRecipesByIngredient';
 import { suggestIngredients } from './services/suggestIngredients';
 
@@ -19,5 +20,6 @@ export function createRecipeServices(repo: RecipeRepository) {
     getSimilarRecipes: (recipeId: number) => getSimilarRecipes(repo, recipeId),
     suggestIngredients: (prefix: string) => suggestIngredients(repo, prefix),
     findIngredient: (raw: string) => findIngredient(repo, raw),
+    listAllRecipes: () => listAllRecipes(repo),
   };
 }

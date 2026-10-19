@@ -1,11 +1,14 @@
 import React from 'react';
 import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
+import { ScrollView, StyleSheet } from 'react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import { Icon } from '../../../src/ui/components/Icon';
 import { PantryItemRow } from '../../../src/ui/components/PantryItemRow';
+import { PrimaryButton } from '../../../src/ui/components/PrimaryButton';
 import { SuggestionList } from '../../../src/ui/components/SuggestionList';
 import { PantryScreen } from '../../../src/ui/screens/PantryScreen';
-import { shownText } from '../../support/render';
+import { dock } from '../../../src/ui/theme';
+import { render, shownText } from '../../support/render';
 
 const sixPm = () => new Date(2026, 9, 10, 18, 0);
 
@@ -129,6 +132,36 @@ describe('PantryScreen', () => {
       await addIngredient(renderer, 'egg');
       await press(renderer, 'Find recipes with 2 ingredients');
       expect(onFindRecipes).toHaveBeenCalledWith(['tomato', 'egg']);
+    });
+  });
+
+  describe('room for the dock', () => {
+    it('floats the find button just above the dock, as on the board', () => {
+      const { renderer } = setup();
+      const holder = renderer.root.findByType(PrimaryButton).parent!;
+      expect(StyleSheet.flatten(holder.props.style)).toMatchObject({ position: 'absolute', bottom: dock.clearance });
+    });
+
+    it('leaves room below the last ingredient for the find button and the dock', () => {
+      const { renderer } = setup();
+      const content = StyleSheet.flatten(renderer.root.findByType(ScrollView).props.contentContainerStyle);
+      expect(content.paddingBottom).toBeGreaterThan(dock.clearance);
+    });
+
+    it('floats the find button above a dock lifted by a home indicator', () => {
+      const renderer = render(
+        <PantryScreen services={{} as RecipeServices} onFindRecipes={() => {}} now={sixPm} bottomClearance={110} />,
+      );
+      const holder = renderer.root.findByType(PrimaryButton).parent!;
+      expect(StyleSheet.flatten(holder.props.style).bottom).toBe(110);
+    });
+
+    it('leaves room below the last ingredient for a dock lifted by a home indicator', () => {
+      const renderer = render(
+        <PantryScreen services={{} as RecipeServices} onFindRecipes={() => {}} now={sixPm} bottomClearance={110} />,
+      );
+      const content = StyleSheet.flatten(renderer.root.findByType(ScrollView).props.contentContainerStyle);
+      expect(content.paddingBottom).toBeGreaterThan(110);
     });
   });
 

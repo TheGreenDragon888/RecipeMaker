@@ -19,16 +19,23 @@ import { PrimaryButton } from '../components/PrimaryButton';
 import { SuggestionList } from '../components/SuggestionList';
 import { formatMealTagline } from '../format/mealTagline';
 import { formatFindRecipesLabel, formatUnknownIngredient } from '../format/pantryInfo';
-import { colors, fonts, fontSize, radii, spacing } from '../theme';
+import { colors, dock, fonts, fontSize, radii, shadows, spacing } from '../theme';
 
 type Props = {
   services: RecipeServices;
   onFindRecipes: (pantry: string[]) => void;
   /** The clock that picks the tagline; tests pass a fixed time. */
   now?: () => Date;
+  /** Room to leave at the bottom for the dock (platform/dockLayout's dockClearance). Defaults to the board's. */
+  bottomClearance?: number;
 };
 
-export function PantryScreen({ services, onFindRecipes, now = () => new Date() }: Props) {
+export function PantryScreen({
+  services,
+  onFindRecipes,
+  now = () => new Date(),
+  bottomClearance = dock.clearance,
+}: Props) {
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [text, setText] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -135,7 +142,7 @@ export function PantryScreen({ services, onFindRecipes, now = () => new Date() }
         ) : null}
       </View>
 
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.list} contentContainerStyle={[styles.listContent, { paddingBottom: bottomClearance + FIND_BUTTON_SPACE }]} keyboardShouldPersistTaps="handled">
         {pantry.length === 0 ? (
           <Text style={styles.hint}>Add the ingredients you have.</Text>
         ) : (
@@ -153,7 +160,7 @@ export function PantryScreen({ services, onFindRecipes, now = () => new Date() }
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { bottom: bottomClearance }]}>
         <PrimaryButton
           label={formatFindRecipesLabel(pantry.length)}
           onPress={() => onFindRecipes(pantry.map((item) => item.name))}
@@ -164,6 +171,9 @@ export function PantryScreen({ services, onFindRecipes, now = () => new Date() }
     </View>
   );
 }
+
+/** The find button's height (about 54 px) plus a gap, for the list's bottom padding. */
+const FIND_BUTTON_SPACE = 70;
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
@@ -215,14 +225,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   list: { flex: 1 },
-  listContent: { paddingTop: 6, paddingHorizontal: spacing.screen, paddingBottom: spacing.xs },
+  // The bottom padding, set in the JSX, lets the last ingredient scroll above the find button and the dock.
+  listContent: { paddingTop: 6, paddingHorizontal: spacing.screen },
   hint: { paddingVertical: spacing.lg, fontFamily: fonts.regular, fontSize: fontSize.body, color: colors.textSecondary },
+  // Floats over the list, just above the bottom dock, as on the board (its bottom is set in the JSX).
   footer: {
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
+    position: 'absolute',
+    left: spacing.screen,
+    right: spacing.screen,
+    borderRadius: radii.lg,
+    ...shadows.floatingButton,
   },
 });

@@ -28,6 +28,12 @@ export const colors = {
   surfaceTranslucent: 'rgba(255,253,249,0.92)',
   /** A pressed row, and the highlighted first row, in the suggestion dropdown. */
   pressed: '#F6EBD3',
+  /** The bottom dock's see-through fill where there is no Liquid Glass (surface at 55% opacity). */
+  dockSurface: 'rgba(255,253,249,0.55)',
+  /** The dock's thin glassy outline. */
+  dockBorder: 'rgba(255,255,255,0.75)',
+  /** The pill behind the current tab in the dock (accent at 14% opacity). */
+  accentTint: 'rgba(163,74,27,0.14)',
 } as const;
 
 /** Spacing steps in px, from the mockup's paddings and gaps. */
@@ -53,6 +59,21 @@ export const radii = {
   xl: 18,
   /** Fully rounded ends (pills, round buttons). */
   pill: 999,
+  /** The bottom dock and the pill on its current tab. */
+  dock: 32,
+  dockItem: 26,
+} as const;
+
+/** The floating bottom dock's size and place, in px. */
+export const dock = {
+  /** Gap between the dock and the bottom of the screen on the board (no home indicator); see platform/dockLayout. */
+  bottom: 24,
+  padding: 6,
+  itemWidth: 88,
+  itemHeight: 52,
+  iconSize: 22,
+  /** Room content leaves at the bottom to clear the dock on the board (where it puts "Find recipes"); see platform/dockLayout. */
+  clearance: 100,
 } as const;
 
 export const fontSize = {
@@ -98,5 +119,20 @@ export const shadows = {
     shadowOpacity: 0.18,
     shadowRadius: 14,
     elevation: 6,
+  },
+  /** A button floating over a list ("Find recipes" above the dock). */
+  floatingButton: {
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 9,
+    elevation: 6,
+  },
+  dock: {
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 8,
   },
 } as const;

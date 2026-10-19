@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { Icon } from '../../../src/ui/components/Icon';
 import { render } from '../../support/render';
 
@@ -17,6 +17,14 @@ describe('Icon', () => {
 
   it('uses the given stroke width', () => {
     expect(svg(<Icon name="arrowRight" size={18} color="#000" strokeWidth={2} />).props.strokeWidth).toBe(2);
+  });
+
+  it.each([
+    ['pantry', 2],
+    ['recipes', 2],
+    ['bookmark', 1],
+  ] as const)('draws the dock\'s %s icon from the board\'s shapes', (name, paths) => {
+    expect(svg(<Icon name={name} size={22} color="#000" />).findAllByType(Path)).toHaveLength(paths);
   });
 
   it('is hidden from screen readers, since the text or label beside it says the same', () => {

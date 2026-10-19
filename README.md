@@ -30,11 +30,11 @@ RecipeMaker uses a **three-tier architecture**. Dependencies point downward only
 
 | Layer | Folder | What it contains |
 |---|---|---|
-| Presentation | `src/ui/screens/`, `src/ui/components/` | Screens that call services and manage loading and error states, plus reusable components that receive data through props |
-| Presentation | `app/`, `src/ui/navigation/` | Expo Router route files: the root layout, plus one thin file per screen that hands it the services and its route params. `src/ui/navigation/` turns screen data into route params and back |
+| Presentation | `src/ui/screens/`, `src/ui/components/` | Screens that call services and manage loading and error states, plus reusable components that receive data through props (including the bottom dock) |
+| Presentation | `app/`, `src/ui/navigation/`, `src/ui/platform/` | Expo Router route files: the root layout, the tab layout with the bottom dock, plus one thin file per screen that hands it the services and its route params. `src/ui/navigation/` turns screen data into route params and back; `src/ui/platform/` picks the dock's background for the device |
 | Presentation | `src/ui/format/` | Pure display functions: fractions, plurals, ingredient lines, times, servings |
 | Business | `src/domain/` | Recipe types, the `RecipeRepository` interface, domain errors, the kitchen staples list, search-term normalization, serving scaling |
-| Business | `src/services/` | One use case per file: search by ingredient, match a pantry, filter, recipe detail, similar recipes, ingredient autocomplete |
+| Business | `src/services/` | One use case per file: search by ingredient, match a pantry, filter, recipe detail, similar recipes, ingredient autocomplete, the full recipe list |
 | Data Access | `src/data/` | `SqliteRecipeRepository` (all SQL lives here), row mappers, a data-version check, and the code that opens the database |
 | Composition root | `src/main.ts`, `src/createRecipeServices.ts` | Opens the database at startup and wires the repository into the services the UI uses |
 
@@ -52,12 +52,13 @@ RecipeMaker uses a **three-tier architecture**. Dependencies point downward only
 * [ ] Filter recipes by maximum hands-on time and number of people
 * [x] Ingredient autocomplete while typing
 * [x] Recipe detail page with the full ingredient list
+* [x] Browse every recipe, A to Z, from the Recipes tab
 * [ ] Scale ingredient amounts to a different number of people
 * [x] "Similar recipes": the same dish from other sources
 * [ ] Estimated cost to buy the missing ingredients
 * [ ] Save favorite recipes and your pantry between sessions
 
-*The app has three screens: Pantry (enter ingredients, with autocomplete), Results (recipes ranked for your pantry) and Recipe detail (ingredients, steps, the source, and similar recipes). Single-ingredient search, filters and serving scaling are built and tested in the business layer, but no screen uses them yet. Estimated cost, favorites and a saved pantry are not built yet.*
+*The app has a floating bottom dock (Liquid Glass on iOS 26+, a blur elsewhere) with two tabs, Pantry (enter ingredients, with autocomplete) and Recipes (every recipe, A to Z), plus a Bookmarks button that is shown but not built yet. Results (recipes ranked for your pantry) and Recipe detail (ingredients, steps, the source, and similar recipes) open over the tabs, without the dock. Single-ingredient search, filters and serving scaling are built and tested in the business layer, but no screen uses them yet. Estimated cost, favorites and a saved pantry are not built yet.*
 
 ## Team Communication
 

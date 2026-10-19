@@ -67,6 +67,21 @@ const shapes = {
       <Line x1="8" y1="11" x2="8" y2="21" />
     </>
   ),
+  /** Dock: a basket. */
+  pantry: (
+    <>
+      <Path d="M4 10h16l-1.5 9a1 1 0 0 1-1 .9H6.5a1 1 0 0 1-1-.9L4 10Z" />
+      <Path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </>
+  ),
+  /** Dock: an open book. */
+  recipes: (
+    <>
+      <Path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H12v16H5.5A1.5 1.5 0 0 1 4 18.5v-13Z" />
+      <Path d="M12 4h6.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H12" />
+    </>
+  ),
+  bookmark: <Path d="M6 3.5h12v17l-6-4-6 4v-17Z" />,
 };
 
 export type IconName = keyof typeof shapes;
