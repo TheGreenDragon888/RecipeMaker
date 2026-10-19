@@ -5,15 +5,8 @@
 import React, { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
-import {
-  addPantryItem,
-  canIncreasePantryQuantity,
-  decreasePantryQuantity,
-  decreaseRemovesPantryItem,
-  increasePantryQuantity,
-  type PantryItem,
-} from '../../domain/pantry';
-import { Icon } from '../components/Icon';
+import type { IngredientSuggestion } from '../../domain/ingredientSuggestion';
+import { addPantryItem } from '../../domain/pantry';
 import { PantryItemRow } from '../components/PantryItemRow';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SuggestionList } from '../components/SuggestionList';
@@ -31,7 +24,7 @@ type Props = {
 export function PantryScreen({ services, onFindRecipes, now = () => new Date() }: Props) {
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [text, setText] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<IngredientSuggestion[]>([]);
   /** A one-line message under the field (suggestions failed, unknown ingredient, ...), or null. */
   const [notice, setNotice] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
@@ -78,7 +71,7 @@ export function PantryScreen({ services, onFindRecipes, now = () => new Date() }
       if (known) return add(known);
       const suggested = await services.suggestIngredients(typed);
       if (!stillCurrent()) return;
-      if (suggested.length > 0) return add(suggested[0]);
+      if (suggested.length > 0) return add(suggested[0].ingredient);
       setSuggestions([]);
       setNotice(formatUnknownIngredient(typed));
     } catch {

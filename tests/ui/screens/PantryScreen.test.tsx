@@ -7,6 +7,8 @@ import { SuggestionList } from '../../../src/ui/components/SuggestionList';
 import { PantryScreen } from '../../../src/ui/screens/PantryScreen';
 import { shownText } from '../../support/render';
 
+const suggestion = (ingredient: string, matchedAlias: string | null = null) => ({ ingredient, matchedAlias });
+
 const sixPm = () => new Date(2026, 9, 10, 18, 0);
 
 /** By default every typed word counts as a known ingredient (lowercased), and nothing is suggested. */
@@ -214,7 +216,7 @@ describe('PantryScreen', () => {
     it('adds the first suggestion when the text is only part of a name', async () => {
       const { renderer } = setup({
         findIngredient: jest.fn().mockResolvedValue(null),
-        suggestIngredients: jest.fn().mockResolvedValue(['tomato', 'tomato paste']),
+        suggestIngredients: jest.fn().mockResolvedValue([suggestion('tomato'), suggestion('tomato paste')]),
       });
       await addIngredient(renderer, 'tom');
       expect(pantryNames(renderer)).toEqual(['tomato']);
@@ -281,9 +283,10 @@ describe('PantryScreen', () => {
     });
 
     it('shows the suggestions for the typed text', async () => {
-      const { renderer } = setup({ suggestIngredients: jest.fn().mockResolvedValue(['tofu', 'tomato']) });
+      const suggestions = [suggestion('tofu'), suggestion('tomato')];
+      const { renderer } = setup({ suggestIngredients: jest.fn().mockResolvedValue(suggestions) });
       await typeText(renderer, 'to');
-      expect(suggestionLists(renderer)[0].props.suggestions).toEqual(['tofu', 'tomato']);
+      expect(suggestionLists(renderer)[0].props.suggestions).toEqual(suggestions);
     });
 
     it('does not show the suggestion list when nothing matches', async () => {
@@ -293,21 +296,21 @@ describe('PantryScreen', () => {
     });
 
     it('adds a suggestion when it is tapped', async () => {
-      const { renderer } = setup({ suggestIngredients: jest.fn().mockResolvedValue(['tofu', 'tomato']) });
+      const { renderer } = setup({ suggestIngredients: jest.fn().mockResolvedValue([suggestion('tofu'), suggestion('tomato')]) });
       await typeText(renderer, 'to');
       await press(renderer, 'Add tomato');
       expect(pantryNames(renderer)).toEqual(['tomato']);
     });
 
     it('hides the suggestions after one is tapped', async () => {
-      const { renderer } = setup({ suggestIngredients: jest.fn().mockResolvedValue(['tofu', 'tomato']) });
+      const { renderer } = setup({ suggestIngredients: jest.fn().mockResolvedValue([suggestion('tofu'), suggestion('tomato')]) });
       await typeText(renderer, 'to');
       await press(renderer, 'Add tomato');
       expect(suggestionLists(renderer)).toHaveLength(0);
     });
 
     it('hides the suggestions when the text is cleared', async () => {
-      const { renderer } = setup({ suggestIngredients: jest.fn().mockResolvedValue(['tofu']) });
+      const { renderer } = setup({ suggestIngredients: jest.fn().mockResolvedValue([suggestion('tofu')]) });
       await typeText(renderer, 'to');
       await typeText(renderer, '');
       expect(suggestionLists(renderer)).toHaveLength(0);
@@ -320,7 +323,7 @@ describe('PantryScreen', () => {
     });
 
     it('hides the failure message once the user types again', async () => {
-      const suggestIngredients = jest.fn().mockRejectedValueOnce(new Error('database busy')).mockResolvedValue(['tomato']);
+      const suggestIngredients = jest.fn().mockRejectedValueOnce(new Error('database busy')).mockResolvedValue([suggestion('tomato')]);
       const { renderer } = setup({ suggestIngredients });
       await typeText(renderer, 'to');
       await typeText(renderer, 'tom');
@@ -328,17 +331,17 @@ describe('PantryScreen', () => {
     });
 
     it('ignores suggestions that arrive after newer text was typed', async () => {
-      const forTo = deferred<string[]>();
-      const forTom = deferred<string[]>();
+      const forTo = deferred<{ ingredient: string; matchedAlias: string | null }[]>();
+      const forTom = deferred<{ ingredient: string; matchedAlias: string | null }[]>();
       const suggestIngredients = jest.fn().mockReturnValueOnce(forTo.promise).mockReturnValueOnce(forTom.promise);
       const { renderer } = setup({ suggestIngredients });
       await typeText(renderer, 'to');
       await typeText(renderer, 'tom');
 
-      await act(async () => forTom.resolve(['tomato']));
-      await act(async () => forTo.resolve(['tofu', 'tomato']));
+      await act(async () => forTom.resolve([suggestion('tomato')]));
+      await act(async () => forTo.resolve([suggestion('tofu'), suggestion('tomato')]));
 
-      expect(suggestionLists(renderer)[0].props.suggestions).toEqual(['tomato']);
+      expect(suggestionLists(renderer)[0].props.suggestions).toEqual([suggestion('tomato')]);
     });
   });
 });

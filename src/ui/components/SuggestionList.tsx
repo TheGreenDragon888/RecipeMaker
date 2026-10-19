@@ -2,12 +2,13 @@
 // The mockup's category dots/labels, "In pantry" markers and match-count footer are left out: no data backs them.
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { IngredientSuggestion } from '../../domain/ingredientSuggestion';
 import { splitOnTypedPrefix } from '../format/highlightPrefix';
 import { formatIngredientName } from '../format/pantryInfo';
 import { colors, fonts, fontSize, radii, shadows, spacing } from '../theme';
 
 type Props = {
-  suggestions: string[];
+  suggestions: IngredientSuggestion[];
   /** What the user typed, so the matching start of each suggestion can be shown in bold. */
   typed: string;
   onSelect: (suggestion: string) => void;
@@ -16,33 +17,33 @@ type Props = {
 export function SuggestionList({ suggestions, typed, onSelect }: Props) {
   // The shadow sits on an outer view: on iOS, overflow 'hidden' would clip a shadow on the same view.
   return (
-    <View style={styles.shadow}>
-      <View style={styles.list}>
-        {suggestions.map((suggestion, index) => {
-          const shown = formatIngredientName(suggestion);
-          const split = splitOnTypedPrefix(shown, typed);
-          return (
-            <Pressable
-              key={suggestion}
-              accessibilityRole="button"
-              accessibilityLabel={`Add ${suggestion}`}
-              onPress={() => onSelect(suggestion)}
-              // The mockup highlights the first row, like the top pick of a search.
-              style={({ pressed }) => [styles.row, index === 0 && styles.rowHighlighted, pressed && styles.rowPressed]}
-            >
-              {split ? (
-                <Text style={styles.name}>
-                  <Text style={styles.match}>{split.match}</Text>
-                  {split.rest}
-                </Text>
-              ) : (
-                <Text style={styles.name}>{shown}</Text>
-              )}
-              <Text style={styles.add}>+ Add</Text>
-            </Pressable>
-          );
-        })}
-      </View>
+    <View style={styles.list}>
+      {suggestions.map((suggestion) => {
+        const split = suggestion.matchedAlias
+          ? null
+          : splitOnTypedPrefix(suggestion.ingredient, typed);
+        const label = suggestion.matchedAlias
+          ? `${suggestion.ingredient} (${suggestion.matchedAlias})`
+          : suggestion.ingredient;
+        return (
+          <Pressable
+            key={suggestion.ingredient}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${label}`}
+            onPress={() => onSelect(suggestion.ingredient)}
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          >
+            {split ? (
+              <Text style={styles.name}>
+                <Text style={styles.match}>{split.match}</Text>
+                {split.rest}
+              </Text>
+            ) : (
+              <Text style={styles.name}>{label}</Text>
+            )}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
