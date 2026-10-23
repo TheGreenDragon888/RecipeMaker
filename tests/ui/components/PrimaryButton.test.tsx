@@ -1,41 +1,38 @@
 import React from 'react';
-import { act, type ReactTestRenderer } from 'react-test-renderer';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { PrimaryButton } from '../../../src/ui/components/PrimaryButton';
-import { render, shownText } from '../../support/render';
-import { Icon } from '../../../src/ui/components/Icon';
-
-const button = (renderer: ReactTestRenderer) => renderer.root.findByProps({ accessibilityRole: 'button' });
+import { shownIcons, shownText } from '../../support/screen';
 
 describe('PrimaryButton', () => {
-  it('shows its label', () => {
-    const renderer = render(<PrimaryButton label="Return to Pantry" onPress={() => {}} />);
-    expect(shownText(renderer)).toContain('Return to Pantry');
+  it('shows its label', async () => {
+    await render(<PrimaryButton label="Return to Pantry" onPress={() => {}} />);
+    expect(shownText()).toContain('Return to Pantry');
   });
 
-  it('calls onPress when pressed', () => {
+  it('calls onPress when pressed', async () => {
     const onPress = jest.fn();
-    const renderer = render(<PrimaryButton label="Go" onPress={onPress} />);
-    act(() => button(renderer).props.onPress());
+    await render(<PrimaryButton label="Go" onPress={onPress} />);
+    await fireEvent.press(screen.getByRole('button'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('is marked disabled when disabled', () => {
-    const renderer = render(<PrimaryButton label="Go" onPress={() => {}} disabled />);
-    expect(button(renderer).props.accessibilityState).toEqual({ disabled: true });
+  it('is marked disabled when disabled', async () => {
+    await render(<PrimaryButton label="Go" onPress={() => {}} disabled />);
+    expect(screen.getByRole('button')).toBeDisabled();
   });
 
-  it('is announced by its label alone, without the arrow', () => {
-    const renderer = render(<PrimaryButton label="Find recipes" onPress={() => {}} showArrow />);
-    expect(button(renderer).props.accessibilityLabel).toBe('Find recipes');
+  it('is announced by its label alone, without the arrow', async () => {
+    await render(<PrimaryButton label="Find recipes" onPress={() => {}} showArrow />);
+    expect(screen.getByRole('button')).toHaveAccessibleName('Find recipes');
   });
 
-  it('draws an arrow icon after the label when showArrow is set', () => {
-    const renderer = render(<PrimaryButton label="Find recipes" onPress={() => {}} showArrow />);
-    expect(renderer.root.findByType(Icon).props.name).toBe('arrowRight');
+  it('draws an arrow icon after the label when showArrow is set', async () => {
+    await render(<PrimaryButton label="Find recipes" onPress={() => {}} showArrow />);
+    expect(shownIcons()).toEqual(['arrowRight']);
   });
 
-  it('draws no icon without showArrow', () => {
-    const renderer = render(<PrimaryButton label="Return to Pantry" onPress={() => {}} />);
-    expect(renderer.root.findAllByType(Icon)).toHaveLength(0);
+  it('draws no icon without showArrow', async () => {
+    await render(<PrimaryButton label="Return to Pantry" onPress={() => {}} />);
+    expect(shownIcons()).toEqual([]);
   });
 });

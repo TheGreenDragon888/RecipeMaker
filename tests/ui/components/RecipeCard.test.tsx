@@ -1,9 +1,8 @@
 import React from 'react';
-import { act } from 'react-test-renderer';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { RecipeSummary } from '../../../src/domain/recipe';
 import { RecipeCard } from '../../../src/ui/components/RecipeCard';
-import { render, shownText } from '../../support/render';
-import { Icon } from '../../../src/ui/components/Icon';
+import { shownIcons, shownText } from '../../support/screen';
 
 const recipe: RecipeSummary = {
   id: 7,
@@ -16,35 +15,35 @@ const recipe: RecipeSummary = {
 const onHand = { haveCount: 3, neededCount: 5 };
 
 describe('RecipeCard', () => {
-  it('shows the recipe name', () => {
-    const renderer = render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
-    expect(shownText(renderer)).toContain('Beef Tacos');
+  it('shows the recipe name', async () => {
+    await render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
+    expect(shownText()).toContain('Beef Tacos');
   });
 
-  it('shows how many of the needed ingredients are on hand', () => {
-    const renderer = render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
-    expect(shownText(renderer)).toContain('3/5 ingredients on hand');
+  it('shows how many of the needed ingredients are on hand', async () => {
+    await render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
+    expect(shownText()).toContain('3/5 ingredients on hand');
   });
 
-  it('leaves out the on-hand line when no counts are given', () => {
-    const renderer = render(<RecipeCard recipe={recipe} onPress={() => {}} />);
-    expect(shownText(renderer).some((text) => text.endsWith('on hand'))).toBe(false);
+  it('leaves out the on-hand line when no counts are given', async () => {
+    await render(<RecipeCard recipe={recipe} onPress={() => {}} />);
+    expect(shownText().some((text) => text.endsWith('on hand'))).toBe(false);
   });
 
-  it('shows the total time', () => {
-    const renderer = render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
-    expect(shownText(renderer)).toContain('1 hr 15 min');
+  it('shows the total time', async () => {
+    await render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
+    expect(shownText()).toContain('1 hr 15 min');
   });
 
-  it('calls onPress when pressed', () => {
+  it('calls onPress when pressed', async () => {
     const onPress = jest.fn();
-    const renderer = render(<RecipeCard recipe={recipe} onHand={onHand} onPress={onPress} />);
-    act(() => renderer.root.findByProps({ accessibilityRole: 'button' }).props.onPress());
+    await render(<RecipeCard recipe={recipe} onHand={onHand} onPress={onPress} />);
+    await fireEvent.press(screen.getByRole('button'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('draws a clock icon beside the total time', () => {
-    const renderer = render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
-    expect(renderer.root.findByType(Icon).props.name).toBe('clock');
+  it('draws a clock icon beside the total time', async () => {
+    await render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
+    expect(shownIcons()).toEqual(['clock']);
   });
 });

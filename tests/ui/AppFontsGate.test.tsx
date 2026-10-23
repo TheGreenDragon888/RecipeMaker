@@ -1,9 +1,10 @@
 import React from 'react';
 import { Text } from 'react-native';
+import { render } from '@testing-library/react-native';
 import { useFonts } from 'expo-font';
 import { AppFontsGate } from '../../src/ui/AppFontsGate';
 import { fonts } from '../../src/ui/theme';
-import { render, shownText } from '../support/render';
+import { shownText } from '../support/screen';
 
 jest.mock('expo-font', () => ({ useFonts: jest.fn() }));
 
@@ -17,24 +18,27 @@ const renderGate = () =>
   );
 
 describe('AppFontsGate', () => {
-  it('shows nothing while the fonts load', () => {
+  it('shows nothing while the fonts load', async () => {
     mockedUseFonts.mockReturnValue([false, null]);
-    expect(shownText(renderGate())).toEqual([]);
+    await renderGate();
+    expect(shownText()).toEqual([]);
   });
 
-  it('shows its children once the fonts have loaded', () => {
+  it('shows its children once the fonts have loaded', async () => {
     mockedUseFonts.mockReturnValue([true, null]);
-    expect(shownText(renderGate())).toEqual(['App']);
+    await renderGate();
+    expect(shownText()).toEqual(['App']);
   });
 
-  it('shows its children with system fonts when the fonts fail to load', () => {
+  it('shows its children with system fonts when the fonts fail to load', async () => {
     mockedUseFonts.mockReturnValue([false, new Error('no font')]);
-    expect(shownText(renderGate())).toEqual(['App']);
+    await renderGate();
+    expect(shownText()).toEqual(['App']);
   });
 
-  it('loads every font family the theme names', () => {
+  it('loads every font family the theme names', async () => {
     mockedUseFonts.mockReturnValue([true, null]);
-    renderGate();
+    await renderGate();
     const loaded = Object.keys(mockedUseFonts.mock.calls[0][0] as Record<string, unknown>);
     expect(loaded.sort()).toEqual([...new Set(Object.values(fonts))].sort());
   });

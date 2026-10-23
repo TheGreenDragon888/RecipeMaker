@@ -1,90 +1,89 @@
 import React from 'react';
-import { StyleSheet } from 'react-native';
-import { act, type ReactTestRenderer } from 'react-test-renderer';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { DockItem } from '../../../src/ui/components/DockItem';
-import { Icon } from '../../../src/ui/components/Icon';
 import { colors } from '../../../src/ui/theme';
-import { render, shownText } from '../../support/render';
+import { iconDrawing, shownIcons, shownText, styleOf } from '../../support/screen';
 
-const tab = (renderer: ReactTestRenderer) => renderer.root.findByProps({ accessibilityRole: 'tab' });
-const tabStyle = (renderer: ReactTestRenderer) => StyleSheet.flatten(tab(renderer).props.style({ pressed: false }));
+const tab = () => screen.getByRole('tab');
 
 describe('DockItem', () => {
-  it('shows its label', () => {
-    const renderer = render(<DockItem label="Pantry" icon="pantry" />);
-    expect(shownText(renderer)).toEqual(['Pantry']);
+  it('shows its label', async () => {
+    await render(<DockItem label="Pantry" icon="pantry" />);
+    expect(shownText()).toEqual(['Pantry']);
   });
 
-  it('draws its icon', () => {
-    const renderer = render(<DockItem label="Recipes" icon="recipes" />);
-    expect(renderer.root.findByType(Icon).props.name).toBe('recipes');
+  it('draws its icon', async () => {
+    await render(<DockItem label="Recipes" icon="recipes" />);
+    expect(shownIcons()).toEqual(['recipes']);
   });
 
-  it('is announced by its label', () => {
-    const renderer = render(<DockItem label="Pantry" icon="pantry" />);
-    expect(tab(renderer).props.accessibilityLabel).toBe('Pantry');
+  it('is announced by its label', async () => {
+    await render(<DockItem label="Pantry" icon="pantry" />);
+    expect(tab()).toHaveAccessibleName('Pantry');
   });
 
-  it('is announced by a different label when one is given', () => {
-    const renderer = render(<DockItem label="Bookmarks" icon="bookmark" accessibilityLabel="Bookmarks, coming soon" />);
-    expect(tab(renderer).props.accessibilityLabel).toBe('Bookmarks, coming soon');
+  it('is announced by a different label when one is given', async () => {
+    await render(<DockItem label="Bookmarks" icon="bookmark" accessibilityLabel="Bookmarks, coming soon" />);
+    expect(tab()).toHaveAccessibleName('Bookmarks, coming soon');
   });
 
-  it('calls onPress when pressed', () => {
+  it('calls onPress when pressed', async () => {
     const onPress = jest.fn();
-    const renderer = render(<DockItem label="Recipes" icon="recipes" onPress={onPress} />);
-    act(() => tab(renderer).props.onPress());
+    await render(<DockItem label="Recipes" icon="recipes" onPress={onPress} />);
+    await fireEvent.press(tab());
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
   describe('as the current tab', () => {
-    it('is marked selected', () => {
-      const renderer = render(<DockItem label="Pantry" icon="pantry" isFocused />);
-      expect(tab(renderer).props.accessibilityState).toEqual({ selected: true, disabled: false });
+    it('is marked selected', async () => {
+      await render(<DockItem label="Pantry" icon="pantry" isFocused />);
+      expect(tab().props.accessibilityState).toEqual({ selected: true, disabled: false });
     });
 
-    it('sits on the accent-tinted pill', () => {
-      const renderer = render(<DockItem label="Pantry" icon="pantry" isFocused />);
-      expect(tabStyle(renderer).backgroundColor).toBe(colors.accentTint);
+    it('sits on the accent-tinted pill', async () => {
+      await render(<DockItem label="Pantry" icon="pantry" isFocused />);
+      expect(styleOf(tab()).backgroundColor).toBe(colors.accentTint);
     });
 
-    it('draws its icon in the accent color', () => {
-      const renderer = render(<DockItem label="Pantry" icon="pantry" isFocused />);
-      expect(renderer.root.findByType(Icon).props.color).toBe(colors.accent);
+    it('draws its icon in the accent color', async () => {
+      await render(<DockItem label="Pantry" icon="pantry" isFocused />);
+      expect(iconDrawing('pantry').props.stroke).toBe(colors.accent);
     });
   });
 
   describe('as another tab', () => {
-    it('is not marked selected', () => {
-      const renderer = render(<DockItem label="Recipes" icon="recipes" />);
-      expect(tab(renderer).props.accessibilityState).toEqual({ selected: false, disabled: false });
+    it('is not marked selected', async () => {
+      await render(<DockItem label="Recipes" icon="recipes" />);
+      expect(tab().props.accessibilityState).toEqual({ selected: false, disabled: false });
     });
 
-    it('has no pill behind it', () => {
-      const renderer = render(<DockItem label="Recipes" icon="recipes" />);
-      expect(tabStyle(renderer).backgroundColor).toBeUndefined();
+    it('has no pill behind it', async () => {
+      await render(<DockItem label="Recipes" icon="recipes" />);
+      expect(styleOf(tab()).backgroundColor).toBeUndefined();
     });
 
-    it('draws its icon in the secondary text color', () => {
-      const renderer = render(<DockItem label="Recipes" icon="recipes" />);
-      expect(renderer.root.findByType(Icon).props.color).toBe(colors.textSecondary);
+    it('draws its icon in the secondary text color', async () => {
+      await render(<DockItem label="Recipes" icon="recipes" />);
+      expect(iconDrawing('recipes').props.stroke).toBe(colors.textSecondary);
     });
   });
 
   describe('when disabled', () => {
-    it('is marked disabled for screen readers', () => {
-      const renderer = render(<DockItem label="Bookmarks" icon="bookmark" disabled />);
-      expect(tab(renderer).props.accessibilityState).toEqual({ selected: false, disabled: true });
+    it('is marked disabled for screen readers', async () => {
+      await render(<DockItem label="Bookmarks" icon="bookmark" disabled />);
+      expect(tab().props.accessibilityState).toEqual({ selected: false, disabled: true });
     });
 
-    it('ignores presses', () => {
-      const renderer = render(<DockItem label="Bookmarks" icon="bookmark" disabled />);
-      expect(tab(renderer).props.disabled).toBe(true);
+    it('ignores presses', async () => {
+      const onPress = jest.fn();
+      await render(<DockItem label="Bookmarks" icon="bookmark" disabled onPress={onPress} />);
+      await fireEvent.press(tab());
+      expect(onPress).not.toHaveBeenCalled();
     });
 
-    it('is drawn at half opacity, as on the board', () => {
-      const renderer = render(<DockItem label="Bookmarks" icon="bookmark" disabled />);
-      expect(tabStyle(renderer).opacity).toBe(0.5);
+    it('is drawn at half opacity, as on the board', async () => {
+      await render(<DockItem label="Bookmarks" icon="bookmark" disabled />);
+      expect(styleOf(tab()).opacity).toBe(0.5);
     });
   });
 });

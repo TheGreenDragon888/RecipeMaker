@@ -1,17 +1,13 @@
 import React from 'react';
-import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
-import { ActivityIndicator } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import { RecipeNotFoundError } from '../../../src/domain/errors';
 import type { RecipeSummary } from '../../../src/domain/recipe';
 import type { RecipeDetail } from '../../../src/services/getRecipeDetail';
-import { BackButton } from '../../../src/ui/components/BackButton';
-import { Icon } from '../../../src/ui/components/Icon';
-import { RecipeCard } from '../../../src/ui/components/RecipeCard';
-import { StepItem } from '../../../src/ui/components/StepItem';
 import { RecipeDetailScreen } from '../../../src/ui/screens/RecipeDetailScreen';
 import { makeIngredient, makeRecipe } from '../../fakes/InMemoryRecipeRepository';
-import { shownText } from '../../support/render';
+import { colors } from '../../../src/ui/theme';
+import { isLoading, recipeCardNames, recipeCards, shownIcons, shownText, styleOf } from '../../support/screen';
 
 const sloppyJoes = makeRecipe({
   id: 7,
@@ -53,7 +49,7 @@ async function setup({
   const onOpenRecipe = jest.fn();
   const onBack = jest.fn();
   const onReturnToPantry = jest.fn();
-  const screen = (id: number | null) => (
+  const detailFor = (id: number | null) => (
     <RecipeDetailScreen
       services={services}
       recipeId={id}
@@ -63,13 +59,10 @@ async function setup({
       openLink={openLink}
     />
   );
-  let renderer!: ReactTestRenderer;
-  await act(async () => {
-    renderer = TestRenderer.create(screen(recipeId));
-  });
+  await render(detailFor(recipeId));
   /** Re-renders the screen for a different recipe id. */
-  const showRecipe = async (id: number) => act(async () => renderer.update(screen(id)));
-  return { renderer, getRecipeDetail, getSimilarRecipes, openLink, onOpenRecipe, onBack, onReturnToPantry, showRecipe };
+  const showRecipe = (id: number) => screen.rerender(detailFor(id));
+  return { getRecipeDetail, getSimilarRecipes, openLink, onOpenRecipe, onBack, onReturnToPantry, showRecipe };
 }
 
 /** A promise the test resolves or rejects later, to control when a service reply arrives. */
@@ -80,10 +73,9 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-const iconNames = (renderer: ReactTestRenderer) => renderer.root.findAllByType(Icon).map((icon) => icon.props.name);
-const isLoading = (renderer: ReactTestRenderer) => renderer.root.findAllByType(ActivityIndicator).length > 0;
-const startsWith = (renderer: ReactTestRenderer, prefix: string) =>
-  shownText(renderer).some((text) => text.startsWith(prefix));
+const startsWith = (prefix: string) => shownText().some((text) => text.startsWith(prefix));
+const backButton = () => screen.getByRole('button', { name: 'Back to recipes' });
+const returnToPantry = () => screen.getByRole('button', { name: 'Return to Pantry' });
 
 describe('RecipeDetailScreen', () => {
   describe('loading', () => {
@@ -93,137 +85,141 @@ describe('RecipeDetailScreen', () => {
     });
 
     it('shows a loading indicator while the recipe loads', async () => {
-      const { renderer } = await setup({ getRecipeDetail: jest.fn().mockReturnValue(deferred().promise) });
-      expect(isLoading(renderer)).toBe(true);
+      await setup({ getRecipeDetail: jest.fn().mockReturnValue(deferred().promise) });
+      expect(isLoading()).toBe(true);
     });
 
     it('hides the loading indicator once the recipe arrives', async () => {
-      const { renderer } = await setup();
-      expect(isLoading(renderer)).toBe(false);
+      await setup();
+      expect(isLoading()).toBe(false);
     });
 
     it('ignores a recipe that arrives after the id changed', async () => {
       const forSeven = deferred<RecipeDetail>();
       const forEight = deferred<RecipeDetail>();
       const getRecipeDetail = jest.fn().mockReturnValueOnce(forSeven.promise).mockReturnValueOnce(forEight.promise);
-      const { renderer, showRecipe } = await setup({ recipeId: 7, getRecipeDetail });
+      const { showRecipe } = await setup({ recipeId: 7, getRecipeDetail });
       await showRecipe(8);
 
       await act(async () => forEight.resolve({ recipe: makeRecipe({ ...otherSloppyJoes }), ingredients: [] }));
       await act(async () => forSeven.resolve(detail));
 
-      expect(shownText(renderer)).not.toContain('Sloppy Joes');
+      expect(shownText()).not.toContain('Sloppy Joes');
     });
   });
 
   describe('recipe', () => {
     it('shows the recipe name', async () => {
-      const { renderer } = await setup();
-      expect(shownText(renderer)).toContain('Sloppy Joes');
+      await setup();
+      expect(shownText()).toContain('Sloppy Joes');
     });
 
     it('shows the cooking times', async () => {
-      const { renderer } = await setup();
-      expect(shownText(renderer)).toContain('Hands-on 15 min · Ready in 1 hr');
+      await setup();
+      expect(shownText()).toContain('Hands-on 15 min · Ready in 1 hr');
     });
 
     it('shows the number of servings', async () => {
-      const { renderer } = await setup();
-      expect(shownText(renderer)).toContain('Serves 3–4');
+      await setup();
+      expect(shownText()).toContain('Serves 3–4');
     });
 
     it('shows what the recipe makes when the source gives a yield', async () => {
       const tacos = makeRecipe({ id: 7, yieldQuantity: 24, yieldUnit: 'piece' });
-      const { renderer } = await setup({ getRecipeDetail: jest.fn().mockResolvedValue({ recipe: tacos, ingredients: [] }) });
-      expect(shownText(renderer)).toContain('Makes 24 pieces');
+      await setup({ getRecipeDetail: jest.fn().mockResolvedValue({ recipe: tacos, ingredients: [] }) });
+      expect(shownText()).toContain('Makes 24 pieces');
     });
 
     it('leaves out the yield when the source gives none', async () => {
-      const { renderer } = await setup();
-      expect(startsWith(renderer, 'Makes ')).toBe(false);
+      await setup();
+      expect(startsWith('Makes ')).toBe(false);
     });
 
     it('shows each ingredient as a readable line', async () => {
-      const { renderer } = await setup();
-      expect(shownText(renderer)).toEqual(expect.arrayContaining(['3 cloves garlic, minced', '2 tbsp soy sauce']));
+      await setup();
+      expect(shownText()).toEqual(expect.arrayContaining(['3 cloves garlic, minced', '2 tbsp soy sauce']));
     });
 
     it("shows a heading above a sub-recipe's ingredients", async () => {
-      const { renderer } = await setup();
-      expect(shownText(renderer)).toContain('For the stir fry sauce');
+      await setup();
+      expect(shownText()).toContain('For the stir fry sauce');
     });
 
     it('shows no sub-heading when every ingredient is in the main recipe', async () => {
-      const { renderer } = await setup({
+      await setup({
         getRecipeDetail: jest.fn().mockResolvedValue({ recipe: sloppyJoes, ingredients: [garlic] }),
       });
-      expect(startsWith(renderer, 'For the ')).toBe(false);
+      expect(startsWith('For the ')).toBe(false);
     });
 
     it('shows the steps in order, numbered from 1', async () => {
-      const { renderer } = await setup();
-      const steps = renderer.root.findAllByType(StepItem).map((step) => [step.props.number, step.props.text]);
-      expect(steps).toEqual([[1, 'Brown the beef.'], [2, 'Stir in the sauce.']]);
+      await setup();
+      // Each step shows its number, then its text.
+      const text = shownText();
+      const steps = ['Brown the beef.', 'Stir in the sauce.'].map((step) => [text[text.indexOf(step) - 1], step]);
+      expect(steps).toEqual([['1', 'Brown the beef.'], ['2', 'Stir in the sauce.']]);
+      expect(text.indexOf('Brown the beef.')).toBeLessThan(text.indexOf('Stir in the sauce.'));
     });
 
     it('draws a clock beside the times and people beside the servings', async () => {
-      const { renderer } = await setup();
-      expect(iconNames(renderer)).toEqual(expect.arrayContaining(['clock', 'people']));
+      await setup();
+      expect(shownIcons()).toEqual(expect.arrayContaining(['clock', 'people']));
     });
 
     it('shows a "Source" heading above where the recipe comes from', async () => {
-      const { renderer } = await setup();
-      expect(shownText(renderer)).toContain('Source');
+      await setup();
+      expect(shownText()).toContain('Source');
     });
 
     it('shows where the recipe comes from', async () => {
-      const { renderer } = await setup();
-      expect(shownText(renderer)).toContain('Budget Bytes');
+      await setup();
+      expect(shownText()).toContain('Budget Bytes');
     });
 
     it('opens the original recipe when its link is pressed', async () => {
-      const { renderer, openLink } = await setup();
-      await act(async () => renderer.root.findByProps({ accessibilityRole: 'link' }).props.onPress());
+      const { openLink } = await setup();
+      await fireEvent.press(screen.getByRole('link'));
       expect(openLink).toHaveBeenCalledWith('https://www.budgetbytes.com/sloppy-joes/');
     });
 
     it('says when the original recipe cannot be opened', async () => {
-      const { renderer } = await setup({ openLink: jest.fn().mockRejectedValue(new Error('no browser')) });
-      await act(async () => renderer.root.findByProps({ accessibilityRole: 'link' }).props.onPress());
-      expect(shownText(renderer)).toContain("Couldn't open the original recipe.");
+      await setup({ openLink: jest.fn().mockRejectedValue(new Error('no browser')) });
+      await fireEvent.press(screen.getByRole('link'));
+      expect(shownText()).toContain("Couldn't open the original recipe.");
     });
   });
 
   describe('navigation', () => {
     it('goes back when the back button is pressed', async () => {
-      const { renderer, onBack } = await setup();
-      act(() => renderer.root.findByType(BackButton).props.onPress());
+      const { onBack } = await setup();
+      await fireEvent.press(backButton());
       expect(onBack).toHaveBeenCalledTimes(1);
     });
 
     it('puts the back button on the recipe banner', async () => {
-      const { renderer } = await setup();
-      expect(renderer.root.findByType(BackButton).props.overBanner).toBe(true);
+      await setup();
+      // Over the banner, the back button has the see-through fill (see BackButton's tests).
+      expect(styleOf(backButton()).backgroundColor).toBe(colors.surfaceTranslucent);
     });
 
     it('draws a utensils icon on the recipe banner', async () => {
-      const { renderer } = await setup();
-      expect(iconNames(renderer)).toContain('utensils');
+      await setup();
+      expect(shownIcons()).toContain('utensils');
     });
 
     it('still offers the back button while the recipe loads', async () => {
-      const { renderer } = await setup({ getRecipeDetail: jest.fn().mockReturnValue(deferred().promise) });
-      expect(renderer.root.findAllByType(BackButton)).toHaveLength(1);
+      await setup({ getRecipeDetail: jest.fn().mockReturnValue(deferred().promise) });
+      expect(screen.getAllByRole('button', { name: 'Back to recipes' })).toHaveLength(1);
     });
 
     it('labels the back button for screen readers', async () => {
-      const { renderer } = await setup();
-      expect(renderer.root.findByType(BackButton).props.label).toBe('Back to recipes');
+      await setup();
+      expect(backButton()).toHaveAccessibleName('Back to recipes');
     });
 
     it('returns to the pantry when Return to Pantry is pressed', async () => {
-      const { renderer, onReturnToPantry } = await setup();
-      act(() => renderer.root.findByProps({ accessibilityLabel: 'Return to Pantry' }).props.onPress());
+      const { onReturnToPantry } = await setup();
+      await fireEvent.press(returnToPantry());
       expect(onReturnToPantry).toHaveBeenCalledTimes(1);
     });
   });
@@ -235,51 +231,51 @@ describe('RecipeDetailScreen', () => {
     });
 
     it('shows a "Similar recipes" heading when there are similar recipes', async () => {
-      const { renderer } = await setup({ getSimilarRecipes: jest.fn().mockResolvedValue([otherSloppyJoes]) });
-      expect(shownText(renderer)).toContain('Similar recipes');
+      await setup({ getSimilarRecipes: jest.fn().mockResolvedValue([otherSloppyJoes]) });
+      expect(shownText()).toContain('Similar recipes');
     });
 
     it('shows a card for each similar recipe', async () => {
-      const { renderer } = await setup({ getSimilarRecipes: jest.fn().mockResolvedValue([otherSloppyJoes]) });
-      expect(renderer.root.findAllByType(RecipeCard).map((card) => card.props.recipe)).toEqual([otherSloppyJoes]);
+      await setup({ getSimilarRecipes: jest.fn().mockResolvedValue([otherSloppyJoes]) });
+      expect(recipeCardNames()).toEqual([otherSloppyJoes.name]);
     });
 
     it('opens a similar recipe when its card is pressed', async () => {
-      const { renderer, onOpenRecipe } = await setup({ getSimilarRecipes: jest.fn().mockResolvedValue([otherSloppyJoes]) });
-      act(() => renderer.root.findByType(RecipeCard).props.onPress());
+      const { onOpenRecipe } = await setup({ getSimilarRecipes: jest.fn().mockResolvedValue([otherSloppyJoes]) });
+      await fireEvent.press(recipeCards()[0]);
       expect(onOpenRecipe).toHaveBeenCalledWith(8);
     });
 
     it('hides the section when there are no similar recipes', async () => {
-      const { renderer } = await setup({ getSimilarRecipes: jest.fn().mockResolvedValue([]) });
-      expect(shownText(renderer)).not.toContain('Similar recipes');
+      await setup({ getSimilarRecipes: jest.fn().mockResolvedValue([]) });
+      expect(shownText()).not.toContain('Similar recipes');
     });
 
     it('hides the section when similar recipes fail to load', async () => {
-      const { renderer } = await setup({ getSimilarRecipes: jest.fn().mockRejectedValue(new Error('database busy')) });
-      expect(shownText(renderer)).not.toContain('Similar recipes');
+      await setup({ getSimilarRecipes: jest.fn().mockRejectedValue(new Error('database busy')) });
+      expect(shownText()).not.toContain('Similar recipes');
     });
 
     it('still shows the recipe when similar recipes fail to load', async () => {
-      const { renderer } = await setup({ getSimilarRecipes: jest.fn().mockRejectedValue(new Error('database busy')) });
-      expect(shownText(renderer)).toContain('Sloppy Joes');
+      await setup({ getSimilarRecipes: jest.fn().mockRejectedValue(new Error('database busy')) });
+      expect(shownText()).toContain('Sloppy Joes');
     });
   });
 
   describe('problems', () => {
     it('shows "Recipe not found" when the recipe does not exist', async () => {
-      const { renderer } = await setup({ getRecipeDetail: jest.fn().mockRejectedValue(new RecipeNotFoundError(7)) });
-      expect(shownText(renderer)).toContain('Recipe not found.');
+      await setup({ getRecipeDetail: jest.fn().mockRejectedValue(new RecipeNotFoundError(7)) });
+      expect(shownText()).toContain('Recipe not found.');
     });
 
     it('shows an error message when the recipe fails to load', async () => {
-      const { renderer } = await setup({ getRecipeDetail: jest.fn().mockRejectedValue(new Error('database busy')) });
-      expect(shownText(renderer)).toContain("Couldn't load this recipe.");
+      await setup({ getRecipeDetail: jest.fn().mockRejectedValue(new Error('database busy')) });
+      expect(shownText()).toContain("Couldn't load this recipe.");
     });
 
     it('shows "Recipe not found" when there is no recipe id', async () => {
-      const { renderer } = await setup({ recipeId: null });
-      expect(shownText(renderer)).toContain('Recipe not found.');
+      await setup({ recipeId: null });
+      expect(shownText()).toContain('Recipe not found.');
     });
 
     it('does not ask for a recipe when there is no recipe id', async () => {
@@ -288,8 +284,8 @@ describe('RecipeDetailScreen', () => {
     });
 
     it('still offers Return to Pantry when the recipe is not found', async () => {
-      const { renderer, onReturnToPantry } = await setup({ recipeId: null });
-      act(() => renderer.root.findByProps({ accessibilityLabel: 'Return to Pantry' }).props.onPress());
+      const { onReturnToPantry } = await setup({ recipeId: null });
+      await fireEvent.press(returnToPantry());
       expect(onReturnToPantry).toHaveBeenCalledTimes(1);
     });
   });

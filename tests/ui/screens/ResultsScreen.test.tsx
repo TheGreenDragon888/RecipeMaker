@@ -1,13 +1,9 @@
 import React from 'react';
-import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
-import { ActivityIndicator } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import type { PantryMatch } from '../../../src/services/findRecipesFromPantry';
-import { BackButton } from '../../../src/ui/components/BackButton';
-import { RecipeCard } from '../../../src/ui/components/RecipeCard';
-import { StateMessage } from '../../../src/ui/components/StateMessage';
 import { ResultsScreen } from '../../../src/ui/screens/ResultsScreen';
-import { shownText } from '../../support/render';
+import { isLoading, recipeCardNames, recipeCards, shownIcons, shownText } from '../../support/screen';
 
 function makeMatch(id: number, name: string): PantryMatch {
   return {
@@ -26,16 +22,13 @@ async function setup({
   const services = { findRecipesFromPantry } as unknown as RecipeServices;
   const onOpenRecipe = jest.fn();
   const onBack = jest.fn();
-  const screen = (items: string[]) => (
+  const resultsFor = (items: string[]) => (
     <ResultsScreen services={services} pantry={items} onOpenRecipe={onOpenRecipe} onBack={onBack} />
   );
-  let renderer!: ReactTestRenderer;
-  await act(async () => {
-    renderer = TestRenderer.create(screen(pantry));
-  });
+  await render(resultsFor(pantry));
   /** Re-renders the screen with a different pantry list. */
-  const showPantry = async (items: string[]) => act(async () => renderer.update(screen(items)));
-  return { renderer, findRecipesFromPantry, onOpenRecipe, onBack, showPantry };
+  const showPantry = (items: string[]) => screen.rerender(resultsFor(items));
+  return { findRecipesFromPantry, onOpenRecipe, onBack, showPantry };
 }
 
 /** A promise the test resolves or rejects later, to control when a service reply arrives. */
@@ -46,9 +39,9 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-const isLoading = (renderer: ReactTestRenderer) => renderer.root.findAllByType(ActivityIndicator).length > 0;
-const cardNames = (renderer: ReactTestRenderer) =>
-  renderer.root.findAllByType(RecipeCard).map((card) => card.props.recipe.name);
+const backToPantryButtons = () => screen.getAllByRole('button', { name: 'Back to pantry' });
+/** The back button at the top of the screen: the "Back to pantry" button with the chevron. */
+const headerBackButton = () => backToPantryButtons().find((button) => shownIcons(button).includes('chevronLeft'))!;
 
 describe('ResultsScreen', () => {
   describe('searching', () => {
@@ -58,94 +51,95 @@ describe('ResultsScreen', () => {
     });
 
     it('shows a loading indicator while recipes load', async () => {
-      const { renderer } = await setup({ findRecipesFromPantry: jest.fn().mockReturnValue(deferred().promise) });
-      expect(isLoading(renderer)).toBe(true);
+      await setup({ findRecipesFromPantry: jest.fn().mockReturnValue(deferred().promise) });
+      expect(isLoading()).toBe(true);
     });
 
     it('hides the loading indicator once recipes arrive', async () => {
-      const { renderer } = await setup({ findRecipesFromPantry: jest.fn().mockResolvedValue([makeMatch(1, 'Shakshuka')]) });
-      expect(isLoading(renderer)).toBe(false);
+      await setup({ findRecipesFromPantry: jest.fn().mockResolvedValue([makeMatch(1, 'Shakshuka')]) });
+      expect(isLoading()).toBe(false);
     });
 
     it('ignores results for an earlier pantry list', async () => {
       const forEgg = deferred<PantryMatch[]>();
       const forTomato = deferred<PantryMatch[]>();
       const findRecipesFromPantry = jest.fn().mockReturnValueOnce(forEgg.promise).mockReturnValueOnce(forTomato.promise);
-      const { renderer, showPantry } = await setup({ pantry: ['egg'], findRecipesFromPantry });
+      const { showPantry } = await setup({ pantry: ['egg'], findRecipesFromPantry });
       await showPantry(['tomato']);
 
       await act(async () => forTomato.resolve([makeMatch(2, 'Tomato Soup')]));
       await act(async () => forEgg.resolve([makeMatch(1, 'Omelet')]));
 
-      expect(cardNames(renderer)).toEqual(['Tomato Soup']);
+      expect(recipeCardNames()).toEqual(['Tomato Soup']);
     });
   });
 
   describe('results', () => {
     it('shows the name of each recipe found', async () => {
-      const { renderer } = await setup({
+      await setup({
         findRecipesFromPantry: jest.fn().mockResolvedValue([makeMatch(1, 'Shakshuka'), makeMatch(2, 'Egg Fried Rice')]),
       });
-      expect(shownText(renderer)).toEqual(expect.arrayContaining(['Shakshuka', 'Egg Fried Rice']));
+      expect(shownText()).toEqual(expect.arrayContaining(['Shakshuka', 'Egg Fried Rice']));
     });
 
     it('lists the recipes in the order the service returns them', async () => {
-      const { renderer } = await setup({
+      await setup({
         findRecipesFromPantry: jest.fn().mockResolvedValue([makeMatch(2, 'Egg Fried Rice'), makeMatch(1, 'Shakshuka')]),
       });
-      expect(cardNames(renderer)).toEqual(['Egg Fried Rice', 'Shakshuka']);
+      expect(recipeCardNames()).toEqual(['Egg Fried Rice', 'Shakshuka']);
     });
 
     it('shows how many pantry ingredients it matched against', async () => {
-      const { renderer } = await setup({ pantry: ['tomato', 'egg'] });
-      expect(shownText(renderer)).toContain('Matched against your 2 pantry ingredients');
+      await setup({ pantry: ['tomato', 'egg'] });
+      expect(shownText()).toContain('Matched against your 2 pantry ingredients');
     });
 
     it('leaves out the matched-against line when the pantry list is empty', async () => {
-      const { renderer } = await setup({ pantry: [] });
-      expect(shownText(renderer).some((text) => text.startsWith('Matched against'))).toBe(false);
+      await setup({ pantry: [] });
+      expect(shownText().some((text) => text.startsWith('Matched against'))).toBe(false);
     });
 
     it('opens a recipe when its card is pressed', async () => {
-      const { renderer, onOpenRecipe } = await setup({
+      const { onOpenRecipe } = await setup({
         findRecipesFromPantry: jest.fn().mockResolvedValue([makeMatch(1, 'Shakshuka'), makeMatch(2, 'Egg Fried Rice')]),
       });
-      act(() => renderer.root.findAllByType(RecipeCard)[1].props.onPress());
+      await fireEvent.press(recipeCards()[1]);
       expect(onOpenRecipe).toHaveBeenCalledWith(2);
     });
 
     it('goes back to the pantry when the back button is pressed', async () => {
-      const { renderer, onBack } = await setup();
-      act(() => renderer.root.findByType(BackButton).props.onPress());
+      const { onBack } = await setup();
+      await fireEvent.press(headerBackButton());
       expect(onBack).toHaveBeenCalledTimes(1);
     });
 
     it('labels the back button for screen readers', async () => {
-      const { renderer } = await setup();
-      expect(renderer.root.findByType(BackButton).props.label).toBe('Back to pantry');
+      await setup();
+      expect(headerBackButton()).toHaveAccessibleName('Back to pantry');
     });
   });
 
   describe('no results', () => {
     it('shows a message when no recipes match', async () => {
-      const { renderer } = await setup({ findRecipesFromPantry: jest.fn().mockResolvedValue([]) });
-      expect(shownText(renderer)).toContain('No recipes match your pantry.');
+      await setup({ findRecipesFromPantry: jest.fn().mockResolvedValue([]) });
+      expect(shownText()).toContain('No recipes match your pantry.');
     });
 
     it('offers a way back to the pantry when no recipes match', async () => {
-      const { renderer, onBack } = await setup({ findRecipesFromPantry: jest.fn().mockResolvedValue([]) });
-      act(() => renderer.root.findByType(StateMessage).findByProps({ accessibilityLabel: 'Back to pantry' }).props.onPress());
+      const { onBack } = await setup({ findRecipesFromPantry: jest.fn().mockResolvedValue([]) });
+      const messageButton = backToPantryButtons().find((button) => button !== headerBackButton())!;
+      await fireEvent.press(messageButton);
       expect(onBack).toHaveBeenCalledTimes(1);
     });
 
     it('shows an error message when the search fails', async () => {
-      const { renderer } = await setup({ findRecipesFromPantry: jest.fn().mockRejectedValue(new Error('database busy')) });
-      expect(shownText(renderer)).toContain("Couldn't load recipes.");
+      await setup({ findRecipesFromPantry: jest.fn().mockRejectedValue(new Error('database busy')) });
+      expect(shownText()).toContain("Couldn't load recipes.");
     });
 
     it('does not show the no-match message when the search fails', async () => {
-      const { renderer } = await setup({ findRecipesFromPantry: jest.fn().mockRejectedValue(new Error('database busy')) });
-      expect(shownText(renderer)).not.toContain('No recipes match your pantry.');
+      await setup({ findRecipesFromPantry: jest.fn().mockRejectedValue(new Error('database busy')) });
+      expect(shownText()).not.toContain('No recipes match your pantry.');
     });
   });
 });

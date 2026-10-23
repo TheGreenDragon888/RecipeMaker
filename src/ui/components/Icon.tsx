@@ -116,6 +116,8 @@ export function Icon({ name, size, color, strokeWidth = 1.75 }: Props) {
       strokeLinejoin="round"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
+      // Screen readers skip icons, so tests find them by this name instead.
+      testID={`icon-${name}`}
     >
       {shapes[name]}
     </Svg>

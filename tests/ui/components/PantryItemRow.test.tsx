@@ -1,9 +1,8 @@
 import React from 'react';
-import { act, type ReactTestInstance } from 'react-test-renderer';
-import { StyleSheet } from 'react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import type { TestInstance } from 'test-renderer';
 import { PantryItemRow } from '../../../src/ui/components/PantryItemRow';
-import { render, shownText } from '../../support/render';
-import { Icon } from '../../../src/ui/components/Icon';
+import { shownIcons, shownText, styleOf } from '../../support/screen';
 
 type RowProps = React.ComponentProps<typeof PantryItemRow>;
 
@@ -21,108 +20,118 @@ function renderRow(props: Partial<RowProps> = {}) {
   );
 }
 
-const button = (renderer: ReturnType<typeof render>, label: string) => renderer.root.findByProps({ accessibilityLabel: label });
+const button = (label: string) => screen.getByLabelText(label);
 
-function ancestors(node: ReactTestInstance) {
-  const found: ReactTestInstance[] = [];
+function ancestors(node: TestInstance) {
+  const found: TestInstance[] = [];
   for (let parent = node.parent; parent; parent = parent.parent) found.push(parent);
   return found;
 }
 
 describe('PantryItemRow', () => {
-  it('shows the ingredient name, capitalized as the mockup does', () => {
-    expect(shownText(renderRow())).toContain('Green Onion');
+  it('shows the ingredient name, capitalized as the mockup does', async () => {
+    await renderRow();
+    expect(shownText()).toContain('Green Onion');
   });
 
-  it('shows the quantity', () => {
-    expect(shownText(renderRow({ quantity: 3 }))).toContain('3');
+  it('shows the quantity', async () => {
+    await renderRow({ quantity: 3 });
+    expect(shownText()).toContain('3');
   });
 
-  it('shows the unit after the quantity, pluralized to match it', () => {
-    expect(shownText(renderRow({ quantity: 3, unit: 'clove' }))).toContain('cloves');
+  it('shows the unit after the quantity, pluralized to match it', async () => {
+    await renderRow({ quantity: 3, unit: 'clove' });
+    expect(shownText()).toContain('cloves');
   });
 
-  it('shows the singular unit for a quantity of 1', () => {
-    expect(shownText(renderRow({ quantity: 1, unit: 'cup', decreaseRemoves: true }))).toContain('cup');
+  it('shows the singular unit for a quantity of 1', async () => {
+    await renderRow({ quantity: 1, unit: 'cup', decreaseRemoves: true });
+    expect(shownText()).toContain('cup');
   });
 
-  it('shows only the quantity when the unit is not known', () => {
-    expect(shownText(renderRow({ quantity: 3, unit: null }))).toEqual(['Green Onion', '3']);
+  it('shows only the quantity when the unit is not known', async () => {
+    await renderRow({ quantity: 3, unit: null });
+    expect(shownText()).toEqual(['Green Onion', '3']);
   });
 
   describe('increase button', () => {
-    it('calls onIncrease when pressed', () => {
+    it('calls onIncrease when pressed', async () => {
       const onIncrease = jest.fn();
-      const renderer = renderRow({ onIncrease });
-      act(() => button(renderer, 'Increase green onion quantity').props.onPress());
+      await renderRow({ onIncrease });
+      await fireEvent.press(button('Increase green onion quantity'));
       expect(onIncrease).toHaveBeenCalledTimes(1);
     });
 
-    it('draws a plus icon', () => {
-      const renderer = renderRow();
-      expect(button(renderer, 'Increase green onion quantity').findByType(Icon).props.name).toBe('plus');
+    it('draws a plus icon', async () => {
+      await renderRow();
+      expect(shownIcons(button('Increase green onion quantity'))).toEqual(['plus']);
     });
 
-    it('is enabled below the maximum', () => {
-      const renderer = renderRow({ canIncrease: true });
-      expect(button(renderer, 'Increase green onion quantity').props.disabled).toBe(false);
+    it('is enabled below the maximum', async () => {
+      const onIncrease = jest.fn();
+      await renderRow({ canIncrease: true, onIncrease });
+      await fireEvent.press(button('Increase green onion quantity'));
+      expect(onIncrease).toHaveBeenCalled();
     });
 
-    it('is disabled at the maximum', () => {
-      const renderer = renderRow({ canIncrease: false });
-      expect(button(renderer, 'Increase green onion quantity').props.disabled).toBe(true);
+    it('is disabled at the maximum', async () => {
+      const onIncrease = jest.fn();
+      await renderRow({ canIncrease: false, onIncrease });
+      await fireEvent.press(button('Increase green onion quantity'));
+      expect(onIncrease).not.toHaveBeenCalled();
     });
 
-    it('tells screen readers it is disabled at the maximum', () => {
-      const renderer = renderRow({ canIncrease: false });
-      expect(button(renderer, 'Increase green onion quantity').props.accessibilityState).toEqual({ disabled: true });
+    it('tells screen readers it is disabled at the maximum', async () => {
+      await renderRow({ canIncrease: false });
+      expect(button('Increase green onion quantity').props.accessibilityState).toEqual({ disabled: true });
     });
   });
 
   describe('decrease button', () => {
-    it('calls onDecrease when pressed', () => {
+    it('calls onDecrease when pressed', async () => {
       const onDecrease = jest.fn();
-      const renderer = renderRow({ onDecrease });
-      act(() => button(renderer, 'Decrease green onion quantity').props.onPress());
+      await renderRow({ onDecrease });
+      await fireEvent.press(button('Decrease green onion quantity'));
       expect(onDecrease).toHaveBeenCalledTimes(1);
     });
 
-    it('draws a minus icon when pressing it lowers the quantity', () => {
-      const renderer = renderRow({ decreaseRemoves: false });
-      expect(button(renderer, 'Decrease green onion quantity').findByType(Icon).props.name).toBe('minus');
+    it('draws a minus icon when pressing it lowers the quantity', async () => {
+      await renderRow({ decreaseRemoves: false });
+      expect(shownIcons(button('Decrease green onion quantity'))).toEqual(['minus']);
     });
 
-    it('is labelled "Remove" when pressing it removes the ingredient', () => {
-      const renderer = renderRow({ quantity: 1, decreaseRemoves: true });
-      expect(button(renderer, 'Remove green onion')).toBeTruthy();
+    it('is labelled "Remove" when pressing it removes the ingredient', async () => {
+      await renderRow({ quantity: 1, decreaseRemoves: true });
+      expect(button('Remove green onion')).toBeOnTheScreen();
     });
 
-    it('draws a close icon when pressing it removes the ingredient', () => {
-      const renderer = renderRow({ quantity: 1, decreaseRemoves: true });
-      expect(button(renderer, 'Remove green onion').findByType(Icon).props.name).toBe('close');
+    it('draws a close icon when pressing it removes the ingredient', async () => {
+      await renderRow({ quantity: 1, decreaseRemoves: true });
+      expect(shownIcons(button('Remove green onion'))).toEqual(['close']);
     });
 
-    it('calls onDecrease when pressed as the remove button', () => {
+    it('calls onDecrease when pressed as the remove button', async () => {
       const onDecrease = jest.fn();
-      const renderer = renderRow({ quantity: 1, decreaseRemoves: true, onDecrease });
-      act(() => button(renderer, 'Remove green onion').props.onPress());
+      await renderRow({ quantity: 1, decreaseRemoves: true, onDecrease });
+      await fireEvent.press(button('Remove green onion'));
       expect(onDecrease).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('touch areas', () => {
-    it.each(['Decrease green onion quantity', 'Increase green onion quantity'])('gives "%s" a 44px square', (label) => {
-      const style = StyleSheet.flatten(button(renderRow(), label).props.style);
+    it.each(['Decrease green onion quantity', 'Increase green onion quantity'])('gives "%s" a 44px square', async (label) => {
+      await renderRow();
+      const style = styleOf(button(label));
       expect(style.width).toBeGreaterThanOrEqual(44);
       expect(style.height).toBeGreaterThanOrEqual(44);
     });
 
     // Android only delivers a tap to a child inside its parent's bounds, so the 34px outlined pill
     // must be drawn behind the buttons, never around them.
-    it.each(['Decrease green onion quantity', 'Increase green onion quantity'])('does not put "%s" inside the pill', (label) => {
-      const renderer = renderRow();
-      const pill = renderer.root.findByProps({ testID: 'quantity-pill' });
-      expect(ancestors(button(renderer, label))).not.toContain(pill);
+    it.each(['Decrease green onion quantity', 'Increase green onion quantity'])('does not put "%s" inside the pill', async (label) => {
+      await renderRow();
+      const pill = screen.getByTestId('quantity-pill');
+      expect(ancestors(button(label))).not.toContain(pill);
     });
   });
 });

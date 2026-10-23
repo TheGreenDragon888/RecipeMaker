@@ -1,9 +1,8 @@
 import React from 'react';
-import { act } from 'react-test-renderer';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { SeasoningGroup } from '../../../src/domain/seasonings';
-import { SeasoningChip } from '../../../src/ui/components/SeasoningChip';
 import { SeasoningTray } from '../../../src/ui/components/SeasoningTray';
-import { render, shownText } from '../../support/render';
+import { shownText } from '../../support/screen';
 
 const groups: SeasoningGroup[] = [
   { section: 'everyday', seasonings: ['paprika'] },
@@ -14,64 +13,70 @@ type TrayProps = React.ComponentProps<typeof SeasoningTray>;
 
 const renderTray = (props: Partial<TrayProps> = {}) =>
   render(<SeasoningTray groups={groups} on={['Dried Basil']} onToggle={() => {}} onClose={() => {}} {...props} />);
-const chips = (renderer: ReturnType<typeof render>) => renderer.root.findAllByType(SeasoningChip);
-const chipLabelled = (renderer: ReturnType<typeof render>, label: string) =>
-  chips(renderer).find((c) => c.props.label === label)!;
+const chips = () => screen.getAllByRole('togglebutton');
+const chipLabelled = (label: string) => screen.getByRole('togglebutton', { name: label });
 
 describe('SeasoningTray', () => {
-  it('shows its title and what to do', () => {
-    expect(shownText(renderTray())).toEqual(expect.arrayContaining(['Seasonings', 'Tap what’s in your spice rack']));
+  it('shows its title and what to do', async () => {
+    await renderTray();
+    expect(shownText()).toEqual(expect.arrayContaining(['Seasonings', 'Tap what’s in your spice rack']));
   });
 
-  it('shows the section headings in tray order', () => {
-    const text = shownText(renderTray());
+  it('shows the section headings in tray order', async () => {
+    await renderTray();
+    const text = shownText();
     expect(text.indexOf('Everyday')).toBeLessThan(text.indexOf('Spices & herbs'));
   });
 
-  it('shows a chip for every seasoning, a fresh herb marked "Fresh" beside its dried version', () => {
-    expect(chips(renderTray()).map((c) => c.props.label)).toEqual(['Paprika', 'Fresh Basil', 'Dried Basil']);
+  it('shows a chip for every seasoning, a fresh herb marked "Fresh" beside its dried version', async () => {
+    await renderTray();
+    expect(chips().map((chip) => shownText(chip).join(''))).toEqual(['Paprika', 'Fresh Basil', 'Dried Basil']);
   });
 
-  it('shows a chip as on when its seasoning is on, whatever the case', () => {
-    expect(chipLabelled(renderTray(), 'Dried Basil').props.on).toBe(true);
+  it('shows a chip as on when its seasoning is on, whatever the case', async () => {
+    await renderTray();
+    expect(chipLabelled('Dried Basil').props.accessibilityState).toEqual({ checked: true });
   });
 
-  it('shows a chip as off when its seasoning is not on', () => {
-    expect(chipLabelled(renderTray(), 'Paprika').props.on).toBe(false);
+  it('shows a chip as off when its seasoning is not on', async () => {
+    await renderTray();
+    expect(chipLabelled('Paprika').props.accessibilityState).toEqual({ checked: false });
   });
 
-  it('calls onToggle with the seasoning name when a chip is pressed', () => {
+  it('calls onToggle with the seasoning name when a chip is pressed', async () => {
     const onToggle = jest.fn();
-    const renderer = renderTray({ onToggle });
-    act(() => chipLabelled(renderer, 'Fresh Basil').props.onToggle());
+    await renderTray({ onToggle });
+    await fireEvent.press(chipLabelled('Fresh Basil'));
     expect(onToggle).toHaveBeenCalledWith('basil');
   });
 
-  it('counts how many of the tray are on', () => {
-    expect(shownText(renderTray())).toContain('1 of 3');
+  it('counts how many of the tray are on', async () => {
+    await renderTray();
+    expect(shownText()).toContain('1 of 3');
   });
 
-  it('calls onClose from Done', () => {
+  it('calls onClose from Done', async () => {
     const onClose = jest.fn();
-    const renderer = renderTray({ onClose });
-    act(() => renderer.root.findByProps({ accessibilityLabel: 'Done' }).props.onPress());
+    await renderTray({ onClose });
+    await fireEvent.press(screen.getByRole('button', { name: 'Done' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onClose from the grab bar', () => {
+  it('calls onClose from the grab bar', async () => {
     const onClose = jest.fn();
-    const renderer = renderTray({ onClose });
-    act(() => renderer.root.findByProps({ accessibilityLabel: 'Close seasonings tray' }).props.onPress());
+    await renderTray({ onClose });
+    await fireEvent.press(screen.getByRole('button', { name: 'Close seasonings tray' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('has no backdrop of its own (the drawer draws it)', () => {
-    expect(renderTray().root.findAll((n) => n.props.testID === 'seasoning-backdrop')).toHaveLength(0);
+  it('has no backdrop of its own (the drawer draws it)', async () => {
+    await renderTray();
+    expect(screen.queryByTestId('seasoning-backdrop')).not.toBeOnTheScreen();
   });
 
-  it('lets the grab bar and header be dragged with dragHandlers', () => {
+  it('lets the grab bar and header be dragged with dragHandlers', async () => {
     const onResponderGrant = jest.fn();
-    const area = renderTray({ dragHandlers: { onResponderGrant } }).root.findByProps({ testID: 'seasoning-tray-drag-area' });
-    expect(area.props.onResponderGrant).toBe(onResponderGrant);
+    await renderTray({ dragHandlers: { onResponderGrant } });
+    expect(screen.getByTestId('seasoning-tray-drag-area').props.onResponderGrant).toBe(onResponderGrant);
   });
 });

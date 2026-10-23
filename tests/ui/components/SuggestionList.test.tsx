@@ -1,62 +1,59 @@
 import React from 'react';
-import { act } from 'react-test-renderer';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SuggestionList } from '../../../src/ui/components/SuggestionList';
-import { render, shownText } from '../../support/render';
-import { StyleSheet } from 'react-native';
 import { colors } from '../../../src/ui/theme';
+import { pressIn, shownText, styleOf } from '../../support/screen';
 
 const suggestion = (ingredient: string, matchedAlias: string | null = null) => ({ ingredient, matchedAlias });
 
 describe('SuggestionList', () => {
-  it('shows a button to add each suggestion', () => {
-    const renderer = render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={() => {}} />);
-    expect(renderer.root.findByProps({ accessibilityLabel: 'Add tofu' })).toBeTruthy();
-    expect(renderer.root.findByProps({ accessibilityLabel: 'Add tomato' })).toBeTruthy();
+  it('shows a button to add each suggestion', async () => {
+    await render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={() => {}} />);
+    expect(screen.getByLabelText('Add tofu')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Add tomato')).toBeOnTheScreen();
   });
 
-  it('calls onSelect with the suggestion that was tapped', () => {
+  it('calls onSelect with the suggestion that was tapped', async () => {
     const onSelect = jest.fn();
-    const renderer = render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={onSelect} />);
-    act(() => renderer.root.findByProps({ accessibilityLabel: 'Add tomato' }).props.onPress());
+    await render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={onSelect} />);
+    await fireEvent.press(screen.getByLabelText('Add tomato'));
     expect(onSelect).toHaveBeenCalledWith('tomato');
   });
 
-  it('shows the typed part of a capitalized suggestion as its own piece of text', () => {
-    const renderer = render(<SuggestionList suggestions={[suggestion('tomato paste')]} typed="tom" onSelect={() => {}} />);
-    expect(shownText(renderer)).toEqual(expect.arrayContaining(['Tom', 'ato Paste']));
+  it('shows the typed part of a capitalized suggestion as its own piece of text', async () => {
+    await render(<SuggestionList suggestions={[suggestion('tomato paste')]} typed="tom" onSelect={() => {}} />);
+    expect(shownText()).toEqual(expect.arrayContaining(['Tom', 'ato Paste']));
   });
 
-  it('shows a suggestion that matched through an alias in one capitalized piece', () => {
+  it('shows a suggestion that matched through an alias in one capitalized piece', async () => {
     const onSelect = jest.fn();
-    const renderer = render(
+    await render(
       <SuggestionList
         suggestions={[suggestion('sesame oil', 'toasted sesame oil')]}
         typed="to"
         onSelect={onSelect}
       />,
     );
-    const button = renderer.root.findByProps({ accessibilityLabel: 'Add sesame oil (toasted sesame oil)' });
-    expect(shownText(renderer)).toContain('Sesame Oil (Toasted Sesame Oil)');
-    act(() => button.props.onPress());
+    expect(shownText()).toContain('Sesame Oil (Toasted Sesame Oil)');
+    await fireEvent.press(screen.getByLabelText('Add sesame oil (toasted sesame oil)'));
     expect(onSelect).toHaveBeenCalledWith('sesame oil');
   });
 
-  it('shows "+ Add" on every suggestion', () => {
-    const renderer = render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={() => {}} />);
-    expect(shownText(renderer).filter((text) => text === '+ Add')).toHaveLength(2);
+  it('shows "+ Add" on every suggestion', async () => {
+    await render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={() => {}} />);
+    expect(shownText().filter((text) => text === '+ Add')).toHaveLength(2);
   });
 
-  it('highlights the first suggestion before anything is pressed', () => {
-    const renderer = render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={() => {}} />);
-    const rowStyle = (label: string) =>
-      StyleSheet.flatten(renderer.root.findByProps({ accessibilityLabel: label }).props.style({ pressed: false }));
-    expect(rowStyle('Add tofu').backgroundColor).toBe(colors.pressed);
-    expect(rowStyle('Add tomato').backgroundColor).toBeUndefined();
+  it('highlights the first suggestion before anything is pressed', async () => {
+    await render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={() => {}} />);
+    expect(styleOf(screen.getByLabelText('Add tofu')).backgroundColor).toBe(colors.pressed);
+    expect(styleOf(screen.getByLabelText('Add tomato')).backgroundColor).toBeUndefined();
   });
 
-  it('still changes the highlighted first row while it is pressed', () => {
-    const renderer = render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={() => {}} />);
-    const style = renderer.root.findByProps({ accessibilityLabel: 'Add tofu' }).props.style;
-    expect(StyleSheet.flatten(style({ pressed: true }))).not.toEqual(StyleSheet.flatten(style({ pressed: false })));
+  it('still changes the highlighted first row while it is pressed', async () => {
+    await render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={() => {}} />);
+    const before = styleOf(screen.getByLabelText('Add tofu'));
+    await pressIn(screen.getByLabelText('Add tofu'));
+    expect(styleOf(screen.getByLabelText('Add tofu'))).not.toEqual(before);
   });
 });
