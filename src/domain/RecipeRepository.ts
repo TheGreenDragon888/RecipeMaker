@@ -1,6 +1,7 @@
 // BUSINESS LAYER: the contract services use to read recipe data. Implemented in src/data/.
 import type { IngredientUsage, Recipe, RecipeIngredient, RecipeSummary } from './recipe';
 import type { IngredientSuggestion } from './ingredientSuggestion';
+import type { PantryTracking } from './pantryCatalog';
 
 export interface RecipeRepository {
   /** Recipes using this ingredient. The name is resolved through the alias table first ("scallions" -> "green onion"). */
@@ -18,4 +19,6 @@ export interface RecipeRepository {
   /** The canonical name for an ingredient name or alias (ignoring case), or null when there is no such ingredient. */
   findIngredient(name: string): Promise<string | null>;
   findByDuplicateGroup(group: string): Promise<RecipeSummary[]>;
+  /** How the pantry tracks every canonical ingredient (the ingredients table), in no particular order. */
+  listPantryTracking(): Promise<PantryTracking[]>;
 }

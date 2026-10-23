@@ -4,11 +4,13 @@ import type { RecipeRepository } from '../domain/RecipeRepository';
 import type { IngredientSuggestion } from '../domain/ingredientSuggestion';
 import {
   toIngredientUsage,
+  toPantryTracking,
   toRecipe,
   toRecipeIngredient,
   toRecipeSummary,
   type IngredientRow,
   type IngredientUsageRow,
+  type PantryTrackingRow,
   type RecipeRow,
   type RecipeSummaryRow,
 } from './recipeMappers';
@@ -70,6 +72,8 @@ SELECT COALESCE(
 
 export const FIND_BY_DUPLICATE_GROUP_SQL = `
 SELECT ${SUMMARY_COLUMNS} FROM recipes AS r WHERE r.duplicate_group = $group ORDER BY r.recipe_id;`;
+
+export const LIST_PANTRY_TRACKING_SQL = `SELECT ingredient, tracking, default_unit FROM ingredients;`;
 
 /** Makes %, _ and \ match literally inside a LIKE pattern that uses ESCAPE '\'. */
 const escapeLike = (text: string) => text.replace(/[\\%_]/g, '\\$&');
@@ -147,5 +151,10 @@ export class SqliteRecipeRepository implements RecipeRepository {
   async findByDuplicateGroup(group: string) {
     const rows = await this.db.getAllAsync<RecipeSummaryRow>(FIND_BY_DUPLICATE_GROUP_SQL, { $group: group });
     return rows.map(toRecipeSummary);
+  }
+
+  async listPantryTracking() {
+    const rows = await this.db.getAllAsync<PantryTrackingRow>(LIST_PANTRY_TRACKING_SQL, {});
+    return rows.map(toPantryTracking);
   }
 }

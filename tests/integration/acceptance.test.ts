@@ -18,10 +18,11 @@ describe('bundled recipes.db contents', () => {
 
   it('has 130 recipes', () => expect(count('SELECT COUNT(*) AS c FROM recipes')).toBe(130));
   it('has 1017 ingredient rows', () => expect(count('SELECT COUNT(*) AS c FROM recipe_ingredients')).toBe(1017));
-  it('has 269 distinct ingredients', () =>
-    expect(count('SELECT COUNT(DISTINCT ingredient) AS c FROM recipe_ingredients')).toBe(269));
-  it('has 698 aliases', () => expect(count('SELECT COUNT(*) AS c FROM ingredient_aliases')).toBe(698));
-  it('is data version 1', () => expect(raw.prepare('PRAGMA user_version').get()).toEqual({ user_version: 1 }));
+  // Version 2 (pantry units) split four products into new ingredients and added their aliases.
+  it('has 273 distinct ingredients', () =>
+    expect(count('SELECT COUNT(DISTINCT ingredient) AS c FROM recipe_ingredients')).toBe(273));
+  it('has 707 aliases', () => expect(count('SELECT COUNT(*) AS c FROM ingredient_aliases')).toBe(707));
+  it('is data version 2', () => expect(raw.prepare('PRAGMA user_version').get()).toEqual({ user_version: 2 }));
   it('has no foreign key violations', () => expect(raw.prepare('PRAGMA foreign_key_check').all()).toEqual([]));
 });
 

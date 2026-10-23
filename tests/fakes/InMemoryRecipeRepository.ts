@@ -1,6 +1,7 @@
 import type { RecipeRepository } from '../../src/domain/RecipeRepository';
 import type { IngredientUsage, Recipe, RecipeIngredient, RecipeSummary } from '../../src/domain/recipe';
 import type { IngredientSuggestion } from '../../src/domain/ingredientSuggestion';
+import type { PantryTracking } from '../../src/domain/pantryCatalog';
 
 export type FakeRecipe = Partial<Recipe> & { id: number; ingredients?: Partial<RecipeIngredient>[] };
 
@@ -47,13 +48,17 @@ const toSummary = (r: Recipe): RecipeSummary => ({
   servingsMax: r.servingsMax,
 });
 
-/** Test double for RecipeRepository. Aliases map lowercase alias -> canonical name. */
+/** Test double for RecipeRepository. Aliases map lowercase alias -> canonical name; tracking rows stand in for the ingredients table. */
 export class InMemoryRecipeRepository implements RecipeRepository {
   private readonly recipes: Recipe[];
   private readonly ingredients = new Map<number, RecipeIngredient[]>();
   private readonly aliases: Map<string, string>;
 
-  constructor(recipes: FakeRecipe[] = [], aliases: Record<string, string> = {}) {
+  constructor(
+    recipes: FakeRecipe[] = [],
+    aliases: Record<string, string> = {},
+    private readonly tracking: PantryTracking[] = [],
+  ) {
     this.recipes = recipes.map(({ ingredients, ...r }) => makeRecipe(r));
     for (const { id, ingredients = [] } of recipes) {
       this.ingredients.set(
@@ -137,5 +142,9 @@ export class InMemoryRecipeRepository implements RecipeRepository {
 
   async findByDuplicateGroup(group: string) {
     return this.recipes.filter((r) => r.duplicateGroup === group).map(toSummary);
+  }
+
+  async listPantryTracking() {
+    return this.tracking;
   }
 }

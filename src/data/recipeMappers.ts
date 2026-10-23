@@ -1,4 +1,5 @@
 // DATA ACCESS LAYER: row shapes stored in recipes.db and their mapping to domain models.
+import type { PantryTracking } from '../domain/pantryCatalog';
 import type { IngredientUsage, Recipe, RecipeIngredient, RecipeSummary } from '../domain/recipe';
 
 type SqlBool = 0 | 1;
@@ -83,4 +84,16 @@ export const toIngredientUsage = (row: IngredientUsageRow): IngredientUsage => (
   recipeId: row.recipe_id,
   ingredient: row.ingredient,
   isOptional: row.is_optional === 1,
+});
+
+export type PantryTrackingRow = {
+  ingredient: string;
+  tracking: 'presence' | 'count';
+  default_unit: string | null;
+};
+
+export const toPantryTracking = (row: PantryTrackingRow): PantryTracking => ({
+  ingredient: row.ingredient,
+  tracking: row.tracking,
+  defaultUnit: row.default_unit,
 });

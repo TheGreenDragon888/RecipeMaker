@@ -7,6 +7,7 @@ const repo = new InMemoryRecipeRepository(
     { id: 2, name: 'Joes B', duplicateGroup: 'DUP', activeTimeMinutes: 20, ingredients: [{ ingredient: 'ground beef' }] },
   ],
   { beef: 'ground beef' },
+  [{ ingredient: 'ground beef', tracking: 'count', defaultUnit: 'lb' }],
 );
 const services = createRecipeServices(repo);
 const names = (rs: { name: string }[]) => rs.map((r) => r.name);
@@ -40,6 +41,10 @@ describe('createRecipeServices', () => {
 
   it('wires ingredient lookup to the repository', async () => {
     expect(await services.findIngredient('beef')).toBe('ground beef');
+  });
+
+  it('wires the pantry catalog to the repository', async () => {
+    expect((await services.getPantryCatalog()).units).toEqual({ 'ground beef': 'lb' });
   });
 
   it('wires the full recipe list to the repository', async () => {

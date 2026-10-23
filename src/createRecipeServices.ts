@@ -3,6 +3,7 @@ import type { RecipeRepository } from './domain/RecipeRepository';
 import { filterRecipes, type RecipeFilter } from './services/filterRecipes';
 import { findIngredient } from './services/findIngredient';
 import { findRecipesFromPantry } from './services/findRecipesFromPantry';
+import { getPantryCatalog } from './services/getPantryCatalog';
 import { getRecipeDetail } from './services/getRecipeDetail';
 import { getSimilarRecipes } from './services/getSimilarRecipes';
 import { listAllRecipes } from './services/listAllRecipes';
@@ -21,5 +22,6 @@ export function createRecipeServices(repo: RecipeRepository) {
     suggestIngredients: (prefix: string) => suggestIngredients(repo, prefix),
     findIngredient: (raw: string) => findIngredient(repo, raw),
     listAllRecipes: () => listAllRecipes(repo),
+    getPantryCatalog: () => getPantryCatalog(repo),
   };
 }

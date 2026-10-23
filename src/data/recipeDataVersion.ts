@@ -2,7 +2,7 @@
 import type { SqlDatabase } from './SqlDatabase';
 
 /** Must equal PRAGMA user_version inside assets/data/recipes.db. Bump both together. */
-export const RECIPE_DATA_VERSION = 1;
+export const RECIPE_DATA_VERSION = 2;
 
 export class RecipeDataVersionError extends Error {
   constructor(public readonly found: number | undefined) {
