@@ -26,7 +26,7 @@ If this file contradicts the code, trust the code, fix this file, and mention th
 
 - **App name:** RecipeMaker
 - **One-sentence description:** User inputs what ingredients they have, and the app can sort through recipes based if they need only a few more ingredients, the price to buy the ingredients, and other filters.
-- **Current state:** All three layers are built and tested. The UI is four screens. **Pantry** and **Recipes** are tabs in a floating bottom dock (Pantry · Recipes · Bookmarks); **Results** and **Recipe detail** open over the tabs on the Expo Router stack, and the dock is hidden on them. **Pantry**: type ingredients with autocomplete; only ingredients in the database can be added; each has a count from 1 to 99 set with − / +, shown only and not used in matching. **Recipes**: every recipe, A to Z, from `listAllRecipes` (the board's Recipes artboard shows pantry-matched results instead; that list is the Results screen). **Results**: recipes ranked by `findRecipesFromPantry`. **Recipe detail**: times, servings, ingredients, steps, a link to the source, similar recipes. The dock's background is Liquid Glass on iOS 26+, a blur on older iOS and on Android 12+, and a plain translucent bar on older Android. Bookmarks is in the dock but disabled (half opacity, "coming soon" for screen readers) until saved recipes exist. The look follows the Claude Design board "RecipeMaker — Current Mockup", with its fonts (Lora, Nunito Sans, Caveat) and its line icons. Board parts with no data or service rule behind them yet (ingredient categories, units on pantry quantities, photos, swaps, readiness filters and pills, favorites, a pantry saved between launches) are left out; the recipe banner is a tinted placeholder with an icon instead of a photo. Board screens not built yet: Full Recipe (Ingredients and Steps tabs), Cook Mode, Mark as Cooked, and Bookmarks. The `searchRecipesByIngredient` and `filterRecipes` services and the `scaleIngredients` domain rule are tested but no screen uses them yet.
+- **Current state:** All three layers are built and tested. The UI is four screens. **Pantry** and **Recipes** are tabs in a floating bottom dock (Pantry · Recipes · Bookmarks); **Results** and **Recipe detail** open over the tabs on the Expo Router stack, and the dock is hidden on them. **Pantry**: type ingredients with autocomplete; only ingredients in the database can be added. A counted ingredient joins the list with a count from 1 to 99, set with − / +, in its pantry unit from `recipes.db` ("2 cloves", "4 each"). A seasoning switches on in the **Seasoning Tray** instead, a pull-up sheet of on/off chips above "Find recipes": it grows out of its handle when opened and shrinks back into it when closed, with a tap or by dragging the handle up or the sheet's grab bar and header down; the sheet's top edge follows the finger (it jumps instead when Reduce Motion is on). A staple isn't added, since matching already assumes it. Notices that only inform ("Paprika is on in Seasonings.") fade away after 3 seconds; problems ("Couldn't load suggestions", an unknown ingredient) stay until the user types. Counts and units are shown only and not used in matching; "Find recipes" sends the list's names plus the seasonings that are on. **Recipes**: every recipe, A to Z, from `listAllRecipes` (the board's Recipes artboard shows pantry-matched results instead; that list is the Results screen). **Results**: recipes ranked by `findRecipesFromPantry`. **Recipe detail**: times, servings, ingredients, steps, a link to the source, similar recipes. The dock's background is Liquid Glass on iOS 26+, a blur on older iOS and on Android 12+, and a plain translucent bar on older Android. Bookmarks is in the dock but disabled (half opacity, "coming soon" for screen readers) until saved recipes exist. The look follows the Claude Design board "RecipeMaker — Current Mockup", with its fonts (Lora, Nunito Sans, Caveat) and its line icons. Board parts with no data or service rule behind them yet are left out: ingredient categories, photos, swaps, readiness filters and pills, favorites, and a pantry saved between launches. The recipe banner is a tinted placeholder with an icon instead of a photo. From the Seasoning Tray, the "+ Add seasoning" chip is left out (every seasoning is already shown), as is "Bay Leaves" (not in the data). Its closed handle also drops the board's ^ chevron, since the grab bar already shows it pulls up. Board screens not built yet: Full Recipe (Ingredients and Steps tabs), Cook Mode, Mark as Cooked, and Bookmarks. These are tested but no screen uses them yet: the `searchRecipesByIngredient` and `filterRecipes` services, the `scaleIngredients` domain rule, and `convertAmount` in `src/domain/unitConversions.ts`, which converts any counted recipe line to its ingredient's pantry unit, for comparing amounts later.
 - **Platform:** Expo Go (Android and iOS)
 - **Language(s):** Typescript
 - **Frameworks:** React Native 0.86 with React 19.2, Expo SDK 57 (managed workflow: the `ios/` and `android/` folders are git-ignored and never committed), Expo Router for navigation (one file per route in `app/`), `react-native-svg` for icons, `expo-glass-effect` (Liquid Glass) and `expo-blur` for the dock's background, `expo-font` with `@expo-google-fonts/lora`, `nunito-sans` and `caveat` for the mockup's fonts
@@ -329,6 +329,7 @@ app/                         # PRESENTATION (routes): Expo Router builds the app
 └── recipe/[id].tsx          #   "/recipe/42"           → RecipeDetailScreen   (outside the tabs: no dock)
 app.json                     # Expo config under the `expo` key: app name, icons, scheme, plugins
 assets/data/recipes.db       # Bundled, read-only recipe database (see §5.2)
+assets/data/migrations/      # One .sql file per recipes.db data version change, e.g. 002-pantry-units.sql (see §5.2)
 metro.config.ts              # Adds 'db' to Metro's assetExts so require() can load recipes.db (Expo SDK 57's
                              #   defaults already list it; the line keeps it explicit). Expo CLI compiles this
                              #   file with the project's `typescript` package, so it needs no Node TypeScript flag
@@ -337,10 +338,12 @@ tsconfig.json                # Extends expo/tsconfig.base: strict, "jsx": "react
 src/
 ├── domain/                  # BUSINESS: recipe types, RecipeRepository interface, errors,
 │                            #   staples list, search-term normalization, serving scaling,
-│                            #   pantry list rules (no repeats, quantities from 1 to 99)
+│                            #   pantry list rules (no repeats, quantities from 1 to 99, units,
+│                            #   seasonings on/off), pantry catalog (how each ingredient is tracked),
+│                            #   seasoning tray sections, unit conversions
 ├── services/                # BUSINESS: one use case per file (search, pantry match, filter,
 │                            #   recipe detail, similar recipes, ingredient suggestions,
-│                            #   ingredient lookup, the full recipe list A to Z)
+│                            #   ingredient lookup, the full recipe list A to Z, the pantry catalog)
 ├── data/                    # DATA ACCESS: SqliteRecipeRepository (all recipe queries), row mappers,
 │                            #   SqlDatabase interface, data version check, openRecipeDatabase
 ├── ui/
@@ -348,10 +351,12 @@ src/
 │   │                        #   RecipeDetailScreen)
 │   ├── components/          # PRESENTATION: props-only pieces used by screens and layouts (recipe card,
 │   │                        #   buttons, suggestion list, pantry row, step, source card, state message,
-│   │                        #   Icon, DockBar and DockItem for the bottom dock)
+│   │                        #   Icon, DockBar and DockItem for the bottom dock, SeasoningDrawer (grows the
+│   │                        #   tray out of its handle), SeasoningTray, SeasoningTrayHandle and SeasoningChip)
 │   ├── format/              # PRESENTATION: pure display functions (fractions, plurals, ingredient
 │   │                        #   lines, ingredient-name capitals, times, servings, yield, source,
-│   │                        #   counts, tagline, suggestion highlighting)
+│   │                        #   counts, tagline, suggestion highlighting, pantry units, tray text)
+│   ├── motion/              # PRESENTATION: trayDrag — how the seasoning tray follows a finger and where it settles
 │   ├── navigation/          # PRESENTATION: routeParams — screen data to route params and back
 │   ├── platform/            # PRESENTATION: dockSurface — which dock background this device can draw;
 │   │                        #   dockLayout — the dock's distance from the bottom and the room screens leave for it
@@ -365,17 +370,19 @@ src/
 tests/
 ├── unit/                    # Services and domain rules, using fakes (no database)
 ├── integration/             # SqliteRecipeRepository, the data version check, and acceptance checks (known
-│                            #   recipe counts and search results) run through the real services against recipes.db
+│                            #   recipe counts and search results) run through the real services against recipes.db;
+│                            #   pantryUnits checks the ingredients table and that every counted recipe line converts
 ├── ui/                      # Presentation tests, mirroring src/ui/: format/, screens/, components/,
-│                            #   navigation/, platform/, RecipeServicesContext, AppFontsGate (screens use mocked
+│                            #   motion/, navigation/, platform/, RecipeServicesContext, AppFontsGate (screens use mocked
 │                            #   RecipeServices; AppFontsGate mocks expo-font)
 ├── app/                     # Route files, with expo-router mocked; recipe/id.test.tsx tests
 │                            #   app/recipe/[id].tsx and tabs/ tests app/(tabs)/ (no brackets or parentheses:
 │                            #   Jest path patterns treat them as special)
 ├── config/                  # metro.config.ts, loaded through Expo CLI's own loader (runs in Jest's node environment)
 ├── fakes/                   # InMemoryRecipeRepository, makeRecipe(), makeIngredient()
-└── support/                 # nodeSqliteDatabase (SqlDatabase adapter over node:sqlite), render() and
-                             #   shownText() helpers, react-test-renderer type declarations
+└── support/                 # nodeSqliteDatabase (SqlDatabase adapter over node:sqlite), render(), shownText()
+                             #   and shownView() helpers, drag() (plays a finger drag through PanResponder),
+                             #   react-test-renderer type declarations
 ```
 
 ### 5.2 Project-Specific Rules
@@ -390,7 +397,15 @@ tests/
 - **The bottom dock belongs to `app/(tabs)/`.** A screen gets the dock by having its route file in `app/(tabs)/` and a `TabTrigger` in `app/(tabs)/_layout.tsx`; screens that open over the tabs (Results, Recipe detail, and future ones like Cook Mode) stay outside the folder so the dock is hidden. The layout uses the headless tabs from `expo-router/ui` (not `Tabs` or `NativeTabs`) because the Android blur needs the screens inside a `BlurTargetView` and the dock outside it. `TabTrigger`s must be direct children of `DockBar` with `asChild`, or the tabs won't find them. The root layout's safe area pads only the top: tab screens run to the bottom edge, and every other stack screen gets the bottom inset as padding (`contentStyle` in `app/_layout.tsx`). The dock sits `dockOffset(insets.bottom)` from the bottom (the board's 24 px, or just above the home indicator), and floats over the screens, so a tab route passes `dockClearance(insets.bottom)` to its screen as `bottomClearance` and the screen leaves that much room at the bottom of its content. Both functions are in `src/ui/platform/dockLayout.ts`. Which background the dock draws (Liquid Glass, blur, Android blur, translucent) is decided by the tested `src/ui/platform/dockSurface.ts`; `DockBar` only draws the one it is given.
 - **Display text lives in `src/ui/format/`.** Business and data code return raw values (numbers, booleans, singular names); pluralizing, fractions, "≈" markers and joined strings are presentation.
 - **`recipes.db` is read-only.** It is copied over the device copy on every launch (`forceOverwrite: true`), so never write user data to it and never enable WAL on it. User data (favorites, pantry) goes in a separate database that references recipes by `recipe_id`.
-- **Updating the recipe data:** replace `assets/data/recipes.db`, bump its `PRAGMA user_version`, and bump `RECIPE_DATA_VERSION` in `src/data/recipeDataVersion.ts` to match. Keep existing `recipe_id` values stable and never reuse a deleted ID.
+- **Updating the recipe data:** replace `assets/data/recipes.db`, bump its `PRAGMA user_version`, and bump `RECIPE_DATA_VERSION` in `src/data/recipeDataVersion.ts` to match. Keep existing `recipe_id` values stable and never reuse a deleted ID. Make each change with a SQL script in `assets/data/migrations/`, named for the version it produces (`002-pantry-units.sql` made version 2). Run it once against the previous version, then commit the script and the new `recipes.db` together. Write each `UPDATE` to name the old value too, so a second run changes nothing. Every ingredient a recipe line or alias uses needs a row in the `ingredients` table: `tests/integration/pantryUnits.test.ts` fails without it, and also fails when a counted recipe line has no conversion in `src/domain/unitConversions.ts`.
+- **Pantry units.** The `ingredients` table says how the pantry tracks each canonical ingredient: `presence` (on or off, no unit) or `count` (a whole number from 1 to 99 in its singular `default_unit`). Choose by these rules, in order:
+  1. Seasonings are `presence`, because recipes rarely use enough to need a count. This covers dried spices and blends, fresh herbs, garnishes (sesame seed, lemon zest, sprinkles), vanilla extract, baking powder, and hot sauce. Seasoning packets are the exception: a recipe uses a whole packet, so they're counted by `package`. Staples (`src/domain/staples.ts`) are `presence` too.
+  2. Produce is counted by the whole piece you store: `each`, `clove` for garlic, `stalk` for celery and green onion, `inch` for ginger, and `each` for a head of cabbage. Produce too small or loose to count one by one is measured in `cup`: bagged greens, corn kernels, frozen vegetables, small tomatoes, raisins. Produce sold in labelled packages by weight (mushrooms, broccoli) is counted in that weight.
+  3. Everything else uses the unit its recipe lines use most, with ties decided by hand. The unit must keep a normal store package at 99 or less (oil isn't counted in tbsp).
+
+  A recipe line in another unit needs a factor in `unitConversions.ts`: 1 recipe unit = `factor` pantry units. Give its source in a comment (a recipe line's own "(about 2 cups)", USDA FoodData Central, or a label). Mark it `exact` only when it holds by definition. A product filed under the wrong ingredient (canned diced tomatoes under fresh "tomato") gets its own ingredient, not a conversion.
+- **Animation uses React Native's own `Animated` and `PanResponder`.** Reanimated and Gesture Handler are installed only as `expo-router`'s peer dependencies; using them in app code would be a new pattern (§2.5). Keep the decisions (when a drag starts, how far the sheet moves, where it settles) in pure functions under `src/ui/motion/` so they're unit-tested, and let the component only run them. Check `AccessibilityInfo.isReduceMotionEnabled()` and jump instead of sliding when it's on. Tests drive animations with Jest's fake timers, and gestures with `drag()` from `tests/support/drag.ts`.
+- **The seasoning tray** shows the `presence` ingredients except staples, grouped by `groupSeasonings` in `src/domain/seasonings.ts`. A new seasoning falls under "Spices & herbs" unless it's added to the Everyday or Baking & extras lists there.
 - **The entry point is `expo-router/entry`.** `package.json`'s `"main"` points to it. It builds the app from the `app/` folder and then calls `registerRootComponent` from `expo` rather than a plain `AppRegistry.registerComponent` call; this is what makes the same entry work in both Expo Go and native builds. There is no `index.ts` or `App.tsx`: the app shell is `app/_layout.tsx`, and `app/(tabs)/_layout.tsx` adds the dock.
 - **Device-only files** (`src/data/openRecipeDatabase.ts`, `src/main.ts`, `app/_layout.tsx`) cannot run under Jest. Keep them to wiring only, and put any logic they need in a separate, tested piece (as with `assertRecipeDataVersion`, `RecipeServicesProvider` for the layout's loading and error states, and `AppFontsGate` for font loading).
 - **Each source file names its layer.** Files in `src/` (and some in `app/`) start with a comment that says which layer they belong to and what they do, e.g. `// BUSINESS LAYER: ingredient autocomplete.` or `// PRESENTATION LAYER (route "/"): …`. Start new files the same way.

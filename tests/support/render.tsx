@@ -17,3 +17,11 @@ export function shownText(renderer: ReactTestRenderer): string[] {
     .flatMap((t) => [t.props.children].flat())
     .filter((child): child is string => typeof child === 'string');
 }
+
+/**
+ * The native view drawn for a testID. An Animated.View wrapper has the same testID but still holds the
+ * animated values in its style; the native view under it gets their current numbers.
+ */
+export function shownView(renderer: ReactTestRenderer, testID: string) {
+  return renderer.root.find((node) => typeof node.type === 'string' && node.props.testID === testID);
+}

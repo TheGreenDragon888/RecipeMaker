@@ -12,7 +12,10 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 47, right: 0, bottom: 34, left: 0 }),
 }));
 
-const services = { suggestIngredients: jest.fn() } as unknown as RecipeServices;
+const services = {
+  suggestIngredients: jest.fn(),
+  getPantryCatalog: jest.fn().mockResolvedValue({ units: {}, seasoningGroups: [] }),
+} as unknown as RecipeServices;
 
 async function renderRoute() {
   let renderer!: ReactTestRenderer;

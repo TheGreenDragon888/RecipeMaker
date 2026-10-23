@@ -1,15 +1,18 @@
-// PRESENTATION LAYER: one ingredient in the pantry list, with the mockup's quantity stepper (− count +).
+// PRESENTATION LAYER: one ingredient in the pantry list, with the mockup's quantity stepper (− count unit +),
+// e.g. "− 2 cloves +"; the unit is left off when it isn't known.
 // At a count of 1 the − button becomes a remove button (× icon). The mockup's category dot and category
 // label are left out: no data backs them. The rules (the maximum, when − removes) come in as props.
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { formatIngredientName } from '../format/pantryInfo';
+import { formatIngredientName, formatPantryUnit } from '../format/pantryInfo';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
 import { Icon, type IconName } from './Icon';
 
 type Props = {
   name: string;
   quantity: number;
+  /** The pantry unit, singular ("clove"), shown after the count; null shows the count alone. */
+  unit?: string | null;
   /** False at the maximum: the + button is disabled. */
   canIncrease: boolean;
   /** True when pressing − takes the ingredient out of the pantry. */
@@ -18,7 +21,8 @@ type Props = {
   onDecrease: () => void;
 };
 
-export function PantryItemRow({ name, quantity, canIncrease, decreaseRemoves, onIncrease, onDecrease }: Props) {
+export function PantryItemRow({ name, quantity, unit = null, canIncrease, decreaseRemoves, onIncrease, onDecrease }: Props) {
+  const unitText = formatPantryUnit(quantity, unit);
   return (
     <View style={styles.row}>
       <Text style={styles.name}>{formatIngredientName(name)}</Text>
@@ -31,7 +35,11 @@ export function PantryItemRow({ name, quantity, canIncrease, decreaseRemoves, on
           icon={decreaseRemoves ? 'close' : 'minus'}
           onPress={onDecrease}
         />
-        <Text style={styles.quantity}>{String(quantity)}</Text>
+        <Text style={styles.quantity}>
+          {String(quantity)}
+          {unitText ? ' ' : null}
+          {unitText ? <Text style={styles.unit}>{unitText}</Text> : null}
+        </Text>
         <StepButton label={`Increase ${name} quantity`} icon="plus" onPress={onIncrease} disabled={!canIncrease} />
       </View>
     </View>
@@ -105,13 +113,14 @@ const styles = StyleSheet.create({
   },
   circlePressed: { backgroundColor: colors.pressed },
   circleDisabled: { opacity: 0.35 },
-  // 36px keeps the circles as far apart as the board's 50px count box, and stops the pill from
-  // changing width between 9 and 10.
+  // The board's 50px count box: room for "2 cups", and the pill doesn't change width between 9 and 10.
   quantity: {
-    minWidth: 36,
+    minWidth: 50,
+    paddingHorizontal: spacing.xs,
     textAlign: 'center',
     fontSize: fontSize.input,
     fontFamily: fonts.heavy,
     color: colors.text,
   },
+  unit: { fontSize: fontSize.caption, fontFamily: fonts.semibold, color: colors.textSecondary },
 });

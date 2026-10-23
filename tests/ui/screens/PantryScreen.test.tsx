@@ -1,31 +1,65 @@
 import React from 'react';
 import TestRenderer, { act, type ReactTestRenderer } from 'react-test-renderer';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Animated, ScrollView, StyleSheet } from 'react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import { Icon } from '../../../src/ui/components/Icon';
 import { PantryItemRow } from '../../../src/ui/components/PantryItemRow';
 import { PrimaryButton } from '../../../src/ui/components/PrimaryButton';
+import { SeasoningChip } from '../../../src/ui/components/SeasoningChip';
+import { SeasoningDrawer } from '../../../src/ui/components/SeasoningDrawer';
+import { SeasoningTray } from '../../../src/ui/components/SeasoningTray';
+import { SeasoningTrayHandle } from '../../../src/ui/components/SeasoningTrayHandle';
 import { SuggestionList } from '../../../src/ui/components/SuggestionList';
+import { TRAY_SLIDE_MS } from '../../../src/ui/motion/trayDrag';
 import { PantryScreen } from '../../../src/ui/screens/PantryScreen';
 import { dock } from '../../../src/ui/theme';
+import type { PantryCatalog } from '../../../src/domain/pantryCatalog';
 import { render, shownText } from '../../support/render';
 
 const suggestion = (ingredient: string, matchedAlias: string | null = null) => ({ ingredient, matchedAlias });
 
 const sixPm = () => new Date(2026, 9, 10, 18, 0);
 
+const EMPTY_CATALOG: PantryCatalog = { units: {}, seasoningGroups: [] };
+
+/**
+ * The catalog for tests that aren't about units or seasonings: still loading, so it never updates the screen
+ * after the test ends. Tests about the catalog pass one that loads, and wait for it.
+ */
+const stillLoading = () => jest.fn(() => new Promise<PantryCatalog>(() => {}));
+
+/** Services for tests that only look at layout. */
+const layoutServices = () => ({ getPantryCatalog: stillLoading() }) as unknown as RecipeServices;
+
+/** Screens opened by setup(), closed after each test so their timers (such as a notice's) don't outlive it. */
+const openScreens: ReactTestRenderer[] = [];
+afterEach(() => {
+  openScreens.splice(0).forEach((renderer) => {
+    try {
+      act(() => renderer.unmount());
+    } catch {
+      // The test closed it already.
+    }
+  });
+});
+
 /** By default every typed word counts as a known ingredient (lowercased), and nothing is suggested. */
 function setup({
   suggestIngredients = jest.fn().mockResolvedValue([]),
   findIngredient = jest.fn(async (raw: string) => raw.trim().toLowerCase() || null),
-}: { suggestIngredients?: jest.Mock; findIngredient?: jest.Mock } = {}) {
-  const services = { suggestIngredients, findIngredient } as unknown as RecipeServices;
+  getPantryCatalog = stillLoading(),
+  bottomClearance,
+}: { suggestIngredients?: jest.Mock; findIngredient?: jest.Mock; getPantryCatalog?: jest.Mock; bottomClearance?: number } = {}) {
+  const services = { suggestIngredients, findIngredient, getPantryCatalog } as unknown as RecipeServices;
   const onFindRecipes = jest.fn();
   let renderer!: ReactTestRenderer;
   act(() => {
-    renderer = TestRenderer.create(<PantryScreen services={services} onFindRecipes={onFindRecipes} now={sixPm} />);
+    renderer = TestRenderer.create(
+      <PantryScreen services={services} onFindRecipes={onFindRecipes} now={sixPm} bottomClearance={bottomClearance} />,
+    );
   });
-  return { renderer, suggestIngredients, findIngredient, onFindRecipes };
+  openScreens.push(renderer);
+  return { renderer, suggestIngredients, findIngredient, getPantryCatalog, onFindRecipes };
 }
 
 /** A promise the test resolves or rejects later, to control when a service reply arrives. */
@@ -152,7 +186,7 @@ describe('PantryScreen', () => {
 
     it('floats the find button above a dock lifted by a home indicator', () => {
       const renderer = render(
-        <PantryScreen services={{} as RecipeServices} onFindRecipes={() => {}} now={sixPm} bottomClearance={110} />,
+        <PantryScreen services={layoutServices()} onFindRecipes={() => {}} now={sixPm} bottomClearance={110} />,
       );
       const holder = renderer.root.findByType(PrimaryButton).parent!;
       expect(StyleSheet.flatten(holder.props.style).bottom).toBe(110);
@@ -160,7 +194,7 @@ describe('PantryScreen', () => {
 
     it('leaves room below the last ingredient for a dock lifted by a home indicator', () => {
       const renderer = render(
-        <PantryScreen services={{} as RecipeServices} onFindRecipes={() => {}} now={sixPm} bottomClearance={110} />,
+        <PantryScreen services={layoutServices()} onFindRecipes={() => {}} now={sixPm} bottomClearance={110} />,
       );
       const content = StyleSheet.flatten(renderer.root.findByType(ScrollView).props.contentContainerStyle);
       expect(content.paddingBottom).toBeGreaterThan(110);
@@ -375,6 +409,258 @@ describe('PantryScreen', () => {
       await act(async () => forTo.resolve([suggestion('tofu'), suggestion('tomato')]));
 
       expect(suggestionLists(renderer)[0].props.suggestions).toEqual([suggestion('tomato')]);
+    });
+  });
+
+  describe('units and seasonings', () => {
+    const CATALOG: PantryCatalog = {
+      units: { garlic: 'clove', egg: 'each' },
+      seasoningGroups: [
+        { section: 'everyday', seasonings: ['paprika'] },
+        { section: 'spicesAndHerbs', seasonings: ['ground cumin'] },
+      ],
+    };
+    const withCatalog = (catalog: PantryCatalog = CATALOG) => setup({ getPantryCatalog: jest.fn().mockResolvedValue(catalog) });
+    const flush = () => act(async () => {});
+    const rows = (renderer: ReactTestRenderer) => renderer.root.findAllByType(PantryItemRow);
+    const handles = (renderer: ReactTestRenderer) => renderer.root.findAllByType(SeasoningTrayHandle);
+    const trays = (renderer: ReactTestRenderer) => renderer.root.findAllByType(SeasoningTray);
+    const openTray = (renderer: ReactTestRenderer) => press(renderer, 'Open seasonings tray');
+    const toggleChip = (renderer: ReactTestRenderer, label: string) =>
+      act(async () => renderer.root.findAllByType(SeasoningChip).find((chip) => chip.props.label === label)!.props.onToggle());
+
+    it('loads the pantry catalog once when it opens', async () => {
+      const { getPantryCatalog } = withCatalog();
+      await flush();
+      expect(getPantryCatalog).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives a counted ingredient its pantry unit', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await addIngredient(renderer, 'garlic');
+      expect(rows(renderer).map((row) => row.props.unit)).toEqual(['clove']);
+    });
+
+    it('adds an ingredient the catalog has no unit for with no unit', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await addIngredient(renderer, 'dragon fruit');
+      expect(rows(renderer).map((row) => row.props.unit)).toEqual([null]);
+    });
+
+    it('switches a picked seasoning on in the tray instead of adding it to the list', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await addIngredient(renderer, 'paprika');
+      expect(pantryNames(renderer)).toEqual([]);
+      expect(handles(renderer)[0].props.onCount).toBe(1);
+    });
+
+    it('says a picked seasoning is on in the tray', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await addIngredient(renderer, 'paprika');
+      expect(shownText(renderer)).toContain('Paprika is on in Seasonings.');
+    });
+
+    it('keeps a seasoning on when it is picked again', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await addIngredient(renderer, 'paprika');
+      await addIngredient(renderer, 'paprika');
+      expect(handles(renderer)[0].props.onCount).toBe(1);
+    });
+
+    it('does not add a staple, and says recipes already assume it', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await addIngredient(renderer, 'olive oil');
+      expect(pantryNames(renderer)).toEqual([]);
+      expect(shownText(renderer)).toContain('Recipes already assume you have olive oil.');
+    });
+
+    it('shows the tray handle when there are seasonings', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      expect(handles(renderer)).toHaveLength(1);
+    });
+
+    it('hides the tray handle when the catalog has no seasonings', async () => {
+      const { renderer } = withCatalog(EMPTY_CATALOG);
+      await flush();
+      expect(handles(renderer)).toHaveLength(0);
+    });
+
+    it('opens the tray from the handle, in place of the handle, once it has grown', async () => {
+      jest.useFakeTimers();
+      try {
+        const { renderer } = withCatalog();
+        await flush();
+        await openTray(renderer);
+        await act(async () => { jest.advanceTimersByTime(TRAY_SLIDE_MS); });
+        expect([trays(renderer).length, handles(renderer).length]).toEqual([1, 0]);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('tells the seasoning drawer the tray is open once the handle is tapped', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await openTray(renderer);
+      expect(renderer.root.findByType(SeasoningDrawer).props.open).toBe(true);
+    });
+
+    it('places the closed handle above the find button', async () => {
+      const { renderer } = setup({ getPantryCatalog: jest.fn().mockResolvedValue(CATALOG), bottomClearance: 110 });
+      await flush();
+      expect(renderer.root.findByType(SeasoningDrawer).props.handleBottom).toBe(172);
+    });
+
+    it('closes the tray with Done, once it has slid down', async () => {
+      jest.useFakeTimers();
+      try {
+        const { renderer } = withCatalog();
+        await flush();
+        await openTray(renderer);
+        await press(renderer, 'Done');
+        await act(async () => { jest.advanceTimersByTime(TRAY_SLIDE_MS); });
+        expect(trays(renderer)).toHaveLength(0);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('switches a seasoning on from the tray', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await openTray(renderer);
+      await toggleChip(renderer, 'Ground Cumin');
+      expect(trays(renderer)[0].props.on).toEqual(['ground cumin']);
+    });
+
+    it('switches a seasoning off from the tray', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await addIngredient(renderer, 'paprika');
+      await openTray(renderer);
+      await toggleChip(renderer, 'Paprika');
+      expect(trays(renderer)[0].props.on).toEqual([]);
+    });
+
+    it('stops the tray above the dock', async () => {
+      const { renderer } = setup({ getPantryCatalog: jest.fn().mockResolvedValue(CATALOG), bottomClearance: 110 });
+      await flush();
+      await openTray(renderer);
+      expect(renderer.root.findByType(SeasoningDrawer).props.bottom).toBe(110);
+    });
+
+    it('counts the seasonings that are on on the find button', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await addIngredient(renderer, 'egg');
+      await addIngredient(renderer, 'paprika');
+      expect(byLabel(renderer, 'Find recipes with 2 ingredients')).toBeTruthy();
+    });
+
+    it('sends the pantry ingredients, then the seasonings that are on, to onFindRecipes', async () => {
+      const { renderer, onFindRecipes } = withCatalog();
+      await flush();
+      await addIngredient(renderer, 'paprika');
+      await addIngredient(renderer, 'egg');
+      await press(renderer, 'Find recipes with 2 ingredients');
+      expect(onFindRecipes).toHaveBeenCalledWith(['egg', 'paprika']);
+    });
+
+    it('enables the find button with only a seasoning on', async () => {
+      const { renderer } = withCatalog();
+      await flush();
+      await addIngredient(renderer, 'paprika');
+      expect(byLabel(renderer, 'Find recipes with 1 ingredient').props.accessibilityState).toEqual({ disabled: false });
+    });
+
+    describe('notices that hide themselves', () => {
+      beforeEach(() => jest.useFakeTimers());
+      afterEach(() => jest.useRealTimers());
+      const wait = (ms: number) => act(async () => { jest.advanceTimersByTime(ms); });
+
+      it('still shows the seasoning notice just before 3 seconds', async () => {
+        const { renderer } = withCatalog();
+        await flush();
+        await addIngredient(renderer, 'paprika');
+        await wait(2700);
+        expect(shownText(renderer)).toContain('Paprika is on in Seasonings.');
+      });
+
+      it('hides the seasoning notice after 3 seconds', async () => {
+        const { renderer } = withCatalog();
+        await flush();
+        await addIngredient(renderer, 'paprika');
+        await wait(3000);
+        expect(shownText(renderer)).not.toContain('Paprika is on in Seasonings.');
+      });
+
+      it('hides the staple notice after 3 seconds', async () => {
+        const { renderer } = withCatalog();
+        await flush();
+        await addIngredient(renderer, 'olive oil');
+        await wait(3000);
+        expect(shownText(renderer)).not.toContain('Recipes already assume you have olive oil.');
+      });
+
+      it('gives a new notice its own 3 seconds', async () => {
+        const { renderer } = withCatalog();
+        await flush();
+        await addIngredient(renderer, 'paprika');
+        await wait(2000);
+        await addIngredient(renderer, 'ground cumin');
+        await wait(2000);
+        expect(shownText(renderer)).toContain('Ground Cumin is on in Seasonings.');
+      });
+
+      it('keeps an unknown-ingredient message until the user types', async () => {
+        const findIngredient = jest.fn().mockResolvedValue(null);
+        const { renderer } = setup({ findIngredient, getPantryCatalog: jest.fn().mockResolvedValue(CATALOG) });
+        await flush();
+        await addIngredient(renderer, 'zzz');
+        await wait(10000);
+        expect(shownText(renderer)).toContain('“zzz” isn’t in our ingredient list.');
+      });
+
+      it('does not start hiding a notice after the screen closes', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        const { renderer } = withCatalog();
+        await flush();
+        await addIngredient(renderer, 'paprika');
+        act(() => renderer.unmount());
+        act(() => jest.runOnlyPendingTimers());
+        expect(timing).not.toHaveBeenCalled();
+        timing.mockRestore();
+      });
+    });
+
+    describe('when the catalog cannot load', () => {
+      const failing = () => setup({ getPantryCatalog: jest.fn().mockRejectedValue(new Error('no db')) });
+
+      it('still adds ingredients, with no unit', async () => {
+        const { renderer } = failing();
+        await flush();
+        await addIngredient(renderer, 'garlic');
+        expect(rows(renderer).map((row) => row.props.unit)).toEqual([null]);
+      });
+
+      it('says units and seasonings could not load', async () => {
+        const { renderer } = failing();
+        await flush();
+        expect(shownText(renderer)).toContain('Couldn’t load units and seasonings.');
+      });
+
+      it('shows no tray handle', async () => {
+        const { renderer } = failing();
+        await flush();
+        expect(handles(renderer)).toHaveLength(0);
+      });
     });
   });
 });

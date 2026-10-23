@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Line, Path, Polyline, Rect } from 'react-native-svg';
 import { Icon } from '../../../src/ui/components/Icon';
 import { render } from '../../support/render';
 
@@ -25,6 +25,17 @@ describe('Icon', () => {
     ['bookmark', 1],
   ] as const)('draws the dock\'s %s icon from the board\'s shapes', (name, paths) => {
     expect(svg(<Icon name={name} size={22} color="#000" />).findAllByType(Path)).toHaveLength(paths);
+  });
+
+  it("draws the seasoning tray's spice jar from the board's shapes (a jar, its lid and a label line)", () => {
+    const drawn = svg(<Icon name="spiceJar" size={18} color="#000" />);
+    expect([drawn.findAllByType(Rect).length, drawn.findAllByType(Path).length, drawn.findAllByType(Line).length]).toEqual([1, 1, 1]);
+  });
+
+  it.each([
+    ['check', '5,13 10,18 19,7'],
+  ] as const)("draws the %s icon from the board's points", (name, points) => {
+    expect(svg(<Icon name={name} size={14} color="#000" />).findByType(Polyline).props.points).toBe(points);
   });
 
   it('is hidden from screen readers, since the text or label beside it says the same', () => {

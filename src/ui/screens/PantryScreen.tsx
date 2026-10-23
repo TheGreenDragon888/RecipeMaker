@@ -1,9 +1,11 @@
 // PRESENTATION LAYER: "My Pantry" — the user lists the ingredients they have, with autocomplete.
 // Only ingredients in the database can be added: a tapped suggestion, or typed text that findIngredient
-// recognizes. Each ingredient has a count (− / +, from 1 to 99; − at 1 removes it). The count is display
-// only: onFindRecipes gets the names, and the Results screen runs the pantry search with them.
-import React, { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+// recognizes. Each ingredient has a count in its pantry unit (− / +, from 1 to 99; − at 1 removes it).
+// Seasonings are switched on and off in the seasoning tray instead, and staples aren't added, since recipes
+// already assume them. Counts and units are display only: onFindRecipes gets the names of the list's
+// ingredients and of the seasonings that are on, and the Results screen runs the pantry search with them.
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import type { IngredientSuggestion } from '../../domain/ingredientSuggestion';
 import {
@@ -12,14 +14,24 @@ import {
   decreasePantryQuantity,
   decreaseRemovesPantryItem,
   increasePantryQuantity,
+  pantryNamesForMatching,
+  toggleSeasoning,
+  turnOnSeasoning,
   type PantryItem,
 } from '../../domain/pantry';
+import { pantryKindOf, type PantryCatalog } from '../../domain/pantryCatalog';
 import { Icon } from '../components/Icon';
 import { PantryItemRow } from '../components/PantryItemRow';
 import { PrimaryButton } from '../components/PrimaryButton';
+import { SeasoningDrawer } from '../components/SeasoningDrawer';
 import { SuggestionList } from '../components/SuggestionList';
 import { formatMealTagline } from '../format/mealTagline';
-import { formatFindRecipesLabel, formatUnknownIngredient } from '../format/pantryInfo';
+import {
+  formatFindRecipesLabel,
+  formatSeasoningAdded,
+  formatStapleAssumed,
+  formatUnknownIngredient,
+} from '../format/pantryInfo';
 import { colors, dock, fonts, fontSize, radii, shadows, spacing } from '../theme';
 
 type Props = {
@@ -40,11 +52,49 @@ export function PantryScreen({
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [text, setText] = useState('');
   const [suggestions, setSuggestions] = useState<IngredientSuggestion[]>([]);
-  /** A one-line message under the field (suggestions failed, unknown ingredient, ...), or null. */
-  const [notice, setNotice] = useState<string | null>(null);
+  /**
+   * A one-line message under the field, or null. Information ("Paprika is on in Seasonings.") hides itself
+   * after NOTICE_MS; problems (suggestions failed, unknown ingredient) stay until the user types.
+   */
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const noticeOpacity = useRef(new Animated.Value(1)).current;
   const [focused, setFocused] = useState(false);
   // Numbers each request so a slow reply for older text can't act on newer text.
   const latestRequest = useRef(0);
+  /** Units and the seasoning tray, loaded once. Until it loads (or if it fails), items get no unit and there's no tray. */
+  const [catalog, setCatalog] = useState<PantryCatalog>(EMPTY_CATALOG);
+  const [catalogFailed, setCatalogFailed] = useState(false);
+  const [seasoningsOn, setSeasoningsOn] = useState<string[]>([]);
+  const [trayOpen, setTrayOpen] = useState(false);
+
+  useEffect(() => {
+    noticeOpacity.setValue(1);
+    if (!notice?.hidesItself) return;
+    const fade = setTimeout(() => {
+      Animated.timing(noticeOpacity, { toValue: 0, duration: NOTICE_FADE_MS, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setNotice((current) => (current === notice ? null : current));
+      });
+    }, NOTICE_MS - NOTICE_FADE_MS);
+    return () => {
+      clearTimeout(fade);
+      noticeOpacity.stopAnimation();
+    };
+  }, [notice, noticeOpacity]);
+
+  useEffect(() => {
+    let current = true;
+    services.getPantryCatalog().then(
+      (loaded) => {
+        if (current) setCatalog(loaded);
+      },
+      () => {
+        if (current) setCatalogFailed(true);
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [services]);
 
   function changeText(value: string) {
     setText(value);
@@ -61,17 +111,22 @@ export function PantryScreen({
       () => {
         if (request !== latestRequest.current) return;
         setSuggestions([]);
-        setNotice("Couldn't load suggestions");
+        setNotice(problem("Couldn't load suggestions"));
       },
     );
   }
 
+  /** Adds a picked ingredient: a list item in its unit, a seasoning switched on, or a staple (not added). */
   function add(ingredient: string) {
-    setPantry((current) => addPantryItem(current, ingredient));
+    const kind = pantryKindOf(catalog, ingredient);
+    if (kind.kind === 'count') setPantry((current) => addPantryItem(current, ingredient, kind.unit));
+    if (kind.kind === 'seasoning') setSeasoningsOn((current) => turnOnSeasoning(current, ingredient));
     latestRequest.current += 1; // Replies still on their way are for text we're clearing.
     setText('');
     setSuggestions([]);
-    setNotice(null);
+    if (kind.kind === 'seasoning') setNotice(information(formatSeasoningAdded(ingredient)));
+    else if (kind.kind === 'staple') setNotice(information(formatStapleAssumed(ingredient)));
+    else setNotice(null);
   }
 
   /** Done key: add the ingredient the text names, else the first suggestion for it, else say it's unknown. */
@@ -88,9 +143,9 @@ export function PantryScreen({
       if (!stillCurrent()) return;
       if (suggested.length > 0) return add(suggested[0].ingredient);
       setSuggestions([]);
-      setNotice(formatUnknownIngredient(typed));
+      setNotice(problem(formatUnknownIngredient(typed)));
     } catch {
-      if (stillCurrent()) setNotice("Couldn't check that ingredient");
+      if (stillCurrent()) setNotice(problem("Couldn't check that ingredient"));
     }
   }
 
@@ -101,6 +156,14 @@ export function PantryScreen({
   function decrease(name: string) {
     setPantry((current) => decreasePantryQuantity(current, name));
   }
+
+  function toggle(name: string) {
+    setSeasoningsOn((current) => toggleSeasoning(current, name));
+  }
+
+  const names = pantryNamesForMatching(pantry, seasoningsOn);
+  const hasTray = catalog.seasoningGroups.length > 0;
+  const listBottom = bottomClearance + FIND_BUTTON_SPACE + (hasTray ? TRAY_HANDLE_SPACE : 0);
 
   return (
     <View style={styles.screen}>
@@ -137,13 +200,14 @@ export function PantryScreen({
           </View>
         ) : null}
         {notice ? (
-          <View style={styles.dropdown}>
-            <Text style={styles.notice}>{notice}</Text>
-          </View>
+          <Animated.View style={[styles.dropdown, { opacity: noticeOpacity }]}>
+            <Text style={styles.notice}>{notice.text}</Text>
+          </Animated.View>
         ) : null}
       </View>
 
-      <ScrollView style={styles.list} contentContainerStyle={[styles.listContent, { paddingBottom: bottomClearance + FIND_BUTTON_SPACE }]} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.list} contentContainerStyle={[styles.listContent, { paddingBottom: listBottom }]} keyboardShouldPersistTaps="handled">
+        {catalogFailed ? <Text style={styles.hint}>Couldn’t load units and seasonings.</Text> : null}
         {pantry.length === 0 ? (
           <Text style={styles.hint}>Add the ingredients you have.</Text>
         ) : (
@@ -152,6 +216,7 @@ export function PantryScreen({
               key={item.name}
               name={item.name}
               quantity={item.quantity}
+              unit={item.unit}
               canIncrease={canIncreasePantryQuantity(item)}
               decreaseRemoves={decreaseRemovesPantryItem(item)}
               onIncrease={() => increase(item.name)}
@@ -163,18 +228,45 @@ export function PantryScreen({
 
       <View style={[styles.footer, { bottom: bottomClearance }]}>
         <PrimaryButton
-          label={formatFindRecipesLabel(pantry.length)}
-          onPress={() => onFindRecipes(pantry.map((item) => item.name))}
-          disabled={pantry.length === 0}
+          label={formatFindRecipesLabel(names.length)}
+          onPress={() => onFindRecipes(names)}
+          disabled={names.length === 0}
           showArrow
         />
       </View>
+
+      {hasTray ? (
+        <SeasoningDrawer
+          groups={catalog.seasoningGroups}
+          on={seasoningsOn}
+          bottom={bottomClearance}
+          handleBottom={bottomClearance + TRAY_HANDLE_OFFSET}
+          open={trayOpen}
+          onOpen={() => setTrayOpen(true)}
+          onClose={() => setTrayOpen(false)}
+          onToggle={toggle}
+        />
+      ) : null}
     </View>
   );
 }
 
+type Notice = { text: string; hidesItself: boolean };
+const information = (text: string): Notice => ({ text, hidesItself: true });
+const problem = (text: string): Notice => ({ text, hidesItself: false });
+
+/** How long an information notice stays, including its fade-out at the end. */
+const NOTICE_MS = 3000;
+const NOTICE_FADE_MS = 200;
+
 /** The find button's height (about 54 px) plus a gap, for the list's bottom padding. */
 const FIND_BUTTON_SPACE = 70;
+/** The closed tray handle's bottom edge sits this far above the find button's (the board: 162 px vs 100 px). */
+const TRAY_HANDLE_OFFSET = 62;
+/** The handle's height (52 px) plus a gap, added to the list's bottom padding when the handle shows. */
+const TRAY_HANDLE_SPACE = 62;
+
+const EMPTY_CATALOG: PantryCatalog = { units: {}, seasoningGroups: [] };
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },

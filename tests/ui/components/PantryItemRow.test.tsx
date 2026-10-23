@@ -38,6 +38,18 @@ describe('PantryItemRow', () => {
     expect(shownText(renderRow({ quantity: 3 }))).toContain('3');
   });
 
+  it('shows the unit after the quantity, pluralized to match it', () => {
+    expect(shownText(renderRow({ quantity: 3, unit: 'clove' }))).toContain('cloves');
+  });
+
+  it('shows the singular unit for a quantity of 1', () => {
+    expect(shownText(renderRow({ quantity: 1, unit: 'cup', decreaseRemoves: true }))).toContain('cup');
+  });
+
+  it('shows only the quantity when the unit is not known', () => {
+    expect(shownText(renderRow({ quantity: 3, unit: null }))).toEqual(['Green Onion', '3']);
+  });
+
   describe('increase button', () => {
     it('calls onIncrease when pressed', () => {
       const onIncrease = jest.fn();

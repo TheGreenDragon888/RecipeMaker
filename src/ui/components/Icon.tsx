@@ -1,7 +1,7 @@
 // PRESENTATION LAYER: the mockup's line icons, drawn with the same 24×24 shapes as the design board.
 // Icons are decoration next to text or inside a labelled button, so screen readers skip them.
 import React from 'react';
-import Svg, { Circle, Line, Path, Polyline } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 const shapes = {
   search: (
@@ -82,6 +82,15 @@ const shapes = {
     </>
   ),
   bookmark: <Path d="M6 3.5h12v17l-6-4-6 4v-17Z" />,
+  /** Seasoning tray: a spice jar with a lid and a label line. */
+  spiceJar: (
+    <>
+      <Rect x="7" y="9" width="10" height="11" rx="2" />
+      <Path d="M8.5 9V7.5a3.5 3.5 0 0 1 7 0V9" />
+      <Line x1="10" y1="14" x2="14" y2="14" />
+    </>
+  ),
+  check: <Polyline points="5,13 10,18 19,7" />,
 };
 
 export type IconName = keyof typeof shapes;

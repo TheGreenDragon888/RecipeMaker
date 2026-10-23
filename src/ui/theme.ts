@@ -34,6 +34,10 @@ export const colors = {
   dockBorder: 'rgba(255,255,255,0.75)',
   /** The pill behind the current tab in the dock (accent at 14% opacity). */
   accentTint: 'rgba(163,74,27,0.14)',
+  /** The grab bar on the seasoning tray's handle and sheet. */
+  grabber: '#CDBFA6',
+  /** Dims the screen behind the open seasoning tray (text at 38% opacity). */
+  scrim: 'rgba(51,42,34,0.38)',
 } as const;
 
 /** Spacing steps in px, from the mockup's paddings and gaps. */
@@ -62,6 +66,8 @@ export const radii = {
   /** The bottom dock and the pill on its current tab. */
   dock: 32,
   dockItem: 26,
+  /** The open seasoning tray's top corners. */
+  sheet: 26,
 } as const;
 
 /** The floating bottom dock's size and place, in px. */
@@ -134,5 +140,21 @@ export const shadows = {
     shadowOpacity: 0.18,
     shadowRadius: 12,
     elevation: 8,
+  },
+  /** The closed seasoning tray's handle, above "Find recipes". */
+  trayHandle: {
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 7,
+    elevation: 4,
+  },
+  /** The open seasoning tray, casting upward. */
+  sheet: {
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 15,
+    elevation: 12,
   },
 } as const;
