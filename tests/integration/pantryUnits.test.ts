@@ -3,7 +3,14 @@
 import { SqliteRecipeRepository } from '../../src/data/SqliteRecipeRepository';
 import type { PantryTracking } from '../../src/domain/pantryCatalog';
 import { STAPLES } from '../../src/domain/staples';
-import { convertAmount, isUncountableUnit } from '../../src/domain/unitConversions';
+import {
+  cleanAmount,
+  convertAmount,
+  convertPantryAmount,
+  isUncountableUnit,
+  pantryUnitChoices,
+  unitKind,
+} from '../../src/domain/unitConversions';
 import { getPantryCatalog } from '../../src/services/getPantryCatalog';
 import { openRawRecipesDb, openRecipesDbForTest } from '../support/nodeSqliteDatabase';
 
@@ -126,5 +133,41 @@ describe('conversions', () => {
       })
       .map((row) => `${row.ingredient}: ${row.unit} -> ${units.get(row.ingredient.toLowerCase())}`);
     expect([...new Set(unconvertible)]).toEqual([]);
+  });
+});
+
+describe('unit chips (pantryUnitChoices)', () => {
+  let counted: { ingredient: string; unit: string }[];
+
+  beforeAll(async () => {
+    counted = (await repo.listPantryTracking())
+      .filter((row) => row.defaultUnit !== null)
+      .map((row) => ({ ingredient: row.ingredient, unit: row.defaultUnit as string }));
+  });
+
+  it('turns 7 of every chip back into exactly 7 of the pantry unit', () => {
+    const drifting = counted.flatMap(({ ingredient, unit }) =>
+      pantryUnitChoices(ingredient, unit)
+        .filter((choice) => {
+          const out = convertPantryAmount(ingredient, 7, unit, choice.unit);
+          const back = out && convertPantryAmount(ingredient, out.amount, choice.unit, unit);
+          return !back || cleanAmount(back.amount) !== 7;
+        })
+        .map((choice) => `${ingredient}: ${unit} -> ${choice.unit}`),
+    );
+    expect(drifting).toEqual([]);
+  });
+
+  it('offers other units for every ingredient counted by volume or weight', () => {
+    const alone = counted
+      .filter(({ unit }) => unitKind(unit) !== 'count')
+      .filter(({ ingredient, unit }) => pantryUnitChoices(ingredient, unit).length === 1)
+      .map(({ ingredient }) => ingredient);
+    expect(alone).toEqual([]);
+  });
+
+  it('offers only its own unit for 84 of the 229 counted ingredients (cans, packages, most produce)', () => {
+    const alone = counted.filter(({ ingredient, unit }) => pantryUnitChoices(ingredient, unit).length === 1);
+    expect([alone.length, counted.length]).toEqual([84, 229]);
   });
 });

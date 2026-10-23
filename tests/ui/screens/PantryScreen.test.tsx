@@ -1,5 +1,5 @@
 import React from 'react';
-import { Animated } from 'react-native';
+import { Animated, Keyboard } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import { TRAY_SLIDE_MS } from '../../../src/ui/motion/trayDrag';
@@ -621,6 +621,130 @@ describe('PantryScreen', () => {
         expect(timing).not.toHaveBeenCalled();
         timing.mockRestore();
       });
+    });
+
+    describe('amount sheet', () => {
+      const UNITS_CATALOG: PantryCatalog = { ...CATALOG, units: { flour: 'cup', 'black bean': 'can' } };
+      const withUnits = (props: { bottomClearance?: number } = {}) =>
+        setup({ getPantryCatalog: jest.fn().mockResolvedValue(UNITS_CATALOG), ...props });
+      const editFlour = () => press('Edit amount and unit for flour');
+      /** What each row's amount button says it holds ("1 cup"), in order. */
+      const rowAmounts = () =>
+        screen.queryAllByRole('button', { name: /^Edit amount/ }).map((button) => button.props.accessibilityValue.text);
+      const amountField = () => screen.getByLabelText('Amount');
+      const sheets = () => screen.queryAllByTestId('bottom-sheet', everything);
+      const slide = () => act(async () => { jest.advanceTimersByTime(TRAY_SLIDE_MS); });
+      const pickUnit = (label: string) => fireEvent.press(screen.getByRole('radio', { name: label }));
+      const save = () => fireEvent.press(screen.getByRole('button', { name: 'Save' }));
+      const withFakeTimers = (test: () => Promise<void>) => async () => {
+        jest.useFakeTimers();
+        try {
+          await test();
+        } finally {
+          jest.useRealTimers();
+        }
+      };
+
+      async function flourInPantry(props: { bottomClearance?: number } = {}) {
+        await withUnits(props);
+        await flush();
+        await addIngredient('flour');
+      }
+
+      it('opens from a row\'s amount, showing how much is on hand', async () => {
+        await flourInPantry();
+        await editFlour();
+        expect([amountField().props.value, shownText()]).toEqual(['1', expect.arrayContaining(['Now 1 cup'])]);
+      });
+
+      it('saves a typed amount to the row', async () => {
+        await flourInPantry();
+        await editFlour();
+        await fireEvent.changeText(amountField(), '2.5');
+        await save();
+        expect(rowAmounts()).toEqual(['2 1/2 cups']);
+      });
+
+      it('closes once saved, after sliding down', withFakeTimers(async () => {
+        await flourInPantry();
+        await editFlour();
+        await save();
+        await slide();
+        expect(sheets()).toHaveLength(0);
+      }));
+
+      it('shows the row in the unit picked, converted (1 cup is 16 tbsp)', async () => {
+        await flourInPantry();
+        await editFlour();
+        await pickUnit('tbsp');
+        await save();
+        expect(rowAmounts()).toEqual(['16 tbsp']);
+      });
+
+      it('then steps the row by 1 of the unit picked', async () => {
+        await flourInPantry();
+        await editFlour();
+        await pickUnit('tbsp');
+        await save();
+        await press('Increase flour quantity');
+        expect(rowAmounts()).toEqual(['17 tbsp']);
+      });
+
+      it('steps a row shown in mL by 1 cup, and says so', async () => {
+        await flourInPantry();
+        await editFlour();
+        await pickUnit('mL');
+        await save();
+        await press('Increase flour by 1 cup');
+        expect(rowAmounts()).toEqual(['473 mL']);
+      });
+
+      it('closes without saving from the backdrop', async () => {
+        await flourInPantry();
+        await editFlour();
+        await fireEvent.changeText(amountField(), '5');
+        await fireEvent.press(screen.getAllByRole('button', { name: 'Close without saving' })[0]);
+        expect(rowAmounts()).toEqual(['1 cup']);
+      });
+
+      it('offers only the amount for an ingredient with one unit', async () => {
+        await withUnits();
+        await flush();
+        await addIngredient('black bean');
+        await press('Edit amount for black bean');
+        expect(screen.queryAllByRole('radio')).toEqual([]);
+      });
+
+      it('closes the keyboard when it opens', async () => {
+        const dismiss = jest.spyOn(Keyboard, 'dismiss');
+        await flourInPantry();
+        await editFlour();
+        expect(dismiss).toHaveBeenCalled();
+        dismiss.mockRestore();
+      });
+
+      it('stands above the dock', async () => {
+        await flourInPantry({ bottomClearance: 110 });
+        await editFlour();
+        expect(styleOf(screen.getByTestId('bottom-sheet', everything)).bottom).toBe(110);
+      });
+
+      it('closes the seasoning tray when it opens', withFakeTimers(async () => {
+        await flourInPantry();
+        await openTray();
+        await slide();
+        await editFlour();
+        await act(async () => { jest.advanceTimersByTime(1500); });
+        expect([trays().length, sheets().length]).toEqual([0, 1]);
+      }));
+
+      it('closes when the seasoning tray opens', withFakeTimers(async () => {
+        await flourInPantry();
+        await editFlour();
+        await openTray();
+        await act(async () => { jest.advanceTimersByTime(1500); });
+        expect([trays().length, sheets().length]).toEqual([1, 0]);
+      }));
     });
 
     describe('when the catalog cannot load', () => {

@@ -22,10 +22,18 @@ export function formatIngredientName(name: string): string {
   return name.replace(/(^|\s)(\S)/g, (_, space: string, letter: string) => space + letter.toUpperCase());
 }
 
-/** The unit after a pantry count: "cup" / "cups", "each" at any count; null when the unit isn't known. */
+/** How a unit is written when its stored name isn't ("ml" → "mL"). */
+const UNIT_LABELS: Record<string, string> = { ml: 'mL', l: 'L' };
+/** Units written the same at any amount: "4 each", "250 mL", "2 dozen". */
+const NEVER_PLURAL = new Set(['each', 'ml', 'l', 'g', 'kg', 'dozen']);
+
+/**
+ * The unit after a pantry amount: "cup" up to 1 ("1/2 cup"), "cups" above; "each", "mL", "g" and "dozen" at
+ * any amount; null when the unit isn't known.
+ */
 export function formatPantryUnit(count: number, unit: string | null): string | null {
   if (unit === null) return null;
-  if (unit === 'each' || count === 1) return unit;
+  if (NEVER_PLURAL.has(unit) || count <= 1) return UNIT_LABELS[unit] ?? unit;
   return pluralizeUnit(unit);
 }
 

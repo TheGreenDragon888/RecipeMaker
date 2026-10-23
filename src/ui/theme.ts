@@ -24,6 +24,10 @@ export const colors = {
   /** The recipe banner and the icon drawn on it. */
   blue: '#2C5A7C',
   blueSoft: '#DCE9F1',
+  /** The outline of the amount sheet's −5 / +5 buttons. */
+  blueBorder: '#C9DCE9',
+  /** The amount sheet's number field. */
+  blueWash: '#F5FAFD',
   /** The back button over the recipe banner (surface at 92% opacity). */
   surfaceTranslucent: 'rgba(255,253,249,0.92)',
   /** A pressed row, and the highlighted first row, in the suggestion dropdown. */
@@ -66,8 +70,10 @@ export const radii = {
   /** The bottom dock and the pill on its current tab. */
   dock: 32,
   dockItem: 26,
-  /** The open seasoning tray's top corners. */
+  /** The top corners of the seasoning tray and the amount sheet. */
   sheet: 26,
+  /** The icon tile in a sheet's header. */
+  tile: 13,
 } as const;
 
 /** The floating bottom dock's size and place, in px. */
@@ -92,9 +98,13 @@ export const fontSize = {
   emphasis: 16,
   cardTitle: 17,
   sectionTitle: 18,
+  /** A sheet's title (the seasoning tray, the amount sheet). */
+  sheetTitle: 21,
   detailTitle: 25,
   screenTitle: 28,
   pantryTitle: 30,
+  /** The number in the amount sheet's field. */
+  amountInput: 32,
 } as const;
 
 /**

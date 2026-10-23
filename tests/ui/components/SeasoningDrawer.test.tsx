@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, BackHandler } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { SeasoningGroup } from '../../../src/domain/seasonings';
 import { SeasoningDrawer } from '../../../src/ui/components/SeasoningDrawer';
@@ -265,6 +265,32 @@ describe('SeasoningDrawer', () => {
       await render(element({ open: true }));
       await screen.rerender(element({ open: false }));
       expect(trays()).toHaveLength(0);
+    });
+  });
+
+  describe("Android's back button", () => {
+    /** The back-button handlers the drawer adds, newest last. */
+    const backHandlers = () => {
+      const handlers: Parameters<typeof BackHandler.addEventListener>[1][] = [];
+      jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_event, handler) => {
+        handlers.push(handler);
+        return { remove: jest.fn() };
+      });
+      return handlers;
+    };
+
+    it('closes the open tray', async () => {
+      const handlers = backHandlers();
+      const onClose = jest.fn();
+      await render(element({ open: true, onClose }));
+      handlers[handlers.length - 1]({} as Parameters<(typeof handlers)[number]>[0]);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('is left alone while the tray is closed', async () => {
+      const handlers = backHandlers();
+      await render(element({ open: false }));
+      expect(handlers).toHaveLength(0);
     });
   });
 });

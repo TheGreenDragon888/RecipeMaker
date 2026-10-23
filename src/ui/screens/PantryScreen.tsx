@@ -1,11 +1,13 @@
 // PRESENTATION LAYER: "My Pantry" — the user lists the ingredients they have, with autocomplete.
 // Only ingredients in the database can be added: a tapped suggestion, or typed text that findIngredient
-// recognizes. Each ingredient has a count in its pantry unit (− / +, from 1 to 99; − at 1 removes it).
-// Seasonings are switched on and off in the seasoning tray instead, and staples aren't added, since recipes
-// already assume them. Counts and units are display only: onFindRecipes gets the names of the list's
-// ingredients and of the seasonings that are on, and the Results screen runs the pantry search with them.
+// recognizes. Each ingredient has an amount in its pantry unit (− / +, up to 99; − removes it when one step
+// would leave nothing). Tapping the amount opens the amount sheet, to type an amount or show the item in
+// another unit (2 cups as 32 tbsp). Seasonings are switched on and off in the seasoning tray instead, and
+// staples aren't added, since recipes already assume them. Only one of the tray and the sheet is open at a time.
+// Amounts and units are display only: onFindRecipes gets the names of the list's ingredients and of the
+// seasonings that are on, and the Results screen runs the pantry search with them.
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import type { IngredientSuggestion } from '../../domain/ingredientSuggestion';
 import {
@@ -15,11 +17,17 @@ import {
   decreaseRemovesPantryItem,
   increasePantryQuantity,
   pantryNamesForMatching,
+  pantryStepUnit,
+  setPantryItemAmount,
+  shownPantryAmount,
   toggleSeasoning,
   turnOnSeasoning,
   type PantryItem,
 } from '../../domain/pantry';
 import { pantryKindOf, type PantryCatalog } from '../../domain/pantryCatalog';
+import { pantryUnitChoices, type UnitChoice } from '../../domain/unitConversions';
+import { AmountSheet } from '../components/AmountSheet';
+import { BottomSheet } from '../components/BottomSheet';
 import { Icon } from '../components/Icon';
 import { PantryItemRow } from '../components/PantryItemRow';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -41,13 +49,19 @@ type Props = {
   now?: () => Date;
   /** Room to leave at the bottom for the dock (platform/dockLayout's dockClearance). Defaults to the board's. */
   bottomClearance?: number;
+  /** The safe area's bottom inset, so the amount sheet can rise above the keyboard (see platform/keyboardLift). */
+  bottomInset?: number;
 };
+
+/** Which sheet is open: the seasoning tray, or the amount sheet for one ingredient. Never both. */
+type OpenPanel = { kind: 'seasonings' } | { kind: 'amount'; name: string; opening: number } | null;
 
 export function PantryScreen({
   services,
   onFindRecipes,
   now = () => new Date(),
   bottomClearance = dock.clearance,
+  bottomInset = 0,
 }: Props) {
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [text, setText] = useState('');
@@ -65,7 +79,11 @@ export function PantryScreen({
   const [catalog, setCatalog] = useState<PantryCatalog>(EMPTY_CATALOG);
   const [catalogFailed, setCatalogFailed] = useState(false);
   const [seasoningsOn, setSeasoningsOn] = useState<string[]>([]);
-  const [trayOpen, setTrayOpen] = useState(false);
+  const [panel, setPanel] = useState<OpenPanel>(null);
+  /** Counts openings of the amount sheet, so each one starts a fresh draft. */
+  const openings = useRef(0);
+  const trayOpen = panel?.kind === 'seasonings';
+  const amountItem = panel?.kind === 'amount' ? pantry.find((item) => item.name === panel.name) : undefined;
 
   useEffect(() => {
     noticeOpacity.setValue(1);
@@ -161,6 +179,23 @@ export function PantryScreen({
     setSeasoningsOn((current) => toggleSeasoning(current, name));
   }
 
+  /** Opens the amount sheet for one ingredient (closing the tray, and the add field's keyboard). */
+  function editAmount(name: string) {
+    Keyboard.dismiss();
+    openings.current += 1;
+    setPanel({ kind: 'amount', name, opening: openings.current });
+  }
+
+  function saveAmount(name: string, amount: number, unit: string | null) {
+    setPantry((current) => setPantryItemAmount(current, name, amount, unit));
+    setPanel(null);
+  }
+
+  /** Closes a panel only if it is still the one open (a tray settling after a drag can't close the sheet). */
+  const close = (kind: 'seasonings' | 'amount') => setPanel((current) => (current?.kind === kind ? null : current));
+
+  const unitChoices = (item: PantryItem): UnitChoice[] => (item.unit ? pantryUnitChoices(item.name, item.unit) : []);
+
   const names = pantryNamesForMatching(pantry, seasoningsOn);
   const hasTray = catalog.seasoningGroups.length > 0;
   const listBottom = bottomClearance + FIND_BUTTON_SPACE + (hasTray ? TRAY_HANDLE_SPACE : 0);
@@ -211,18 +246,26 @@ export function PantryScreen({
         {pantry.length === 0 ? (
           <Text style={styles.hint}>Add the ingredients you have.</Text>
         ) : (
-          pantry.map((item) => (
-            <PantryItemRow
-              key={item.name}
-              name={item.name}
-              quantity={item.quantity}
-              unit={item.unit}
-              canIncrease={canIncreasePantryQuantity(item)}
-              decreaseRemoves={decreaseRemovesPantryItem(item)}
-              onIncrease={() => increase(item.name)}
-              onDecrease={() => decrease(item.name)}
-            />
-          ))
+          pantry.map((item) => {
+            const shown = shownPantryAmount(item);
+            const stepUnit = pantryStepUnit(item);
+            return (
+              <PantryItemRow
+                key={item.name}
+                name={item.name}
+                quantity={shown.amount}
+                unit={shown.unit}
+                approximate={shown.approximate}
+                stepUnit={stepUnit !== shown.unit ? stepUnit : null}
+                canIncrease={canIncreasePantryQuantity(item)}
+                decreaseRemoves={decreaseRemovesPantryItem(item)}
+                onIncrease={() => increase(item.name)}
+                onDecrease={() => decrease(item.name)}
+                onEditAmount={() => editAmount(item.name)}
+                hasOtherUnits={unitChoices(item).length > 1}
+              />
+            );
+          })
         )}
       </ScrollView>
 
@@ -242,11 +285,30 @@ export function PantryScreen({
           bottom={bottomClearance}
           handleBottom={bottomClearance + TRAY_HANDLE_OFFSET}
           open={trayOpen}
-          onOpen={() => setTrayOpen(true)}
-          onClose={() => setTrayOpen(false)}
+          onOpen={() => setPanel({ kind: 'seasonings' })}
+          onClose={() => close('seasonings')}
           onToggle={toggle}
         />
       ) : null}
+
+      <BottomSheet
+        open={amountItem !== undefined}
+        bottom={bottomClearance}
+        bottomInset={bottomInset}
+        closeLabel="Close without saving"
+        label="Amount and unit"
+        onClose={() => close('amount')}
+      >
+        {amountItem && panel?.kind === 'amount' ? (
+          <AmountSheet
+            key={panel.opening}
+            item={amountItem}
+            choices={unitChoices(amountItem)}
+            onSave={(amount, unit) => saveAmount(amountItem.name, amount, unit)}
+            onClose={() => close('amount')}
+          />
+        ) : null}
+      </BottomSheet>
     </View>
   );
 }

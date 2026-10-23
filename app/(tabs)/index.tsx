@@ -14,6 +14,7 @@ export default function IndexRoute() {
     <PantryScreen
       services={services}
       bottomClearance={dockClearance(insets.bottom)}
+      bottomInset={insets.bottom}
       onFindRecipes={(pantry) => router.push({ pathname: '/results', params: { pantry: pantryToParam(pantry) } })}
     />
   );

@@ -4,12 +4,12 @@
 // and header can be dragged through dragHandlers. Left out from the board: the "+ Add seasoning" chip
 // (every seasoning is shown).
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type GestureResponderHandlers } from 'react-native';
+import { ScrollView, StyleSheet, View, type GestureResponderHandlers } from 'react-native';
 import type { SeasoningGroup } from '../../domain/seasonings';
 import { formatSeasoningName, formatSeasoningSection, formatTrayCount } from '../format/pantryInfo';
-import { colors, fonts, fontSize, radii, spacing } from '../theme';
-import { Icon } from './Icon';
+import { spacing } from '../theme';
 import { SeasoningChip } from './SeasoningChip';
+import { SheetFooterButton, SheetGrabBar, SheetHeader, SheetSectionLabel } from './SheetParts';
 
 type Props = {
   groups: SeasoningGroup[];
@@ -29,26 +29,21 @@ export function SeasoningTray({ groups, on, onToggle, onClose, dragHandlers }: P
   return (
     <View style={styles.tray}>
       <View testID="seasoning-tray-drag-area" {...dragHandlers}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close seasonings tray" onPress={onClose} style={styles.grabArea}>
-          <View style={styles.grabber} />
-        </Pressable>
-
-        <View style={styles.header}>
-          <View style={styles.headerIcon}>
-            <Icon name="spiceJar" size={22} color={colors.blue} />
-          </View>
-          <View style={styles.headerText}>
-            <Text style={styles.title}>Seasonings</Text>
-            <Text style={styles.subtitle}>Tap what’s in your spice rack</Text>
-          </View>
-          <Text style={styles.badge}>{formatTrayCount(all.filter(isOn).length, all.length)}</Text>
-        </View>
+        <SheetGrabBar label="Close seasonings tray" onPress={onClose} />
+        <SheetHeader
+          icon="spiceJar"
+          title="Seasonings"
+          subtitle="Tap what’s in your spice rack"
+          badge={formatTrayCount(all.filter(isOn).length, all.length)}
+        />
       </View>
 
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
         {groups.map((group) => (
           <View key={group.section}>
-            <Text style={styles.sectionTitle}>{formatSeasoningSection(group.section)}</Text>
+            <View style={styles.sectionTitle}>
+              <SheetSectionLabel text={formatSeasoningSection(group.section)} />
+            </View>
             <View style={styles.chips}>
               {group.seasonings.map((name) => (
                 <SeasoningChip
@@ -63,73 +58,15 @@ export function SeasoningTray({ groups, on, onToggle, onClose, dragHandlers }: P
         ))}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Done" onPress={onClose} style={styles.done}>
-          <Text style={styles.doneText}>Done</Text>
-        </Pressable>
-      </View>
+      <SheetFooterButton label="Done" onPress={onClose} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   tray: { flex: 1 },
-  grabArea: { height: 30, alignItems: 'center', justifyContent: 'center' },
-  grabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.grabber },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingTop: spacing.xs,
-    paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.md,
-  },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.blueSoft,
-  },
-  headerText: { flex: 1 },
-  title: { fontFamily: fonts.heading, fontSize: 21, color: colors.text },
-  subtitle: { fontFamily: fonts.regular, fontSize: fontSize.meta, color: colors.textSecondary },
-  badge: {
-    overflow: 'hidden',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: radii.pill,
-    backgroundColor: colors.blueSoft,
-    fontSize: fontSize.caption,
-    fontFamily: fonts.heavy,
-    color: colors.blue,
-  },
   body: { flex: 1 },
   bodyContent: { paddingTop: spacing.xs, paddingHorizontal: spacing.screen, paddingBottom: spacing.sm },
-  sectionTitle: {
-    marginTop: spacing.xl,
-    marginBottom: 10,
-    fontSize: fontSize.caption,
-    fontFamily: fonts.heavy,
-    color: colors.textMuted,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
+  sectionTitle: { marginTop: spacing.xl, marginBottom: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  footer: {
-    paddingTop: spacing.md,
-    paddingHorizontal: spacing.screen,
-    paddingBottom: spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-  },
-  done: {
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.lg,
-    backgroundColor: colors.blue,
-  },
-  doneText: { fontSize: fontSize.emphasis, fontFamily: fonts.heavy, color: colors.onAccent },
 });

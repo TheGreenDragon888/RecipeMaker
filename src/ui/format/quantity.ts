@@ -20,12 +20,36 @@ const FRACTIONS: Fraction[] = (() => {
 const EXACT_TOLERANCE = 0.02;
 const ABOUT_TOLERANCE = 0.05;
 
+/** The kitchen fraction closest to a value between 0 and 1. */
+const nearestFraction = (rest: number) =>
+  FRACTIONS.reduce((best, f) => (Math.abs(f.value - rest) < Math.abs(best.value - rest) ? f : best));
+
+/** A decimal to 2 places ("2.06"), or a tiny amount to one figure ("0.001") rather than "0". */
+const decimalText = (value: number) => {
+  const rounded = Number(value.toFixed(2));
+  return String(rounded === 0 && value > 0 ? Number(value.toPrecision(1)) : rounded);
+};
+
+/**
+ * A pantry amount: a kitchen fraction ("1 1/2") when within 0.02 of one, else a decimal to 2 places ("2.06").
+ * Unlike formatAmount it never says "about", which wouldn't fit beside the pantry's − / + buttons.
+ */
+export function formatKitchenAmount(value: number): string {
+  let whole = Math.floor(value);
+  const rest = value - whole;
+  const nearest = nearestFraction(rest);
+  if (Math.abs(nearest.value - rest) <= EXACT_TOLERANCE) {
+    if (nearest.value === 1) whole += 1;
+    const text = [whole > 0 ? String(whole) : '', nearest.text].filter(Boolean).join(' ');
+    if (text) return text;
+  }
+  return decimalText(value);
+}
+
 export function formatAmount(value: number): string {
   let whole = Math.floor(value);
   const rest = value - whole;
-  const nearest = FRACTIONS.reduce((best, f) =>
-    Math.abs(f.value - rest) < Math.abs(best.value - rest) ? f : best,
-  );
+  const nearest = nearestFraction(rest);
   const diff = Math.abs(nearest.value - rest);
   if (diff > ABOUT_TOLERANCE) return String(Number(value.toFixed(2)));
 

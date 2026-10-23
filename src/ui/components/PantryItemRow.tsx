@@ -1,28 +1,59 @@
-// PRESENTATION LAYER: one ingredient in the pantry list, with the mockup's quantity stepper (− count unit +),
-// e.g. "− 2 cloves +"; the unit is left off when it isn't known.
-// At a count of 1 the − button becomes a remove button (× icon). The mockup's category dot and category
-// label are left out: no data backs them. The rules (the maximum, when − removes) come in as props.
+// PRESENTATION LAYER: one ingredient in the pantry list, with the mockup's quantity stepper (− amount unit +),
+// e.g. "− 2 cloves +"; the unit is left off when it isn't known. The amount is rounded for its unit ("2.06 cups",
+// "473 mL"), with "≈" when it is an estimate. Tapping the amount opens the amount sheet (onEditAmount).
+// When one step leaves nothing, the − button becomes a remove button (× icon). The mockup's category dot and
+// category label are left out: no data backs them. The rules (the maximum, when − removes) come in as props.
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { formatEditAmountLabel, formatPantryAmount, formatQuantityStepLabel } from '../format/pantryAmount';
 import { formatIngredientName, formatPantryUnit } from '../format/pantryInfo';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
 import { Icon, type IconName } from './Icon';
 
 type Props = {
   name: string;
+  /** The amount shown, in `unit`. */
   quantity: number;
-  /** The pantry unit, singular ("clove"), shown after the count; null shows the count alone. */
+  /** The unit shown, singular ("clove"), after the amount; null shows the amount alone. */
   unit?: string | null;
+  /** True when the amount is converted with a typical size or density: it shows "≈". */
+  approximate?: boolean;
+  /** The unit one − / + step counts in, when it isn't the one shown (an item shown in mL steps in cups). */
+  stepUnit?: string | null;
   /** False at the maximum: the + button is disabled. */
   canIncrease: boolean;
   /** True when pressing − takes the ingredient out of the pantry. */
   decreaseRemoves: boolean;
   onIncrease: () => void;
   onDecrease: () => void;
+  /** Opens the amount sheet; without it the amount is plain text. */
+  onEditAmount?: () => void;
+  /** Whether the sheet offers other units, for the amount button's label. */
+  hasOtherUnits?: boolean;
 };
 
-export function PantryItemRow({ name, quantity, unit = null, canIncrease, decreaseRemoves, onIncrease, onDecrease }: Props) {
+export function PantryItemRow({
+  name,
+  quantity,
+  unit = null,
+  approximate = false,
+  stepUnit = null,
+  canIncrease,
+  decreaseRemoves,
+  onIncrease,
+  onDecrease,
+  onEditAmount,
+  hasOtherUnits = false,
+}: Props) {
   const unitText = formatPantryUnit(quantity, unit);
+  const amountText = formatPantryAmount(quantity, unit, approximate);
+  const amount = (
+    <Text style={styles.quantity}>
+      {amountText}
+      {unitText ? ' ' : null}
+      {unitText ? <Text style={styles.unit}>{unitText}</Text> : null}
+    </Text>
+  );
   return (
     <View style={styles.row}>
       <Text style={styles.name}>{formatIngredientName(name)}</Text>
@@ -31,16 +62,29 @@ export function PantryItemRow({ name, quantity, unit = null, canIncrease, decrea
             to a child inside its parent's bounds, and each button needs a 44px square. */}
         <View testID="quantity-pill" pointerEvents="none" style={styles.pill} />
         <StepButton
-          label={decreaseRemoves ? `Remove ${name}` : `Decrease ${name} quantity`}
+          label={decreaseRemoves ? `Remove ${name}` : formatQuantityStepLabel('decrease', name, stepUnit)}
           icon={decreaseRemoves ? 'close' : 'minus'}
           onPress={onDecrease}
         />
-        <Text style={styles.quantity}>
-          {String(quantity)}
-          {unitText ? ' ' : null}
-          {unitText ? <Text style={styles.unit}>{unitText}</Text> : null}
-        </Text>
-        <StepButton label={`Increase ${name} quantity`} icon="plus" onPress={onIncrease} disabled={!canIncrease} />
+        {onEditAmount ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={formatEditAmountLabel(name, hasOtherUnits)}
+            accessibilityValue={{ text: unitText ? `${amountText} ${unitText}` : amountText }}
+            onPress={onEditAmount}
+            style={styles.amountTouch}
+          >
+            {({ pressed }) => <View style={[styles.amountFace, pressed && styles.circlePressed]}>{amount}</View>}
+          </Pressable>
+        ) : (
+          amount
+        )}
+        <StepButton
+          label={formatQuantityStepLabel('increase', name, stepUnit)}
+          icon="plus"
+          onPress={onIncrease}
+          disabled={!canIncrease}
+        />
       </View>
     </View>
   );
@@ -112,6 +156,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   circlePressed: { backgroundColor: colors.pressed },
+  // The amount button is 44px tall like the step buttons, so it stays inside the stepper's bounds (see above);
+  // its pressed look is the board's 26px pill around the amount.
+  amountTouch: { height: TOUCH_SIZE, justifyContent: 'center' },
+  amountFace: { height: CIRCLE_SIZE, justifyContent: 'center', borderRadius: radii.pill },
   circleDisabled: { opacity: 0.35 },
   // The board's 50px count box: room for "2 cups", and the pill doesn't change width between 9 and 10.
   quantity: {

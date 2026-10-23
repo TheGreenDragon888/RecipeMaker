@@ -1,4 +1,5 @@
-// BUSINESS LAYER: convert an ingredient amount from a recipe's unit to the ingredient's pantry unit.
+// BUSINESS LAYER: convert an ingredient amount from a recipe's unit to the ingredient's pantry unit, and between
+// the units the pantry can show it in (its unit chips).
 import { normalizeSearchTerm } from './searchTerm';
 
 /** A converted amount. Approximate when it rests on a typical size or density rather than a fixed definition. */
@@ -11,9 +12,27 @@ export function isUncountableUnit(unit: string): boolean {
   return UNCOUNTABLE_UNITS.has(unit);
 }
 
-/** Each unit's size in the smallest unit of its kind: teaspoons for volume, ounces for weight. */
-const VOLUME_IN_TSP: Record<string, number> = { tsp: 1, tbsp: 3, cup: 48, pint: 96 };
-const WEIGHT_IN_OZ: Record<string, number> = { oz: 1, lb: 16 };
+/** Millilitres in a US teaspoon, and grams in an ounce: both exact by definition. */
+const ML_PER_TSP = 4.92892159375;
+const G_PER_OZ = 28.349523125;
+
+/**
+ * Each unit's size in the base unit of its kind: teaspoons for volume, ounces for weight. Unit names are
+ * lower case ("ml", "l"); the screen shows them as "mL" and "L".
+ */
+const VOLUME_IN_TSP: Record<string, number> = { tsp: 1, tbsp: 3, cup: 48, pint: 96, ml: 1 / ML_PER_TSP, l: 1000 / ML_PER_TSP };
+const WEIGHT_IN_OZ: Record<string, number> = { oz: 1, lb: 16, g: 1 / G_PER_OZ, kg: 1000 / G_PER_OZ };
+
+const has = (sizes: Record<string, number>, unit: string) => Object.prototype.hasOwnProperty.call(sizes, unit);
+
+export type UnitKind = 'volume' | 'weight' | 'count';
+
+/** Whether a unit measures volume, weight, or counts pieces and packages ("each", "can", "dozen"). */
+export function unitKind(unit: string): UnitKind {
+  if (has(VOLUME_IN_TSP, unit)) return 'volume';
+  if (has(WEIGHT_IN_OZ, unit)) return 'weight';
+  return 'count';
+}
 
 /** One ingredient's factor: 1 of the recipe unit = `factor` of the pantry unit `to`. */
 type IngredientFactor = { to: string; factor: number; exact?: true };
@@ -26,6 +45,9 @@ type IngredientFactor = { to: string; factor: number; exact?: true };
 // measures; BC = Betty Crocker's yields chart; AFME = Amazing Food Made Easy produce converters.
 // Full citations and reviewer notes: the conversion review table from 2026-10-22/23.
 const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
+  // Counted by the dozen
+  egg: { dozen: { to: 'each', factor: 12, exact: true } }, // a dozen is 12
+
   // Produce counted by the piece
   cabbage: {
     cup: { to: 'each', factor: 0.125 }, // shredded; a medium head gives about 8 cups (AFME)
@@ -141,9 +163,76 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
 /** The factor from one unit to another of the same kind (volume or weight), or null when they differ in kind. */
 function generalFactor(from: string, to: string): number | null {
   for (const sizes of [VOLUME_IN_TSP, WEIGHT_IN_OZ]) {
-    if (from in sizes && to in sizes) return sizes[from] / sizes[to];
+    if (has(sizes, from) && has(sizes, to)) return sizes[from] / sizes[to];
   }
   return null;
+}
+
+/** generalFactor, plus 1 between a unit and itself (so count units like "each" link to themselves). */
+function sameUnitOrGeneral(from: string, to: string): number | null {
+  return from === to ? 1 : generalFactor(from, to);
+}
+
+/**
+ * Drops floating-point noise, so 4 oz converted out and back is 4, not 3.9999999999999996. Use it once, on an
+ * amount about to be stored: rounding each step of a chain of conversions would lose precision instead.
+ */
+export function cleanAmount(amount: number): number {
+  return Number(amount.toPrecision(12));
+}
+
+/**
+ * Converts an amount of an ingredient between any two units, in either direction: the same kind directly, or
+ * through at most one of the ingredient's factors, with a same-kind step on either side of it (1 chicken
+ * breast → 6 oz → 170 g). Returns null when nothing links the two units.
+ */
+export function convertPantryAmount(ingredient: string, amount: number, from: string, to: string): Conversion | null {
+  const general = sameUnitOrGeneral(from, to);
+  if (general !== null) return { amount: amount * general, approximate: false };
+  const factors = INGREDIENT_FACTORS[normalizeSearchTerm(ingredient)] ?? {};
+  for (const [recipeUnit, { to: pantryUnit, factor, exact }] of Object.entries(factors)) {
+    const forwardIn = sameUnitOrGeneral(from, recipeUnit);
+    const forwardOut = sameUnitOrGeneral(pantryUnit, to);
+    if (forwardIn !== null && forwardOut !== null) {
+      return { amount: amount * forwardIn * factor * forwardOut, approximate: !exact };
+    }
+    const backwardIn = sameUnitOrGeneral(from, pantryUnit);
+    const backwardOut = sameUnitOrGeneral(recipeUnit, to);
+    if (backwardIn !== null && backwardOut !== null) {
+      return { amount: (amount * backwardIn * backwardOut) / factor, approximate: !exact };
+    }
+  }
+  return null;
+}
+
+/** One unit the pantry can show an ingredient in, and whether getting there rests on a typical size or density. */
+export type UnitChoice = { unit: string; approximate: boolean };
+
+/** The units offered for each kind, in the order the unit chips show them. */
+const VOLUME_CHOICES = ['tsp', 'tbsp', 'cup', 'ml', 'l'];
+const WEIGHT_CHOICES = ['oz', 'lb', 'g', 'kg'];
+/** Count units offered for one ingredient, beyond its pantry unit. */
+const COUNT_CHOICES: Record<string, string[]> = { egg: ['dozen'] };
+
+/**
+ * The units the pantry can show an ingredient in: its pantry unit first, then the other units of the same kind
+ * (volume or weight), then weights when one of its factors reaches a weight, then any extra count units
+ * (dozens of eggs). Volumes of another kind are left out: the factors that reach them describe chopped or
+ * cooked food (a cup of chopped onion), not what sits in the pantry.
+ */
+export function pantryUnitChoices(ingredient: string, pantryUnit: string): UnitChoice[] {
+  const kind = unitKind(pantryUnit);
+  const candidates = [
+    ...(kind === 'volume' ? VOLUME_CHOICES : []),
+    ...WEIGHT_CHOICES,
+    ...(COUNT_CHOICES[normalizeSearchTerm(ingredient)] ?? []),
+  ].filter((unit) => unit !== pantryUnit);
+  const choices: UnitChoice[] = [{ unit: pantryUnit, approximate: false }];
+  for (const unit of candidates) {
+    const conversion = convertPantryAmount(ingredient, 1, pantryUnit, unit);
+    if (conversion) choices.push({ unit, approximate: conversion.approximate });
+  }
+  return choices;
 }
 
 /**

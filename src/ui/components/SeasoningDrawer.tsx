@@ -5,11 +5,14 @@
 // so the sheet grows out of the handle and shrinks back into it. A tap on the handle, Done, the backdrop or
 // the grab bar plays that over TRAY_SLIDE_MS. Dragging the handle up, or the sheet's grab bar and header
 // down, moves the top edge with the finger; when let go it springs to where trayDrag's settlesOpen says,
-// calling onOpen or onClose if that is a change. With Reduce Motion on, it jumps instead.
+// calling onOpen or onClose if that is a change. With Reduce Motion on, it jumps instead. Android's back
+// button closes the open tray.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import type { SeasoningGroup } from '../../domain/seasonings';
 import { draggedOffset, settlesOpen, startsTrayDrag, trayTravel, TRAY_SLIDE_MS } from '../motion/trayDrag';
+import { useReduceMotion } from '../motion/useReduceMotion';
+import { useCloseOnBack } from '../platform/useCloseOnBack';
 import { colors, radii, shadows, spacing } from '../theme';
 import { SeasoningTray } from './SeasoningTray';
 import { SEASONING_HANDLE_HEIGHT, SeasoningTrayHandle } from './SeasoningTrayHandle';
@@ -48,6 +51,7 @@ export function SeasoningDrawer({ groups, on, bottom, handleBottom, open, onOpen
   const [settledOpen, setSettledOpen] = useState(open);
   const [draggingHandle, setDraggingHandle] = useState(false);
   const reduceMotion = useReduceMotion();
+  useCloseOnBack(open, onClose);
   /** How far the top edge sits below open: 0 is open, travel is closed (the sheet is the handle). */
   const offset = useRef(new Animated.Value(open ? 0 : travel)).current;
 
@@ -239,26 +243,6 @@ export function SeasoningDrawer({ groups, on, bottom, handleBottom, open, onOpen
       </Animated.View>
     </View>
   );
-}
-
-/** Whether the phone's Reduce Motion setting is on (false until it is known). */
-function useReduceMotion(): boolean {
-  const [reduceMotion, setReduceMotion] = useState(false);
-  useEffect(() => {
-    let current = true;
-    AccessibilityInfo.isReduceMotionEnabled().then(
-      (enabled) => {
-        if (current) setReduceMotion(enabled);
-      },
-      () => {},
-    );
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => {
-      current = false;
-      subscription.remove();
-    };
-  }, []);
-  return reduceMotion;
 }
 
 const styles = StyleSheet.create({

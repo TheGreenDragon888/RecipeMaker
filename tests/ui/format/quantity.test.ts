@@ -1,4 +1,26 @@
-import { formatAmount, formatQuantity } from '../../../src/ui/format/quantity';
+import { formatAmount, formatKitchenAmount, formatQuantity } from '../../../src/ui/format/quantity';
+
+describe('formatKitchenAmount', () => {
+  it.each([
+    [2, '2'],
+    [1.5, '1 1/2'],
+    [0.333333, '1/3'],
+    [2.0625, '2.06'],
+    [31.9999, '32'],
+    [0.3125, '0.31'],
+    [6.1875, '6.19'],
+  ])('shows %p as "%s"', (value, expected) => {
+    expect(formatKitchenAmount(value)).toBe(expected);
+  });
+
+  it('never says "about": a value near a fraction shows as a decimal', () => {
+    expect(formatKitchenAmount(0.458)).toBe('0.46');
+  });
+
+  it('shows a tiny amount instead of rounding it to 0', () => {
+    expect(formatKitchenAmount(0.001)).toBe('0.001');
+  });
+});
 
 describe('formatAmount', () => {
   it.each([

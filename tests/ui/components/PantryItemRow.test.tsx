@@ -118,6 +118,62 @@ describe('PantryItemRow', () => {
     });
   });
 
+  describe('amounts in other units', () => {
+    it('shows a fraction rounded for its unit', async () => {
+      await renderRow({ quantity: 2.0625, unit: 'cup' });
+      expect(shownText()).toEqual(expect.arrayContaining(['2.06', 'cups']));
+    });
+
+    it('shows metric units as written, rounded to whole numbers', async () => {
+      await renderRow({ quantity: 473.176, unit: 'ml' });
+      expect(shownText()).toEqual(expect.arrayContaining(['473', 'mL']));
+    });
+
+    it('marks an approximate amount with "≈"', async () => {
+      await renderRow({ quantity: 6, unit: 'oz', approximate: true });
+      expect(shownText()).toContain('≈ 6');
+    });
+
+    it('names the unit − / + step in when it differs from the one shown', async () => {
+      await renderRow({ name: 'milk', quantity: 473, unit: 'ml', stepUnit: 'cup' });
+      expect([button('Increase milk by 1 cup'), button('Decrease milk by 1 cup')]).toHaveLength(2);
+    });
+  });
+
+  describe('amount button', () => {
+    const edit = () => screen.getByRole('button', { name: 'Edit amount and unit for green onion' });
+
+    it('opens the amount sheet when tapped', async () => {
+      const onEditAmount = jest.fn();
+      await renderRow({ onEditAmount, hasOtherUnits: true });
+      await fireEvent.press(edit());
+      expect(onEditAmount).toHaveBeenCalledTimes(1);
+    });
+
+    it('holds the amount, and tells screen readers what it is', async () => {
+      await renderRow({ quantity: 3, unit: 'stalk', onEditAmount: () => {}, hasOtherUnits: true });
+      expect([shownText(edit()).join(''), edit().props.accessibilityValue]).toEqual([
+        '3 stalks',
+        expect.objectContaining({ text: '3 stalks' }),
+      ]);
+    });
+
+    it('says only the amount can be edited when there are no other units', async () => {
+      await renderRow({ onEditAmount: () => {}, hasOtherUnits: false });
+      expect(screen.getByRole('button', { name: 'Edit amount for green onion' })).toBeOnTheScreen();
+    });
+
+    it('is 44px tall and not inside the pill', async () => {
+      await renderRow({ onEditAmount: () => {}, hasOtherUnits: true });
+      expect([styleOf(edit()).height, ancestors(edit()).includes(screen.getByTestId('quantity-pill'))]).toEqual([44, false]);
+    });
+
+    it('is not a button without onEditAmount', async () => {
+      await renderRow();
+      expect(screen.queryByRole('button', { name: /^Edit amount/ })).toBeNull();
+    });
+  });
+
   describe('touch areas', () => {
     it.each(['Decrease green onion quantity', 'Increase green onion quantity'])('gives "%s" a 44px square', async (label) => {
       await renderRow();

@@ -77,6 +77,20 @@ describe('formatPantryUnit', () => {
   it('is null when the unit is not known', () => {
     expect(formatPantryUnit(2, null)).toBeNull();
   });
+
+  it('uses the singular unit for an amount below 1', () => {
+    expect(formatPantryUnit(0.5, 'cup')).toBe('cup');
+  });
+
+  it.each([
+    ['ml', 'mL'],
+    ['l', 'L'],
+    ['g', 'g'],
+    ['kg', 'kg'],
+    ['dozen', 'dozen'],
+  ])('shows "%s" as "%s" at any amount', (unit, expected) => {
+    expect([formatPantryUnit(1, unit), formatPantryUnit(250, unit)]).toEqual([expected, expected]);
+  });
 });
 
 describe('formatSeasoningSection', () => {

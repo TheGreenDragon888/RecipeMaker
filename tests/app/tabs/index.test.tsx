@@ -38,6 +38,11 @@ describe('index route', () => {
     expect(screenProps().bottomClearance).toBe(110);
   });
 
+  it('passes the bottom inset, so the amount sheet can rise above the keyboard', async () => {
+    await renderRoute();
+    expect(screenProps().bottomInset).toBe(34);
+  });
+
   it('renders the pantry screen with the started services', async () => {
     await renderRoute();
     expect(screenProps().services).toBe(services);
