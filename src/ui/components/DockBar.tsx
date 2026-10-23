@@ -12,7 +12,7 @@ type Props = {
   /** Distance from the bottom of the screen, from platform/dockLayout (above the home indicator). */
   bottom: number;
   /** For the Android blur: the view holding the screens, which the dock blurs. It must not contain the dock. */
-  blurTarget?: React.RefObject<View | null>;
+  blurTarget?: React.RefObject<React.ComponentRef<typeof View> | null>;
   children: React.ReactNode;
 };
 

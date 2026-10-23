@@ -13,7 +13,7 @@ import { currentDockSurface } from '../../src/ui/platform/dockSurface';
 import { colors } from '../../src/ui/theme';
 
 export default function TabsLayout() {
-  const screens = useRef<View>(null);
+  const screens = useRef<React.ComponentRef<typeof View>>(null);
   const insets = useSafeAreaInsets();
   return (
     <Tabs>

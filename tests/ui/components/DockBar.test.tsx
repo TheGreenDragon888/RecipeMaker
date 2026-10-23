@@ -8,7 +8,7 @@ import { colors } from '../../../src/ui/theme';
 import type { DockSurface } from '../../../src/ui/platform/dockSurface';
 import { render, shownText } from '../../support/render';
 
-const renderBar = (surface: DockSurface, blurTarget?: React.RefObject<View | null>, bottom = 24) =>
+const renderBar = (surface: DockSurface, blurTarget?: React.RefObject<React.ComponentRef<typeof View> | null>, bottom = 24) =>
   render(
     <DockBar surface={surface} bottom={bottom} blurTarget={blurTarget}>
       <Text>Pantry</Text>
@@ -54,13 +54,13 @@ describe('DockBar', () => {
 
   describe('with the Android blur', () => {
     it('blurs the given target view', () => {
-      const target = React.createRef<View>();
+      const target = React.createRef<React.ComponentRef<typeof View>>();
       const blur = renderBar('androidBlur', target).root.findByType(BlurView);
       expect(blur.props.blurTarget).toBe(target);
     });
 
     it('uses the Android 12+ blur method', () => {
-      const blur = renderBar('androidBlur', React.createRef<View>()).root.findByType(BlurView);
+      const blur = renderBar('androidBlur', React.createRef<React.ComponentRef<typeof View>>()).root.findByType(BlurView);
       expect(blur.props.blurMethod).toBe('dimezisBlurViewSdk31Plus');
     });
   });
