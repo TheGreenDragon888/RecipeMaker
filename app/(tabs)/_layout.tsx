@@ -23,6 +23,8 @@ export default function TabsLayout() {
 /** iOS: the system tab bar. Its icons are SF Symbols, filled in on the selected tab. */
 function NativeTabsLayout() {
   return (
+    // iOS 26's Liquid Glass bar ignores the label font (checked in Expo Go) and keeps the system font; kept in
+    // case a later iOS or Expo version honours it.
     <NativeTabs minimizeBehavior="onScrollDown" tintColor={colors.accent} labelStyle={{ fontFamily: fonts.semibold }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon sf={{ default: 'cabinet', selected: 'cabinet.fill' }} />
