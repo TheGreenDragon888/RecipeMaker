@@ -47,7 +47,7 @@ type Props = {
   onFindRecipes: (pantry: string[]) => void;
   /** The clock that picks the tagline; tests pass a fixed time. */
   now?: () => Date;
-  /** Room to leave at the bottom for the dock (platform/dockLayout's dockClearance). Defaults to the board's. */
+  /** Room to leave at the bottom for the tab bar (platform/dockLayout's tabScreenClearance). Defaults to the board's. */
   bottomClearance?: number;
   /** The safe area's bottom inset, so the amount sheet can rise above the keyboard (see platform/keyboardLift). */
   bottomInset?: number;

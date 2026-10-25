@@ -1,6 +1,6 @@
 // PRESENTATION LAYER: loads the mockup's fonts and holds the app back until they are ready.
-// If loading fails, the app still opens and text falls back to the system font.
-import React from 'react';
+// If loading fails, the app still opens, text falls back to the system font, and the error is logged.
+import React, { useEffect } from 'react';
 import { useFonts } from 'expo-font';
 import { Caveat_600SemiBold } from '@expo-google-fonts/caveat/600SemiBold';
 import { Lora_600SemiBold } from '@expo-google-fonts/lora/600SemiBold';
@@ -25,6 +25,9 @@ type Props = {
 
 export function AppFontsGate({ children }: Props) {
   const [loaded, error] = useFonts(fontFiles);
+  useEffect(() => {
+    if (error) console.warn('Fonts failed to load; using the system font.', error);
+  }, [error]);
   if (!loaded && !error) return null;
   return <>{children}</>;
 }

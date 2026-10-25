@@ -1,6 +1,6 @@
 // PRESENTATION LAYER: the seasoning tray's handle and sheet, and how one turns into the other.
 // The screen says whether the tray is open; this component moves the sheet there. Closed, the sheet is the
-// handle's box above "Find recipes"; open, it is the full sheet above the dock. In between, its top edge,
+// handle's box above "Find recipes"; open, it is the full sheet above the tab bar. In between, its top edge,
 // bottom edge, side margins and corners all blend between the two, and the handle fades out on top of it,
 // so the sheet grows out of the handle and shrinks back into it. A tap on the handle, Done, the backdrop or
 // the grab bar plays that over TRAY_SLIDE_MS. Dragging the handle up, or the sheet's grab bar and header
@@ -21,7 +21,7 @@ type Props = {
   groups: SeasoningGroup[];
   /** Names of the seasonings that are on. */
   on: string[];
-  /** Distance from the screen's bottom edge to the open sheet's bottom (the dock's clearance). */
+  /** Distance from the screen's bottom edge to the open sheet's bottom (the tab screen's clearance for its tab bar). */
   bottom: number;
   /** Distance from the screen's bottom edge to the closed handle's bottom. */
   handleBottom: number;

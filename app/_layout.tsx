@@ -1,7 +1,7 @@
 // PRESENTATION LAYER (root layout): wiring only. Device-only like src/main.ts, because it starts the real
 // services (which open the SQLite database). Font loading lives in AppFontsGate; loading and error
 // handling for the services live in RecipeServicesProvider. The safe area pads the top only: the tab screens
-// run to the bottom edge so the dock can sit just above the home indicator (app/(tabs)/_layout.tsx), and every
+// run to the bottom edge, under the tab bar (app/(tabs)/_layout.tsx: the dock on Android, the system bar on iOS), and every
 // other screen gets the bottom inset as padding instead.
 import React from 'react';
 import { Stack } from 'expo-router';

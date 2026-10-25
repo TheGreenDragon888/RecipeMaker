@@ -36,6 +36,15 @@ describe('AppFontsGate', () => {
     expect(shownText()).toEqual(['App']);
   });
 
+  it('reports the loading error in the console when the fonts fail to load', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const error = new Error('no font');
+    mockedUseFonts.mockReturnValue([false, error]);
+    await renderGate();
+    expect(warn).toHaveBeenCalledWith('Fonts failed to load; using the system font.', error);
+    warn.mockRestore();
+  });
+
   it('loads every font family the theme names', async () => {
     mockedUseFonts.mockReturnValue([true, null]);
     await renderGate();

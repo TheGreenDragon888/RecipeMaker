@@ -1,5 +1,5 @@
 // PRESENTATION LAYER: a sheet that slides up over the screen, as the board's amount sheet does: a dimmed backdrop
-// from the top down to the sheet's bottom edge (so the dock below stays uncovered), and the sheet itself, with
+// from the top down to the sheet's bottom edge (so the tab bar below stays uncovered), and the sheet itself, with
 // its top corners rounded. It slides in and out over TRAY_SLIDE_MS (it jumps with Reduce Motion on), rises above
 // the on-screen keyboard, and closes on the backdrop and on Android's back button. What it shows comes in as
 // children; it keeps showing them while it slides away.

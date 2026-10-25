@@ -1,5 +1,5 @@
 // PRESENTATION LAYER: the Recipes tab — every recipe, in the order listAllRecipes returns them, to browse
-// without a pantry. Shown under the bottom dock, so the list leaves room for it.
+// without a pantry. Shown under the tab bar, so the list leaves room for it.
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
@@ -11,7 +11,7 @@ import { colors, dock, fonts, fontSize, spacing } from '../theme';
 type Props = {
   services: RecipeServices;
   onOpenRecipe: (recipeId: number) => void;
-  /** Room to leave at the bottom for the dock (platform/dockLayout's dockClearance). Defaults to the board's. */
+  /** Room to leave at the bottom for the tab bar (platform/dockLayout's tabScreenClearance). Defaults to the board's. */
   bottomClearance?: number;
 };
 
