@@ -1,10 +1,10 @@
 import React from 'react';
 import { Animated, Keyboard } from 'react-native';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import { TRAY_SLIDE_MS } from '../../../src/ui/motion/trayDrag';
 import { PantryScreen } from '../../../src/ui/screens/PantryScreen';
-import { dock } from '../../../src/ui/theme';
+import { dock, shadows, spacing } from '../../../src/ui/theme';
 import type { PantryCatalog } from '../../../src/domain/pantryCatalog';
 import { listContentStyle, shownIcons, shownText, styleOf, tapTwiceBeforeRedraw } from '../../support/screen';
 
@@ -390,6 +390,44 @@ describe('PantryScreen', () => {
       await act(async () => forTo.resolve([suggestion('tofu'), suggestion('tomato')]));
 
       expect(suggestionButtons()).toEqual(['Add tomato']);
+    });
+  });
+
+  // Android clips a view to its parent's edges here (react-native-screens' Screen clips its children), so a
+  // dropdown hanging out of the text field's area is never drawn. It floats from the screen itself instead.
+  describe('where the dropdown floats', () => {
+    const fieldArea = () => screen.getByTestId('add-area');
+    const dropdown = () => screen.getByTestId('field-dropdown');
+
+    /** The field's area as measured on screen: 100 px from the top, 52 px tall. */
+    async function measureFieldArea() {
+      await fireEvent(fieldArea(), 'layout', { nativeEvent: { layout: { x: 20, y: 100, width: 350, height: 52 } } });
+    }
+
+    it('places the suggestions just under the text field', async () => {
+      await setup({ suggestIngredients: jest.fn().mockResolvedValue([suggestion('tofu')]) });
+      await measureFieldArea();
+      await typeText('to');
+      expect(styleOf(dropdown()).top).toBe(100 + 52 + spacing.sm);
+    });
+
+    it('places a notice just under the text field', async () => {
+      await setup({ suggestIngredients: jest.fn().mockRejectedValue(new Error('database busy')) });
+      await measureFieldArea();
+      await typeText('to');
+      expect(styleOf(dropdown()).top).toBe(100 + 52 + spacing.sm);
+    });
+
+    it("keeps the suggestions outside the text field's area, which Android would clip them to", async () => {
+      await setup({ suggestIngredients: jest.fn().mockResolvedValue([suggestion('tofu')]) });
+      await typeText('to');
+      expect(within(fieldArea()).queryByTestId('field-dropdown')).toBeNull();
+    });
+
+    it('lifts the suggestions as high as the find button, so Android draws them over it', async () => {
+      await setup({ suggestIngredients: jest.fn().mockResolvedValue([suggestion('tofu')]) });
+      await typeText('to');
+      expect(styleOf(dropdown()).elevation).toBeGreaterThanOrEqual(shadows.floatingButton.elevation);
     });
   });
 

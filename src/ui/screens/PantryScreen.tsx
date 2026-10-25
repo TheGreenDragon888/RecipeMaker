@@ -73,6 +73,8 @@ export function PantryScreen({
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeOpacity = useRef(new Animated.Value(1)).current;
   const [focused, setFocused] = useState(false);
+  /** Where the dropdown's top goes: just under the field, from the field's area as measured on screen. */
+  const [dropdownTop, setDropdownTop] = useState<number | undefined>(undefined);
   // Numbers each request so a slow reply for older text can't act on newer text.
   const latestRequest = useRef(0);
   /** Units and the seasoning tray, loaded once. Until it loads (or if it fails), items get no unit and there's no tray. */
@@ -209,7 +211,14 @@ export function PantryScreen({
         </Text>
       </View>
 
-      <View style={styles.addArea}>
+      <View
+        style={styles.addArea}
+        testID="add-area"
+        onLayout={(event) => {
+          const { y, height } = event.nativeEvent.layout;
+          setDropdownTop(y + height + spacing.sm);
+        }}
+      >
         <View style={[styles.field, focused && styles.fieldFocused]}>
           <Icon name="search" size={18} color={colors.textMuted} />
           <TextInput
@@ -228,17 +237,6 @@ export function PantryScreen({
             value={text}
           />
         </View>
-
-        {suggestions.length > 0 ? (
-          <View style={styles.dropdown}>
-            <SuggestionList suggestions={suggestions} typed={text} onSelect={add} />
-          </View>
-        ) : null}
-        {notice ? (
-          <Animated.View style={[styles.dropdown, { opacity: noticeOpacity }]}>
-            <Text style={styles.notice}>{notice.text}</Text>
-          </Animated.View>
-        ) : null}
       </View>
 
       <ScrollView style={styles.list} contentContainerStyle={[styles.listContent, { paddingBottom: listBottom }]} keyboardShouldPersistTaps="handled">
@@ -309,6 +307,22 @@ export function PantryScreen({
           />
         ) : null}
       </BottomSheet>
+
+      {/*
+        The suggestions and notices float from the screen itself, just under the field. Android clips a view to
+        its parent's edges here, so hanging them out of the field's area would leave them undrawn. Last, so
+        they're drawn over the list, the tray and the sheet, as the field's area was.
+      */}
+      {suggestions.length > 0 || notice ? (
+        <View style={[styles.dropdown, { top: dropdownTop }]} testID="field-dropdown">
+          {suggestions.length > 0 ? <SuggestionList suggestions={suggestions} typed={text} onSelect={add} /> : null}
+          {notice ? (
+            <Animated.View style={{ opacity: noticeOpacity }}>
+              <Text style={styles.notice}>{notice.text}</Text>
+            </Animated.View>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -343,8 +357,7 @@ const styles = StyleSheet.create({
   },
   title: { fontFamily: fonts.heading, fontSize: fontSize.pantryTitle, color: colors.text },
   tagline: { flexShrink: 1, fontFamily: fonts.handwritten, fontSize: 20, color: colors.accent },
-  // Sits above the list so the dropdown can overlap it.
-  addArea: { zIndex: 1, marginTop: spacing.lg, marginBottom: 6, marginHorizontal: spacing.screen },
+  addArea: { marginTop: spacing.lg, marginBottom: 6, marginHorizontal: spacing.screen },
   field: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -366,8 +379,15 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 0,
   },
-  // Floats over the pantry list, the same width as the text field.
-  dropdown: { position: 'absolute', top: '100%', left: 0, right: 0, marginTop: spacing.sm },
+  // Floats over the pantry list, the same width as the text field (its top is set in the JSX). Android draws
+  // the screen's views in order of elevation first, so it needs the find button's elevation to cover it.
+  dropdown: {
+    position: 'absolute',
+    left: spacing.screen,
+    right: spacing.screen,
+    gap: spacing.sm,
+    elevation: shadows.floatingButton.elevation,
+  },
   notice: {
     padding: spacing.lg,
     borderWidth: 1,
