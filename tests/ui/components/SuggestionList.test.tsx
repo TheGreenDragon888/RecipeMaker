@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SuggestionList } from '../../../src/ui/components/SuggestionList';
 import { colors } from '../../../src/ui/theme';
-import { pressIn, shownText, styleOf } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, pressIn, shownText, styleOf } from '../../support/screen';
 
 const suggestion = (ingredient: string, matchedAlias: string | null = null) => ({ ingredient, matchedAlias });
 
@@ -37,6 +37,12 @@ describe('SuggestionList', () => {
     expect(shownText()).toContain('Sesame Oil (Toasted Sesame Oil)');
     await fireEvent.press(screen.getByLabelText('Add sesame oil (toasted sesame oil)'));
     expect(onSelect).toHaveBeenCalledWith('sesame oil');
+  });
+
+  it('fades a pressed row as one picture', async () => {
+    await render(<SuggestionList suggestions={[suggestion('tofu'), suggestion('tomato')]} typed="to" onSelect={() => {}} />);
+    await pressIn(screen.getByLabelText('Add tomato'));
+    expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
   });
 
   it('shows "+ Add" on every suggestion', async () => {

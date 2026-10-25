@@ -142,6 +142,8 @@ function StepButton({ by, unit, onPress }: { by: number; unit: string | null; on
       accessibilityRole="button"
       accessibilityLabel={formatSheetStepLabel(by, unit)}
       onPress={onPress}
+      // Android fades the button as one picture, not its fill, border and label separately (see AGENTS.md §5.2).
+      needsOffscreenAlphaCompositing
       style={({ pressed }) => [styles.step, big ? styles.stepBig : styles.stepSmall, pressed && styles.stepPressed]}
     >
       <Text style={styles.stepText}>{by < 0 ? `−${-by}` : `+${by}`}</Text>

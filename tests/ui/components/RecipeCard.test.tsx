@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { RecipeSummary } from '../../../src/domain/recipe';
 import { RecipeCard } from '../../../src/ui/components/RecipeCard';
-import { shownIcons, shownText } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, pressIn, shownIcons, shownText } from '../../support/screen';
 
 const recipe: RecipeSummary = {
   id: 7,
@@ -40,6 +40,12 @@ describe('RecipeCard', () => {
     await render(<RecipeCard recipe={recipe} onHand={onHand} onPress={onPress} />);
     await fireEvent.press(screen.getByRole('button'));
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('fades as one picture while pressed', async () => {
+    await render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
+    await pressIn(screen.getByRole('button'));
+    expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
   });
 
   it('draws a clock icon beside the total time', async () => {

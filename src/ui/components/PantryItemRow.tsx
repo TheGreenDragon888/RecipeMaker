@@ -103,7 +103,11 @@ function StepButton({ label, icon, onPress, disabled = false }: StepButtonProps)
       style={styles.touch}
     >
       {({ pressed }) => (
-        <View style={[styles.circle, pressed && styles.circlePressed, disabled && styles.circleDisabled]}>
+        // Android fades the circle as one picture, not its fill and icon separately (see AGENTS.md §5.2).
+        <View
+          needsOffscreenAlphaCompositing
+          style={[styles.circle, pressed && styles.circlePressed, disabled && styles.circleDisabled]}
+        >
           <Icon name={icon} size={14} color={colors.accent} strokeWidth={2.5} />
         </View>
       )}

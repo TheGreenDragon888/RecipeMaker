@@ -20,6 +20,8 @@ export function PrimaryButton({ label, onPress, disabled = false, showArrow = fa
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
+      // Android fades the button as one picture, not its fill and label separately (see AGENTS.md §5.2).
+      needsOffscreenAlphaCompositing
       style={({ pressed }) => [styles.button, pressed && styles.pressed, disabled && styles.disabled]}
     >
       <Text style={styles.label}>{label}</Text>

@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { DockItem } from '../../../src/ui/components/DockItem';
 import { colors } from '../../../src/ui/theme';
-import { iconDrawing, shownIcons, shownText, styleOf } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, iconDrawing, pressIn, shownIcons, shownText, styleOf } from '../../support/screen';
 
 const tab = () => screen.getByRole('tab');
 
@@ -84,6 +84,19 @@ describe('DockItem', () => {
     it('is drawn at half opacity, as on the board', async () => {
       await render(<DockItem label="Bookmarks" icon="bookmark" disabled />);
       expect(styleOf(tab()).opacity).toBe(0.5);
+    });
+
+    it('fades as one picture', async () => {
+      await render(<DockItem label="Bookmarks" icon="bookmark" disabled />);
+      expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
+    });
+  });
+
+  describe('while pressed', () => {
+    it('fades as one picture', async () => {
+      await render(<DockItem label="Pantry" icon="pantry" isFocused />);
+      await pressIn(tab());
+      expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
     });
   });
 });

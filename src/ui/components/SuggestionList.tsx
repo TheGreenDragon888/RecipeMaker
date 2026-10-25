@@ -35,6 +35,8 @@ export function SuggestionList({ suggestions, typed, onSelect }: Props) {
               accessibilityRole="button"
               accessibilityLabel={`Add ${label}`}
               onPress={() => onSelect(suggestion.ingredient)}
+              // Android fades a pressed row as one picture, not its fill and text separately (see AGENTS.md §5.2).
+              needsOffscreenAlphaCompositing
               // The mockup highlights the first row, like the top pick of a search.
               style={({ pressed }) => [styles.row, index === 0 && styles.rowHighlighted, pressed && styles.rowPressed]}
             >

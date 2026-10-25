@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SheetFooterButton, SheetGrabBar, SheetHeader, SheetSectionLabel } from '../../../src/ui/components/SheetParts';
 import { colors } from '../../../src/ui/theme';
-import { iconDrawing, shownIcons, shownText } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, iconDrawing, shownIcons, shownText } from '../../support/screen';
 
 describe('SheetGrabBar', () => {
   it('is a button with the label it is given', async () => {
@@ -65,5 +65,10 @@ describe('SheetFooterButton', () => {
     await fireEvent.press(button);
     expect(button).toBeDisabled();
     expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('fades as one picture when disabled', async () => {
+    await render(<SheetFooterButton label="Save" onPress={() => {}} disabled />);
+    expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
   });
 });

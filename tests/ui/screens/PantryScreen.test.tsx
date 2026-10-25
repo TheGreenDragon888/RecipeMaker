@@ -4,9 +4,9 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import { TRAY_SLIDE_MS } from '../../../src/ui/motion/trayDrag';
 import { PantryScreen } from '../../../src/ui/screens/PantryScreen';
-import { dock, shadows, spacing } from '../../../src/ui/theme';
+import { colors, dock, shadows, spacing } from '../../../src/ui/theme';
 import type { PantryCatalog } from '../../../src/domain/pantryCatalog';
-import { listContentStyle, shownIcons, shownText, styleOf, tapTwiceBeforeRedraw } from '../../support/screen';
+import { fadesAsOnePicture, listContentStyle, shownIcons, shownText, styleOf, tapTwiceBeforeRedraw } from '../../support/screen';
 
 const suggestion = (ingredient: string, matchedAlias: string | null = null) => ({ ingredient, matchedAlias });
 
@@ -179,6 +179,13 @@ describe('PantryScreen', () => {
     it('floats the find button above a dock lifted by a home indicator', async () => {
       await setup({ bottomClearance: 110 });
       expect(styleOf(findButtonHolder('Find recipes with 0 ingredients')).bottom).toBe(110);
+    });
+
+    // Android draws the holder's shadow under the whole holder, so it showed through the see-through disabled
+    // button as a box. A solid fill under the button hides it.
+    it("fills the find button's holder with the screen's background, so its shadow can't show through the button", async () => {
+      await setup();
+      expect(styleOf(findButtonHolder('Find recipes with 0 ingredients')).backgroundColor).toBe(colors.background);
     });
 
     it('leaves room below the last ingredient for a dock lifted by a home indicator', async () => {
@@ -612,6 +619,16 @@ describe('PantryScreen', () => {
         await addIngredient('paprika');
         await wait(2700);
         expect(shownText()).toContain('Paprika is on in Seasonings.');
+      });
+
+      // The fade runs on the native animation driver, which Jest doesn't play, so this checks the view that holds
+      // the fade (the notice's parent) rather than catching it halfway.
+      it('fades the notice out as one picture', async () => {
+        await withCatalog();
+        await flush();
+        await addIngredient('paprika');
+        const fading = screen.getByText('Paprika is on in Seasonings.').parent!;
+        expect([styleOf(fading).opacity, fadesAsOnePicture(fading)]).toEqual([1, true]);
       });
 
       it('hides the seasoning notice after 3 seconds', async () => {

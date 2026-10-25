@@ -1,7 +1,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { PrimaryButton } from '../../../src/ui/components/PrimaryButton';
-import { shownIcons, shownText } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, pressIn, shownIcons, shownText } from '../../support/screen';
 
 describe('PrimaryButton', () => {
   it('shows its label', async () => {
@@ -19,6 +19,17 @@ describe('PrimaryButton', () => {
   it('is marked disabled when disabled', async () => {
     await render(<PrimaryButton label="Go" onPress={() => {}} disabled />);
     expect(screen.getByRole('button')).toBeDisabled();
+  });
+
+  it('fades as one picture when disabled', async () => {
+    await render(<PrimaryButton label="Find recipes" onPress={() => {}} disabled showArrow />);
+    expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
+  });
+
+  it('fades as one picture while pressed', async () => {
+    await render(<PrimaryButton label="Find recipes" onPress={() => {}} showArrow />);
+    await pressIn(screen.getByRole('button'));
+    expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
   });
 
   it('is announced by its label alone, without the arrow', async () => {

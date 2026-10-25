@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 import { PantryItemRow } from '../../../src/ui/components/PantryItemRow';
-import { shownIcons, shownText, styleOf } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, shownIcons, shownText, styleOf } from '../../support/screen';
 
 type RowProps = React.ComponentProps<typeof PantryItemRow>;
 
@@ -84,6 +84,11 @@ describe('PantryItemRow', () => {
     it('tells screen readers it is disabled at the maximum', async () => {
       await renderRow({ canIncrease: false });
       expect(button('Increase green onion quantity').props.accessibilityState).toEqual({ disabled: true });
+    });
+
+    it('fades its circle as one picture at the maximum', async () => {
+      await renderRow({ canIncrease: false });
+      expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
     });
   });
 

@@ -17,6 +17,19 @@ export function styleOf(element: TestInstance) {
   return StyleSheet.flatten(element.props.style) ?? {};
 }
 
+/** The native views drawn see-through right now (opacity below 1), in screen order. */
+export function fadedViews(): TestInstance[] {
+  return screen.container.queryAll((node) => typeof node.type === 'string' && (styleOf(node).opacity ?? 1) < 1);
+}
+
+/**
+ * Whether a native view fades as one picture on Android (needsOffscreenAlphaCompositing). Without it, Android fades
+ * each piece of the view on its own, and a darker patch shows where pieces overlap (a button's fill under its label).
+ */
+export function fadesAsOnePicture(element: TestInstance): boolean {
+  return element.props.needsOffscreenAlphaCompositing === true;
+}
+
 /** Every native view of a type (e.g. 'RNSVGPath' for an icon's lines), in screen order. */
 export function shownOfType(type: string): TestInstance[] {
   return screen.container.queryAll((node) => node.type === type);

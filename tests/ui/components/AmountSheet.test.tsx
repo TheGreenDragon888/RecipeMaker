@@ -5,7 +5,7 @@ import type { PantryItem } from '../../../src/domain/pantry';
 import { shownPantryAmount } from '../../../src/domain/pantry';
 import { pantryUnitChoices } from '../../../src/domain/unitConversions';
 import { AmountSheet } from '../../../src/ui/components/AmountSheet';
-import { shownOfType, shownText } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, pressIn, shownOfType, shownText } from '../../support/screen';
 
 const flour: PantryItem = { name: 'all-purpose flour', quantity: 2, unit: 'cup' };
 
@@ -75,6 +75,12 @@ describe('AmountSheet', () => {
       await fireEvent.changeText(field(), '1.5');
       await press('Add 1 cup');
       expect(field().props.value).toBe('2.5');
+    });
+
+    it('fades a pressed step button as one picture', async () => {
+      await renderSheet();
+      await pressIn(screen.getByRole('button', { name: 'Add 1 cup' }));
+      expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
     });
 
     it('names its unit on the step buttons after a unit is picked', async () => {

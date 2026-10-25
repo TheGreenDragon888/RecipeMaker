@@ -233,6 +233,9 @@ export function SeasoningDrawer({ groups, on, bottom, handleBottom, open, onOpen
             <Animated.View
               testID="seasoning-handle-drag-area"
               pointerEvents={!sheetShown || draggingHandle ? 'auto' : 'none'}
+              // Android fades the handle as one picture, not each of its pieces separately (see AGENTS.md §5.2).
+              // The backdrop above is left alone: it is one flat color, with nothing to overlap.
+              needsOffscreenAlphaCompositing
               style={[styles.handle, { opacity: shape.handleOpacity }]}
               {...handleDrag.panHandlers}
             >

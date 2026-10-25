@@ -22,6 +22,8 @@ export function RecipeCard({ recipe, onHand, onPress }: Props) {
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
+      // Android fades the card as one picture, not its fill and text separately (see AGENTS.md §5.2).
+      needsOffscreenAlphaCompositing
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <Text style={styles.name}>{recipe.name}</Text>

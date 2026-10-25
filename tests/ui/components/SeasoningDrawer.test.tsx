@@ -5,7 +5,7 @@ import type { SeasoningGroup } from '../../../src/domain/seasonings';
 import { SeasoningDrawer } from '../../../src/ui/components/SeasoningDrawer';
 import { TRAY_SLIDE_MS } from '../../../src/ui/motion/trayDrag';
 import { drag } from '../../support/drag';
-import { shownText, styleOf } from '../../support/screen';
+import { fadesAsOnePicture, shownText, styleOf } from '../../support/screen';
 
 const groups: SeasoningGroup[] = [{ section: 'everyday', seasonings: ['paprika', 'onion powder'] }];
 
@@ -232,6 +232,13 @@ describe('SeasoningDrawer', () => {
       await render(element());
       drag(view('seasoning-handle-drag-area'), [-100, -200], { release: false });
       expect(trays()).toHaveLength(1);
+    });
+
+    // The backdrop fades too, but it is one flat color with nothing over it to overlap.
+    it('fades the handle as one picture while dragging', async () => {
+      await render(element());
+      drag(view('seasoning-handle-drag-area'), [-10, -20], { release: false });
+      expect(fadesAsOnePicture(view('seasoning-handle-drag-area'))).toBe(true);
     });
 
     it('calls onOpen when let go past a third of the way up', async () => {

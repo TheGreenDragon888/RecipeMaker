@@ -317,7 +317,8 @@ export function PantryScreen({
         <View style={[styles.dropdown, { top: dropdownTop }]} testID="field-dropdown">
           {suggestions.length > 0 ? <SuggestionList suggestions={suggestions} typed={text} onSelect={add} /> : null}
           {notice ? (
-            <Animated.View style={{ opacity: noticeOpacity }}>
+            // Android fades the notice as one picture, not its box and words separately (see AGENTS.md §5.2).
+            <Animated.View needsOffscreenAlphaCompositing style={{ opacity: noticeOpacity }}>
               <Text style={styles.notice}>{notice.text}</Text>
             </Animated.View>
           ) : null}
@@ -404,11 +405,14 @@ const styles = StyleSheet.create({
   listContent: { paddingTop: 6, paddingHorizontal: spacing.screen },
   hint: { paddingVertical: spacing.lg, fontFamily: fonts.regular, fontSize: fontSize.body, color: colors.textSecondary },
   // Floats over the list, just above the bottom dock, as on the board (its bottom is set in the JSX).
+  // Android draws this view's shadow under all of it, so it would show through the see-through disabled
+  // button as a box; the solid fill, the same shape as the button, hides it.
   footer: {
     position: 'absolute',
     left: spacing.screen,
     right: spacing.screen,
     borderRadius: radii.lg,
+    backgroundColor: colors.background,
     ...shadows.floatingButton,
   },
 });

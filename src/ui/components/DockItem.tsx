@@ -25,6 +25,8 @@ export function DockItem({ label, icon, isFocused = false, disabled = false, onP
       accessibilityState={{ selected: isFocused, disabled }}
       disabled={disabled}
       onPress={onPress}
+      // Android fades the item as one picture, not its pill, icon and label separately (see AGENTS.md §5.2).
+      needsOffscreenAlphaCompositing
       style={({ pressed }) => [
         styles.item,
         isFocused && styles.focused,
