@@ -6,8 +6,11 @@
 // staples aren't added, since recipes already assume them. Only one of the tray and the sheet is open at a time.
 // Amounts and units are display only: onFindRecipes gets the names of the list's ingredients and of the
 // seasonings that are on, and the Results screen runs the pantry search with them.
+// The list and the seasonings are kept between launches: the saved pantry loads when the screen opens (adding
+// waits for it), and every change after that is saved. If it can't load, nothing is saved that session, so the
+// saved pantry it couldn't read isn't overwritten.
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import type { IngredientSuggestion } from '../../domain/ingredientSuggestion';
 import {
@@ -36,6 +39,7 @@ import { SuggestionList } from '../components/SuggestionList';
 import { formatMealTagline } from '../format/mealTagline';
 import {
   formatFindRecipesLabel,
+  formatRestoreChanges,
   formatSeasoningAdded,
   formatStapleAssumed,
   formatUnknownIngredient,
@@ -81,6 +85,8 @@ export function PantryScreen({
   const [catalog, setCatalog] = useState<PantryCatalog>(EMPTY_CATALOG);
   const [catalogFailed, setCatalogFailed] = useState(false);
   const [seasoningsOn, setSeasoningsOn] = useState<string[]>([]);
+  /** Where the saved pantry is: still loading, loaded (so changes are saved), or failed (so they aren't). */
+  const [restore, setRestore] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [panel, setPanel] = useState<OpenPanel>(null);
   /** Counts openings of the amount sheet, so each one starts a fresh draft. */
   const openings = useRef(0);
@@ -115,6 +121,35 @@ export function PantryScreen({
       current = false;
     };
   }, [services]);
+
+  useEffect(() => {
+    let current = true;
+    services.loadSavedPantry().then(
+      (restored) => {
+        if (!current) return;
+        setPantry(restored.pantry);
+        setSeasoningsOn(restored.seasoningsOn);
+        setRestore('ready');
+        // Stays until the user types: it shows at launch, when a notice that fades is easy to miss.
+        if (restored.changes.length > 0) setNotice(problem(formatRestoreChanges(restored.changes)));
+      },
+      () => {
+        if (!current) return;
+        setRestore('failed');
+        setNotice(problem('Couldn’t load your saved pantry, so changes won’t be saved this time.'));
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [services]);
+
+  // Saves every change once the saved pantry has loaded, starting with the loaded pantry itself (which keeps
+  // what fitting it to the recipe data changed).
+  useEffect(() => {
+    if (restore !== 'ready') return;
+    services.savePantry(pantry, seasoningsOn).catch(() => setNotice(problem('Couldn’t save your pantry.')));
+  }, [services, restore, pantry, seasoningsOn]);
 
   function changeText(value: string) {
     setText(value);
@@ -199,7 +234,9 @@ export function PantryScreen({
   const unitChoices = (item: PantryItem): UnitChoice[] => (item.unit ? pantryUnitChoices(item.name, item.unit) : []);
 
   const names = pantryNamesForMatching(pantry, seasoningsOn);
-  const hasTray = catalog.seasoningGroups.length > 0;
+  const loading = restore === 'loading';
+  // Hidden until the saved pantry loads, so no seasoning is switched before the saved ones arrive.
+  const hasTray = catalog.seasoningGroups.length > 0 && !loading;
   const listBottom = bottomClearance + FIND_BUTTON_SPACE + (hasTray ? TRAY_HANDLE_SPACE : 0);
 
   return (
@@ -225,6 +262,7 @@ export function PantryScreen({
             accessibilityLabel="Add an ingredient"
             autoCapitalize="none"
             autoCorrect={false}
+            editable={!loading}
             onBlur={() => setFocused(false)}
             onChangeText={changeText}
             onFocus={() => setFocused(true)}
@@ -241,7 +279,9 @@ export function PantryScreen({
 
       <ScrollView style={styles.list} contentContainerStyle={[styles.listContent, { paddingBottom: listBottom }]} keyboardShouldPersistTaps="handled">
         {catalogFailed ? <Text style={styles.hint}>Couldn’t load units and seasonings.</Text> : null}
-        {pantry.length === 0 ? (
+        {loading ? (
+          <ActivityIndicator accessibilityLabel="Loading your pantry" color={colors.accent} style={styles.loading} />
+        ) : pantry.length === 0 ? (
           <Text style={styles.hint}>Add the ingredients you have.</Text>
         ) : (
           pantry.map((item) => {
@@ -357,7 +397,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   title: { fontFamily: fonts.heading, fontSize: fontSize.pantryTitle, color: colors.text },
-  tagline: { flexShrink: 1, fontFamily: fonts.handwritten, fontSize: 20, color: colors.accent },
+  // Caveat's slanted glyphs stick out past their box, and Android clips text at the box's edge,
+  // so the padding keeps the last "?" whole.
+  tagline: { flexShrink: 1, paddingRight: spacing.xs, fontFamily: fonts.handwritten, fontSize: 20, color: colors.accent },
   addArea: { marginTop: spacing.lg, marginBottom: 6, marginHorizontal: spacing.screen },
   field: {
     flexDirection: 'row',
@@ -404,6 +446,7 @@ const styles = StyleSheet.create({
   // The bottom padding, set in the JSX, lets the last ingredient scroll above the find button and the dock.
   listContent: { paddingTop: 6, paddingHorizontal: spacing.screen },
   hint: { paddingVertical: spacing.lg, fontFamily: fonts.regular, fontSize: fontSize.body, color: colors.textSecondary },
+  loading: { paddingVertical: spacing.lg, alignSelf: 'flex-start' },
   // Floats over the list, just above the bottom dock, as on the board (its bottom is set in the JSX).
   // Android draws this view's shadow under all of it, so it would show through the see-through disabled
   // button as a box; the solid fill, the same shape as the button, hides it.

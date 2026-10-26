@@ -21,6 +21,8 @@ jest.mock('../../../src/ui/screens/PantryScreen', () => {
 const services = {
   suggestIngredients: jest.fn(),
   getPantryCatalog: jest.fn().mockResolvedValue({ units: {}, seasoningGroups: [] }),
+  loadSavedPantry: jest.fn().mockResolvedValue({ pantry: [], seasoningsOn: [], changes: [] }),
+  savePantry: jest.fn().mockResolvedValue(undefined),
 } as unknown as RecipeServices;
 
 const renderRoute = () =>

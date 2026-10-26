@@ -8,3 +8,14 @@ export interface SqlDatabase {
   getAllAsync<T>(sql: string, params: SqlParams): Promise<T[]>;
   getFirstAsync<T>(sql: string, params: SqlParams): Promise<T | null>;
 }
+
+/**
+ * A database the app writes to (user.db). Kept apart from SqlDatabase so the recipe repository, which reads the
+ * read-only recipes.db, can't write. expo-sqlite's SQLiteDatabase satisfies this too.
+ */
+export interface WritableSqlDatabase extends SqlDatabase {
+  runAsync(sql: string, params: SqlParams): Promise<unknown>;
+  execAsync(sql: string): Promise<void>;
+  /** Runs the task in a transaction: all of its writes happen, or none if it throws. */
+  withTransactionAsync(task: () => Promise<void>): Promise<void>;
+}

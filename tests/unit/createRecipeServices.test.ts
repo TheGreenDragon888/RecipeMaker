@@ -1,4 +1,5 @@
 import { createRecipeServices } from '../../src/createRecipeServices';
+import { InMemoryPantryRepository } from '../fakes/InMemoryPantryRepository';
 import { InMemoryRecipeRepository } from '../fakes/InMemoryRecipeRepository';
 
 const repo = new InMemoryRecipeRepository(
@@ -9,7 +10,11 @@ const repo = new InMemoryRecipeRepository(
   { beef: 'ground beef' },
   [{ ingredient: 'ground beef', tracking: 'count', defaultUnit: 'lb' }],
 );
-const services = createRecipeServices(repo);
+const pantryRepo = new InMemoryPantryRepository({
+  items: [{ name: 'beef', quantity: 2, unit: 'lb' }],
+  seasoningsOn: [],
+});
+const services = createRecipeServices(repo, pantryRepo);
 const names = (rs: { name: string }[]) => rs.map((r) => r.name);
 
 describe('createRecipeServices', () => {
@@ -49,5 +54,18 @@ describe('createRecipeServices', () => {
 
   it('wires the full recipe list to the repository', async () => {
     expect(names(await services.listAllRecipes())).toEqual(['Joes A', 'Joes B']);
+  });
+
+  it('wires pantry loading to the pantry and recipe repositories', async () => {
+    expect((await services.loadSavedPantry()).pantry).toEqual([{ name: 'ground beef', quantity: 2, unit: 'lb' }]);
+  });
+
+  it('wires pantry checks to the pantry and recipe repositories', async () => {
+    expect((await services.checkRecipeAgainstPantry(1))?.get(1)?.status).toBe('have');
+  });
+
+  it('wires pantry saving to the pantry repository', async () => {
+    await services.savePantry([], ['paprika']);
+    expect(pantryRepo.saved).toEqual({ items: [], seasoningsOn: ['paprika'] });
   });
 });

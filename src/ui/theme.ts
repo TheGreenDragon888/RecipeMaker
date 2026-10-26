@@ -42,6 +42,15 @@ export const colors = {
   grabber: '#CDBFA6',
   /** Dims the screen behind the open seasoning tray (text at 38% opacity). */
   scrim: 'rgba(51,42,34,0.38)',
+  /** A recipe ingredient on hand: its check, and the circle behind it. */
+  green: '#3B6A2D',
+  greenSoft: '#E4EEDA',
+  /** The circle behind a missing ingredient's cross (its cross and text are the accent). */
+  accentSoft: '#F6E2D6',
+  /** The row behind a missing ingredient. */
+  accentWash: '#FBF0EA',
+  /** The row behind an ingredient there isn't enough of (its circle is amberSoft). */
+  amberWash: '#FBF5E4',
 } as const;
 
 /** Spacing steps in px, from the mockup's paddings and gaps. */
@@ -92,6 +101,8 @@ export const fontSize = {
   /** Pills and tab labels. */
   label: 11,
   caption: 12,
+  /** The line under a recipe ingredient that is short, swapped or missing. */
+  checkDetail: 12.5,
   meta: 13,
   body: 14,
   input: 15,

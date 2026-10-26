@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import { RecipeNotFoundError } from '../../../src/domain/errors';
+import type { PantryCheck } from '../../../src/domain/pantryCheck';
 import type { RecipeSummary } from '../../../src/domain/recipe';
 import type { RecipeDetail } from '../../../src/services/getRecipeDetail';
 import { RecipeDetailScreen } from '../../../src/ui/screens/RecipeDetailScreen';
@@ -33,19 +34,30 @@ const otherSloppyJoes: RecipeSummary = {
   servingsMax: 4,
 };
 
-/** By default recipe 7 loads with two ingredient lines, and it has no similar recipes. */
+/** Garlic is on hand (6 cloves); the soy sauce is missing. */
+const gotGarlicNotSoy = new Map<number, PantryCheck>([
+  [1, { status: 'have', have: { amount: 6, unit: 'clove', approximate: false } }],
+  [2, { status: 'missing' }],
+]);
+
+/**
+ * By default recipe 7 loads with two ingredient lines, it has no similar recipes, and there is no saved pantry
+ * to check it against.
+ */
 async function setup({
   recipeId = 7,
   getRecipeDetail = jest.fn().mockResolvedValue(detail),
   getSimilarRecipes = jest.fn().mockResolvedValue([]),
+  checkRecipeAgainstPantry = jest.fn().mockResolvedValue(null),
   openLink = jest.fn().mockResolvedValue(undefined),
 }: {
   recipeId?: number | null;
   getRecipeDetail?: jest.Mock;
   getSimilarRecipes?: jest.Mock;
+  checkRecipeAgainstPantry?: jest.Mock;
   openLink?: jest.Mock;
 } = {}) {
-  const services = { getRecipeDetail, getSimilarRecipes } as unknown as RecipeServices;
+  const services = { getRecipeDetail, getSimilarRecipes, checkRecipeAgainstPantry } as unknown as RecipeServices;
   const onOpenRecipe = jest.fn();
   const onBack = jest.fn();
   const onReturnToPantry = jest.fn();
@@ -62,7 +74,7 @@ async function setup({
   await render(detailFor(recipeId));
   /** Re-renders the screen for a different recipe id. */
   const showRecipe = (id: number) => screen.rerender(detailFor(id));
-  return { getRecipeDetail, getSimilarRecipes, openLink, onOpenRecipe, onBack, onReturnToPantry, showRecipe };
+  return { getRecipeDetail, getSimilarRecipes, checkRecipeAgainstPantry, openLink, onOpenRecipe, onBack, onReturnToPantry, showRecipe };
 }
 
 /** A promise the test resolves or rejects later, to control when a service reply arrives. */
@@ -143,6 +155,59 @@ describe('RecipeDetailScreen', () => {
     it("shows a heading above a sub-recipe's ingredients", async () => {
       await setup();
       expect(shownText()).toContain('For the stir fry sauce');
+    });
+
+    describe('against the pantry', () => {
+      const withChecks = (checks: Map<number, PantryCheck> | null = gotGarlicNotSoy) =>
+        setup({ checkRecipeAgainstPantry: jest.fn().mockResolvedValue(checks) });
+      const PANTRY_ICONS = ['check', 'swap', 'minus', 'close'];
+      const pantryIcons = () => shownIcons().filter((icon) => PANTRY_ICONS.includes(icon));
+
+      it('checks the recipe it shows against the saved pantry', async () => {
+        const { checkRecipeAgainstPantry } = await setup({ recipeId: 7 });
+        expect(checkRecipeAgainstPantry).toHaveBeenCalledWith(7);
+      });
+
+      it('marks each ingredient with how it compares to the pantry', async () => {
+        await withChecks();
+        expect(screen.getByLabelText('3 cloves garlic, minced. In your pantry, have 6 cloves')).toBeTruthy();
+        expect(screen.getByLabelText('2 tbsp soy sauce. Not in your pantry')).toBeTruthy();
+      });
+
+      it('draws each ingredient its circle, in order', async () => {
+        await withChecks();
+        // The legend's chips come first, then one circle per line.
+        expect(pantryIcons().slice(-2)).toEqual(['check', 'close']);
+      });
+
+      it('shows a legend of the circles its ingredients use, under the heading', async () => {
+        await withChecks();
+        const text = shownText();
+        expect(text.slice(text.indexOf('Ingredients') + 1, text.indexOf('Ingredients') + 3)).toEqual(['Have', 'Missing']);
+      });
+
+      it('shows no circles or legend when there is no pantry to compare with', async () => {
+        await withChecks(null);
+        expect([pantryIcons(), shownText().filter((t) => t === 'Have' || t === 'Missing')]).toEqual([[], []]);
+      });
+
+      it('still shows the ingredients, without circles, when the pantry check fails', async () => {
+        await setup({ checkRecipeAgainstPantry: jest.fn().mockRejectedValue(new Error('user.db is locked')) });
+        expect(shownText()).toEqual(expect.arrayContaining(['3 cloves garlic, minced', '2 tbsp soy sauce']));
+        expect(pantryIcons()).toEqual([]);
+      });
+
+      it('ignores a pantry check that arrives after the id changed', async () => {
+        const forSeven = deferred<Map<number, PantryCheck> | null>();
+        const checkRecipeAgainstPantry = jest.fn().mockReturnValueOnce(forSeven.promise).mockResolvedValueOnce(null);
+        const getRecipeDetail = jest.fn().mockResolvedValue(detail);
+        const { showRecipe } = await setup({ recipeId: 7, getRecipeDetail, checkRecipeAgainstPantry });
+        await showRecipe(8);
+
+        await act(async () => forSeven.resolve(gotGarlicNotSoy));
+
+        expect(pantryIcons()).toEqual([]);
+      });
     });
 
     it('shows no sub-heading when every ingredient is in the main recipe', async () => {

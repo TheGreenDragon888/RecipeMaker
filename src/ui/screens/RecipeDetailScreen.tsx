@@ -1,20 +1,25 @@
-// PRESENTATION LAYER: one recipe — times, servings, ingredients, steps, its source and similar recipes.
-// The mockup's banner is drawn as a tinted placeholder with an icon, since there are no photos. Its status
-// pill, per-ingredient pantry checks and Save button are left out: no data or service rule backs them yet.
+// PRESENTATION LAYER: one recipe — times, servings, ingredients (each checked against the saved pantry, with a
+// legend), steps, its source and similar recipes. The mockup's banner is drawn as a tinted placeholder with an
+// icon, since there are no photos. Its status pill and Save button are left out: no data or service rule backs
+// them yet.
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import { RecipeNotFoundError } from '../../domain/errors';
+import type { PantryCheck } from '../../domain/pantryCheck';
 import type { RecipeSummary } from '../../domain/recipe';
 import type { RecipeDetail } from '../../services/getRecipeDetail';
 import { BackButton } from '../components/BackButton';
 import { Icon } from '../components/Icon';
+import { IngredientRow } from '../components/IngredientRow';
+import { PantryCheckLegend } from '../components/PantryCheckLegend';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { RecipeCard } from '../components/RecipeCard';
 import { SourceCard } from '../components/SourceCard';
 import { StateMessage } from '../components/StateMessage';
 import { StepItem } from '../components/StepItem';
 import { formatIngredientLine } from '../format/ingredientLine';
+import { legendMarks } from '../format/pantryCheck';
 import {
   formatIngredientGroupHeading,
   formatServes,
@@ -47,6 +52,8 @@ export function RecipeDetailScreen({
 }: Props) {
   const [load, setLoad] = useState<Load>(recipeId === null ? { status: 'notFound' } : { status: 'loading' });
   const [similar, setSimilar] = useState<RecipeSummary[]>([]);
+  /** Each line's check against the saved pantry; null while loading, with no pantry, or when the check failed. */
+  const [checks, setChecks] = useState<Map<number, PantryCheck> | null>(null);
   const [linkFailed, setLinkFailed] = useState(false);
 
   useEffect(() => {
@@ -68,6 +75,16 @@ export function RecipeDetailScreen({
       },
       () => {
         if (current) setSimilar([]);
+      },
+    );
+    // The pantry checks are extra too: if they fail, the ingredients show without circles.
+    setChecks(null);
+    services.checkRecipeAgainstPantry(recipeId).then(
+      (result) => {
+        if (current) setChecks(result);
+      },
+      () => {
+        if (current) setChecks(null);
       },
     );
     return () => {
@@ -114,18 +131,19 @@ export function RecipeDetailScreen({
           </View>
 
           <Text style={styles.sectionTitle}>Ingredients</Text>
+          {checks ? <PantryCheckLegend marks={legendMarks([...checks.values()])} /> : null}
           {groupIngredientsByComponent(ingredients).map((group) => (
             <View key={group.component ?? ''}>
               {group.component ? (
                 <Text style={styles.groupHeading}>{formatIngredientGroupHeading(group.component)}</Text>
               ) : null}
               {group.ingredients.map((ingredient, index) => (
-                <Text
+                <IngredientRow
                   key={ingredient.lineNumber}
-                  style={[styles.ingredient, index < group.ingredients.length - 1 && styles.ingredientDivider]}
-                >
-                  {formatIngredientLine(ingredient)}
-                </Text>
+                  text={formatIngredientLine(ingredient)}
+                  check={checks?.get(ingredient.lineNumber)}
+                  divider={index < group.ingredients.length - 1}
+                />
               ))}
             </View>
           ))}
@@ -214,9 +232,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     color: colors.textSecondary,
   },
-  // lineHeight 22 keeps the mockup's 40px rows, which it sizes around a 22px pantry-check chip.
-  ingredient: { paddingVertical: 9, fontFamily: fonts.regular, fontSize: fontSize.body, lineHeight: 22, color: colors.text },
-  ingredientDivider: { borderBottomWidth: 1, borderBottomColor: colors.divider },
   // The mockup's steps section ends with 20px of padding, and its source section starts with 18px.
   source: { marginTop: spacing.xxl + 18 },
   sourceTitle: { marginTop: 0, marginBottom: 10 },

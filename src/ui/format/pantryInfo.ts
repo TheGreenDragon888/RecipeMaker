@@ -1,4 +1,5 @@
 // PRESENTATION LAYER: display text about the user's pantry list and seasoning tray.
+import type { PantryRestoreChange } from '../../domain/savedPantry';
 import type { SeasoningSection } from '../../domain/seasonings';
 import { pluralizeUnit } from './ingredientLine';
 
@@ -75,4 +76,30 @@ export function formatSeasoningAdded(name: string): string {
 /** Shown when a staple is picked in the add field: matching already counts it as on hand. */
 export function formatStapleAssumed(name: string): string {
   return `Recipes already assume you have ${name}.`;
+}
+
+/** How each kind of restore change ends its part of the notice, in the order the parts are listed. */
+const RESTORE_CHANGE_ENDINGS: Record<PantryRestoreChange['kind'], string> = {
+  removed: 'removed',
+  movedToSeasonings: 'moved to Seasonings',
+  movedToList: 'moved to your list',
+};
+
+/** "Ale", "Ale and Sumac", "Ale, Sumac and Kale". */
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+/**
+ * Shown after the saved pantry loads, when fitting it to new recipe data changed it:
+ * "Updated for new recipe data: Ale removed; Cumin moved to Seasonings."
+ */
+export function formatRestoreChanges(changes: PantryRestoreChange[]): string {
+  const kinds = Object.keys(RESTORE_CHANGE_ENDINGS) as PantryRestoreChange['kind'][];
+  const parts = kinds.flatMap((kind) => {
+    const names = changes.filter((change) => change.kind === kind).map((change) => formatIngredientName(change.name));
+    return names.length > 0 ? [`${joinNames(names)} ${RESTORE_CHANGE_ENDINGS[kind]}`] : [];
+  });
+  return `Updated for new recipe data: ${parts.join('; ')}.`;
 }
