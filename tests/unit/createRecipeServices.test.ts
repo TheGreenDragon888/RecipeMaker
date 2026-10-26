@@ -60,6 +60,10 @@ describe('createRecipeServices', () => {
     expect((await services.loadSavedPantry()).pantry).toEqual([{ name: 'ground beef', quantity: 2, unit: 'lb' }]);
   });
 
+  it('wires pantry checks to the pantry and recipe repositories', async () => {
+    expect((await services.checkRecipeAgainstPantry(1))?.get(1)?.status).toBe('have');
+  });
+
   it('wires pantry saving to the pantry repository', async () => {
     await services.savePantry([], ['paprika']);
     expect(pantryRepo.saved).toEqual({ items: [], seasoningsOn: ['paprika'] });

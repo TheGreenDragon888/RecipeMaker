@@ -44,6 +44,11 @@ describe('Icon', () => {
     expect(shownOfType('RNSVGPath')[0].props.d).toBe(path);
   });
 
+  it("draws the swap icon from the board's two arrows", async () => {
+    await render(<Icon name="swap" size={12} color="#000" />);
+    expect(shownOfType('RNSVGPath').map((path) => path.props.d)).toEqual(['M7 7h11l-3-3', 'M17 17H6l3 3']);
+  });
+
   it('is hidden from screen readers, since the text or label beside it says the same', async () => {
     await render(<Icon name="link" size={22} color="#000" />);
     expect(drawing().props.accessibilityElementsHidden).toBe(true);

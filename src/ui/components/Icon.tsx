@@ -91,6 +91,12 @@ const shapes = {
     </>
   ),
   check: <Polyline points="5,13 10,18 19,7" />,
+  swap: (
+    <>
+      <Path d="M7 7h11l-3-3" />
+      <Path d="M17 17H6l3 3" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof shapes;

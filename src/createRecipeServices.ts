@@ -2,6 +2,7 @@
 import type { PantryItem } from './domain/pantry';
 import type { PantryRepository } from './domain/PantryRepository';
 import type { RecipeRepository } from './domain/RecipeRepository';
+import { checkRecipeAgainstPantry } from './services/checkRecipeAgainstPantry';
 import { filterRecipes, type RecipeFilter } from './services/filterRecipes';
 import { findIngredient } from './services/findIngredient';
 import { findRecipesFromPantry } from './services/findRecipesFromPantry';
@@ -29,5 +30,6 @@ export function createRecipeServices(repo: RecipeRepository, pantryRepo: PantryR
     getPantryCatalog: () => getPantryCatalog(repo),
     loadSavedPantry: () => loadSavedPantry(pantryRepo, repo),
     savePantry: (pantry: PantryItem[], seasoningsOn: string[]) => savePantry(pantryRepo, pantry, seasoningsOn),
+    checkRecipeAgainstPantry: (recipeId: number) => checkRecipeAgainstPantry(repo, pantryRepo, recipeId),
   };
 }

@@ -21,6 +21,7 @@ jest.mock('../../../src/ui/screens/RecipeDetailScreen', () => {
 const services = {
   getRecipeDetail: jest.fn(() => new Promise(() => {})),
   getSimilarRecipes: jest.fn().mockResolvedValue([]),
+  checkRecipeAgainstPantry: jest.fn().mockResolvedValue(null),
 } as unknown as RecipeServices;
 
 /** Renders the route as if the URL were /recipe/<id>. */
