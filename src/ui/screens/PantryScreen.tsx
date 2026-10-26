@@ -397,7 +397,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   title: { fontFamily: fonts.heading, fontSize: fontSize.pantryTitle, color: colors.text },
-  tagline: { flexShrink: 1, fontFamily: fonts.handwritten, fontSize: 20, color: colors.accent },
+  // Caveat's slanted glyphs stick out past their box, and Android clips text at the box's edge,
+  // so the padding keeps the last "?" whole.
+  tagline: { flexShrink: 1, paddingRight: spacing.xs, fontFamily: fonts.handwritten, fontSize: 20, color: colors.accent },
   addArea: { marginTop: spacing.lg, marginBottom: 6, marginHorizontal: spacing.screen },
   field: {
     flexDirection: 'row',

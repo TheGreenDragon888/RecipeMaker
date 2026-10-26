@@ -120,6 +120,11 @@ describe('PantryScreen', () => {
       expect(shownText()).toContain("what's for dinner?");
     });
 
+    it("leaves room on the tagline's right so its handwritten '?' isn't sliced off", async () => {
+      await setup();
+      expect(styleOf(screen.getByText("what's for dinner?")).paddingRight).toBeGreaterThanOrEqual(spacing.xs);
+    });
+
     it('draws a search icon in the text field', async () => {
       await setup();
       expect(shownIcons()).toContain('search');
