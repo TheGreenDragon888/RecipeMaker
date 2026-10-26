@@ -4,6 +4,7 @@ import {
   formatMatchedAgainst,
   formatOnHand,
   formatPantryUnit,
+  formatRestoreChanges,
   formatSeasoningAdded,
   formatSeasoningName,
   formatSeasoningSection,
@@ -142,5 +143,46 @@ describe('formatSeasoningAdded', () => {
 describe('formatStapleAssumed', () => {
   it('says recipes already assume the staple', () => {
     expect(formatStapleAssumed('olive oil')).toBe('Recipes already assume you have olive oil.');
+  });
+});
+
+describe('formatRestoreChanges', () => {
+  it('names an ingredient the recipe data no longer has', () => {
+    expect(formatRestoreChanges([{ kind: 'removed', name: 'ale' }])).toBe('Updated for new recipe data: Ale removed.');
+  });
+
+  it('names an item that moved to the seasonings', () => {
+    expect(formatRestoreChanges([{ kind: 'movedToSeasonings', name: 'cumin' }])).toBe(
+      'Updated for new recipe data: Cumin moved to Seasonings.',
+    );
+  });
+
+  it('names a seasoning that moved to the list', () => {
+    expect(formatRestoreChanges([{ kind: 'movedToList', name: 'green onion' }])).toBe(
+      'Updated for new recipe data: Green Onion moved to your list.',
+    );
+  });
+
+  it('joins two names of the same change with "and"', () => {
+    const changes = [
+      { kind: 'removed', name: 'ale' },
+      { kind: 'removed', name: 'sumac' },
+    ] as const;
+    expect(formatRestoreChanges([...changes])).toBe('Updated for new recipe data: Ale and Sumac removed.');
+  });
+
+  it('joins three or more names with commas, then "and"', () => {
+    const changes = (['ale', 'sumac', 'kale'] as const).map((name) => ({ kind: 'removed' as const, name }));
+    expect(formatRestoreChanges(changes)).toBe('Updated for new recipe data: Ale, Sumac and Kale removed.');
+  });
+
+  it('separates different changes with semicolons, removals first', () => {
+    expect(
+      formatRestoreChanges([
+        { kind: 'movedToSeasonings', name: 'cumin' },
+        { kind: 'removed', name: 'ale' },
+        { kind: 'movedToList', name: 'garlic' },
+      ]),
+    ).toBe('Updated for new recipe data: Ale removed; Cumin moved to Seasonings; Garlic moved to your list.');
   });
 });

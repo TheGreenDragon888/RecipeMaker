@@ -6,6 +6,8 @@ import { TRAY_SLIDE_MS } from '../../../src/ui/motion/trayDrag';
 import { PantryScreen } from '../../../src/ui/screens/PantryScreen';
 import { colors, dock, shadows, spacing } from '../../../src/ui/theme';
 import type { PantryCatalog } from '../../../src/domain/pantryCatalog';
+import type { PantryItem } from '../../../src/domain/pantry';
+import type { PantryRestoreChange, RestoredPantry } from '../../../src/domain/savedPantry';
 import { fadesAsOnePicture, listContentStyle, shownIcons, shownText, styleOf, tapTwiceBeforeRedraw } from '../../support/screen';
 
 const suggestion = (ingredient: string, matchedAlias: string | null = null) => ({ ingredient, matchedAlias });
@@ -20,17 +22,36 @@ const EMPTY_CATALOG: PantryCatalog = { units: {}, seasoningGroups: [] };
  */
 const stillLoading = () => jest.fn(() => new Promise<PantryCatalog>(() => {}));
 
-/** By default every typed word counts as a known ingredient (lowercased), and nothing is suggested. */
+/** A saved pantry as loadSavedPantry returns it: empty, with nothing changed, unless given. */
+const restored = (pantry: PantryItem[] = [], seasoningsOn: string[] = [], changes: PantryRestoreChange[] = []): RestoredPantry => ({
+  pantry,
+  seasoningsOn,
+  changes,
+});
+
+/**
+ * By default every typed word counts as a known ingredient (lowercased), nothing is suggested, the saved pantry
+ * loads empty (before the test acts), and saving works.
+ */
 async function setup({
   suggestIngredients = jest.fn().mockResolvedValue([]),
   findIngredient = jest.fn(async (raw: string) => raw.trim().toLowerCase() || null),
   getPantryCatalog = stillLoading(),
+  loadSavedPantry = jest.fn().mockResolvedValue(restored()),
+  savePantry = jest.fn().mockResolvedValue(undefined),
   bottomClearance,
-}: { suggestIngredients?: jest.Mock; findIngredient?: jest.Mock; getPantryCatalog?: jest.Mock; bottomClearance?: number } = {}) {
-  const services = { suggestIngredients, findIngredient, getPantryCatalog } as unknown as RecipeServices;
+}: {
+  suggestIngredients?: jest.Mock;
+  findIngredient?: jest.Mock;
+  getPantryCatalog?: jest.Mock;
+  loadSavedPantry?: jest.Mock;
+  savePantry?: jest.Mock;
+  bottomClearance?: number;
+} = {}) {
+  const services = { suggestIngredients, findIngredient, getPantryCatalog, loadSavedPantry, savePantry } as unknown as RecipeServices;
   const onFindRecipes = jest.fn();
   await render(<PantryScreen services={services} onFindRecipes={onFindRecipes} now={sixPm} bottomClearance={bottomClearance} />);
-  return { suggestIngredients, findIngredient, getPantryCatalog, onFindRecipes };
+  return { suggestIngredients, findIngredient, getPantryCatalog, loadSavedPantry, savePantry, onFindRecipes };
 }
 
 /** A promise the test resolves or rejects later, to control when a service reply arrives. */
@@ -822,6 +843,145 @@ describe('PantryScreen', () => {
         await failing();
         await flush();
         expect(handles()).toHaveLength(0);
+      });
+    });
+  });
+
+  describe('saved pantry', () => {
+    const TRAY_CATALOG: PantryCatalog = { units: { garlic: 'clove' }, seasoningGroups: [{ section: 'everyday', seasonings: ['paprika'] }] };
+    const withTray = () => jest.fn().mockResolvedValue(TRAY_CATALOG);
+    const loads = (value: RestoredPantry) => jest.fn().mockResolvedValue(value);
+    const neverLoads = () => jest.fn(() => new Promise<RestoredPantry>(() => {}));
+    const failsToLoad = () => jest.fn().mockRejectedValue(new Error('user.db'));
+    const flush = () => act(async () => {});
+    const loadingIndicator = () => screen.queryByLabelText('Loading your pantry');
+    const trayHandles = () => screen.queryAllByLabelText('Open seasonings tray', { includeHiddenElements: true });
+
+    it('shows the saved list once it loads', async () => {
+      await setup({ loadSavedPantry: loads(restored([{ name: 'garlic', quantity: 3, unit: 'clove' }])) });
+      expect([pantryNames(), pantryQuantities()]).toEqual([['garlic'], [3]]);
+    });
+
+    it('switches the saved seasonings back on', async () => {
+      await setup({ loadSavedPantry: loads(restored([], ['paprika'])) });
+      expect(byLabel('Find recipes with 1 ingredient')).toBeEnabled();
+    });
+
+    it('hides the loading indicator once the pantry has loaded', async () => {
+      await setup();
+      expect(loadingIndicator()).toBeNull();
+    });
+
+    describe('while it loads', () => {
+      it('says the pantry is loading', async () => {
+        await setup({ loadSavedPantry: neverLoads() });
+        expect(loadingIndicator()).toBeOnTheScreen();
+      });
+
+      it('leaves out the empty-pantry hint', async () => {
+        await setup({ loadSavedPantry: neverLoads() });
+        expect(shownText()).not.toContain('Add the ingredients you have.');
+      });
+
+      it('keeps the add field off, so nothing is added before the saved list arrives', async () => {
+        await setup({ loadSavedPantry: neverLoads() });
+        expect(field()).toBeDisabled();
+      });
+
+      it('hides the seasoning tray', async () => {
+        await setup({ getPantryCatalog: withTray(), loadSavedPantry: neverLoads() });
+        await flush();
+        expect(trayHandles()).toHaveLength(0);
+      });
+
+      it("doesn't save", async () => {
+        const { savePantry } = await setup({ loadSavedPantry: neverLoads() });
+        expect(savePantry).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('saving', () => {
+      it('saves the pantry it loaded, so what fitting it to the recipe data changed is kept', async () => {
+        const garlic = { name: 'garlic', quantity: 3, unit: 'clove' };
+        const { savePantry } = await setup({ loadSavedPantry: loads(restored([garlic], ['paprika'])) });
+        expect(savePantry).toHaveBeenLastCalledWith([garlic], ['paprika']);
+      });
+
+      it('saves the list when an ingredient is added', async () => {
+        const { savePantry } = await setup();
+        await addIngredient('garlic');
+        expect(savePantry).toHaveBeenLastCalledWith([{ name: 'garlic', quantity: 1, unit: null }], []);
+      });
+
+      it('saves the new amount when + is pressed', async () => {
+        const { savePantry } = await setup();
+        await addIngredient('garlic');
+        await press('Increase garlic quantity');
+        expect(savePantry).toHaveBeenLastCalledWith([{ name: 'garlic', quantity: 2, unit: null }], []);
+      });
+
+      it('saves the seasonings that are on', async () => {
+        const { savePantry } = await setup({ getPantryCatalog: withTray() });
+        await flush();
+        await addIngredient('paprika');
+        expect(savePantry).toHaveBeenLastCalledWith([], ['paprika']);
+      });
+
+      it("says so when the pantry can't be saved", async () => {
+        await setup({ savePantry: jest.fn().mockRejectedValue(new Error('disk full')) });
+        await addIngredient('garlic');
+        expect(shownText()).toContain('Couldn’t save your pantry.');
+      });
+    });
+
+    describe('after fitting it to new recipe data', () => {
+      const changed = () => loads(restored([], [], [{ kind: 'removed', name: 'ale' }]));
+
+      it('says what changed', async () => {
+        await setup({ loadSavedPantry: changed() });
+        expect(shownText()).toContain('Updated for new recipe data: Ale removed.');
+      });
+
+      it('keeps saying it past the 3 seconds an information notice lasts, since it shows at launch', async () => {
+        jest.useFakeTimers();
+        try {
+          await setup({ loadSavedPantry: changed() });
+          await act(async () => {
+            jest.advanceTimersByTime(5000);
+          });
+          expect(shownText()).toContain('Updated for new recipe data: Ale removed.');
+        } finally {
+          jest.useRealTimers();
+        }
+      });
+
+      it('says nothing when nothing changed', async () => {
+        await setup({ loadSavedPantry: loads(restored([{ name: 'garlic', quantity: 3, unit: 'clove' }])) });
+        expect(screen.queryByTestId('field-dropdown')).toBeNull();
+      });
+    });
+
+    describe("when it can't be loaded", () => {
+      it('says so, and that changes won’t be saved', async () => {
+        await setup({ loadSavedPantry: failsToLoad() });
+        expect(shownText()).toContain('Couldn’t load your saved pantry, so changes won’t be saved this time.');
+      });
+
+      it('starts with an empty pantry', async () => {
+        await setup({ loadSavedPantry: failsToLoad() });
+        expect(shownText()).toContain('Add the ingredients you have.');
+      });
+
+      it('still lets the user add ingredients', async () => {
+        await setup({ loadSavedPantry: failsToLoad() });
+        await addIngredient('garlic');
+        expect(pantryNames()).toEqual(['garlic']);
+      });
+
+      it("doesn't save, so the pantry it couldn't read isn't overwritten", async () => {
+        const { savePantry } = await setup({ loadSavedPantry: failsToLoad() });
+        await addIngredient('garlic');
+        expect(savePantry).not.toHaveBeenCalled();
       });
     });
   });
