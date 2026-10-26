@@ -66,30 +66,48 @@ describe('findRecipesFromPantry', () => {
     expect(await findRecipesFromPantry(repo, [])).toEqual([]);
   });
 
-  it('ranks recipes with fewer missing ingredients first', async () => {
+  it('ranks recipes with more matching ingredients first, even if more are missing', async () => {
     const repo = new InMemoryRecipeRepository([
-      { id: 1, name: 'Two Missing', ingredients: [{ ingredient: 'egg' }, { ingredient: 'a' }, { ingredient: 'b' }] },
-      { id: 2, name: 'None Missing', ingredients: [{ ingredient: 'egg' }] },
-      { id: 3, name: 'One Missing', ingredients: [{ ingredient: 'egg' }, { ingredient: 'a' }] },
+      { id: 1, name: 'Zebra', ingredients: [{ ingredient: 'egg' }, { ingredient: 'milk' }, { ingredient: 'x' }] },
+      { id: 2, name: 'Alpha', ingredients: [{ ingredient: 'egg' }] },
+      { id: 3, name: 'Beta', ingredients: [{ ingredient: 'egg' }, { ingredient: 'milk' }, { ingredient: 'y' }] },
     ]);
-    expect(names(await findRecipesFromPantry(repo, ['egg']))).toEqual(['None Missing', 'One Missing', 'Two Missing']);
+    expect(names(await findRecipesFromPantry(repo, ['egg', 'milk']))).toEqual(['Beta', 'Zebra', 'Alpha']);
   });
 
-  it('breaks ties on missing count by preferring more owned ingredients', async () => {
+  it('breaks ties on matching ingredient count and matched fraction alphabetically', async () => {
     const repo = new InMemoryRecipeRepository([
-      { id: 1, name: 'Uses One', ingredients: [{ ingredient: 'egg' }, { ingredient: 'x' }] },
-      { id: 2, name: 'Uses Two', ingredients: [{ ingredient: 'egg' }, { ingredient: 'milk' }, { ingredient: 'x' }] },
+      { id: 1, name: 'Zebra', ingredients: [{ ingredient: 'egg' }, { ingredient: 'x' }] },
+      { id: 2, name: 'Alpha', ingredients: [{ ingredient: 'egg' }, { ingredient: 'y' }] },
     ]);
-    expect(names(await findRecipesFromPantry(repo, ['egg', 'milk']))).toEqual(['Uses Two', 'Uses One']);
+    expect(names(await findRecipesFromPantry(repo, ['egg']))).toEqual(['Alpha', 'Zebra']);
   });
 
-  it('breaks remaining ties by shorter active time, then by name', async () => {
+  it('ranks the recipe with the larger matched fraction first when matching counts tie', async () => {
+    const repo = new InMemoryRecipeRepository([
+      { id: 1, name: 'Seven Ingredients', ingredients: [{ ingredient: 'egg' }, { ingredient: 'a' }, { ingredient: 'b' }, { ingredient: 'c' }, { ingredient: 'd' }, { ingredient: 'e' }, { ingredient: 'f' }] },
+      { id: 2, name: 'Three Ingredients', ingredients: [{ ingredient: 'egg' }, { ingredient: 'milk' }, { ingredient: 'flour' }] },
+    ]);
+    expect(names(await findRecipesFromPantry(repo, ['egg', 'milk']))).toEqual(['Three Ingredients', 'Seven Ingredients']);
+  });
+
+  it('breaks matching count ties alphabetically regardless of active time', async () => {
     const repo = new InMemoryRecipeRepository([
       { id: 1, name: 'Slow', activeTimeMinutes: 60, ingredients: [{ ingredient: 'egg' }] },
       { id: 2, name: 'Quick B', activeTimeMinutes: 10, ingredients: [{ ingredient: 'egg' }] },
       { id: 3, name: 'Quick A', activeTimeMinutes: 10, ingredients: [{ ingredient: 'egg' }] },
     ]);
     expect(names(await findRecipesFromPantry(repo, ['egg']))).toEqual(['Quick A', 'Quick B', 'Slow']);
+  });
+
+  it('ranks by most matching ingredients first, then alphabetically', async () => {
+    const repo = new InMemoryRecipeRepository([
+      { id: 1, name: 'Zebra', ingredients: [{ ingredient: 'egg' }, { ingredient: 'milk' }, { ingredient: 'x' }] },
+      { id: 2, name: 'Beta', ingredients: [{ ingredient: 'egg' }, { ingredient: 'y' }] },
+      { id: 3, name: 'Alpha', ingredients: [{ ingredient: 'egg' }, { ingredient: 'z' }] },
+      { id: 4, name: 'Apple', activeTimeMinutes: 99, ingredients: [{ ingredient: 'egg' }, { ingredient: 'milk' }, { ingredient: 'w' }] },
+    ]);
+    expect(names(await findRecipesFromPantry(repo, ['egg', 'milk']))).toEqual(['Apple', 'Zebra', 'Alpha', 'Beta']);
   });
 
   it('returns at most 20 recipes', async () => {

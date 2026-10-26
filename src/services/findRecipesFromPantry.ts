@@ -1,4 +1,4 @@
-// BUSINESS LAYER: "What can I make?" — rank recipes by how few ingredients the user is missing.
+// BUSINESS LAYER: "What can I make?" — rank by pantry matches, closeness, then name.
 import type { RecipeRepository } from '../domain/RecipeRepository';
 import type { RecipeSummary } from '../domain/recipe';
 import { normalizeSearchTerm } from '../domain/searchTerm';
@@ -49,9 +49,8 @@ export async function findRecipesFromPantry(
   return matches
     .sort(
       (a, b) =>
-        a.missingCount - b.missingCount ||
         b.haveCount - a.haveCount ||
-        a.recipe.activeTimeMinutes - b.recipe.activeTimeMinutes ||
+        b.haveCount * a.neededCount - a.haveCount * b.neededCount ||
         a.recipe.name.localeCompare(b.recipe.name),
     )
     .slice(0, MAX_RESULTS);
