@@ -52,15 +52,17 @@ export const RESOLVE_ALIAS_SQL = `SELECT ingredient FROM ingredient_aliases WHER
 export const SUGGEST_DIRECT_INGREDIENTS_SQL = String.raw`
 SELECT DISTINCT ingredient
 FROM recipe_ingredients
-WHERE ingredient LIKE $prefix || '%' ESCAPE '\'
-ORDER BY ingredient COLLATE NOCASE
+WHERE ingredient LIKE '%' || $prefix || '%' ESCAPE '\'
+ORDER BY CASE WHEN ingredient LIKE $prefix || '%' ESCAPE '\' THEN 0 ELSE 1 END,
+         ingredient COLLATE NOCASE
 LIMIT $limit;`;
 
 export const SUGGEST_ALIAS_INGREDIENTS_SQL = String.raw`
 SELECT ingredient, alias AS matchedAlias
 FROM ingredient_aliases
-WHERE alias LIKE $prefix || '%' ESCAPE '\'
-ORDER BY ingredient COLLATE NOCASE, alias COLLATE NOCASE
+WHERE alias LIKE '%' || $prefix || '%' ESCAPE '\'
+ORDER BY CASE WHEN alias LIKE $prefix || '%' ESCAPE '\' THEN 0 ELSE 1 END,
+         ingredient COLLATE NOCASE, alias COLLATE NOCASE
 LIMIT $limit;`;
 
 /** Alias first (it also maps each canonical name to itself), then a direct ingredient name. Both columns are NOCASE. */
