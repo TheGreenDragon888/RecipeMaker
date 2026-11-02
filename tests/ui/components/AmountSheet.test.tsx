@@ -131,7 +131,7 @@ describe('AmountSheet', () => {
     });
 
     it('is left out when the ingredient has only its own unit', async () => {
-      await renderSheet({ item: { name: 'black bean', quantity: 2, unit: 'can' } });
+      await renderSheet({ item: { name: 'canned mixed vegetables', quantity: 2, unit: 'can' } });
       expect([screen.queryAllByRole('radio'), shownText()]).toEqual([[], expect.not.arrayContaining(['Unit'])]);
     });
 

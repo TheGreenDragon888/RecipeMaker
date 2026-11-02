@@ -198,7 +198,7 @@ describe('pantryUnitChoices', () => {
   });
 
   it('leaves out volumes for whole produce, whose cup factors are for chopped food', () => {
-    expect(units('onion', 'each')).toEqual(['each']);
+    expect(units('red onion', 'each')).toEqual(['each']);
   });
 
   it('leaves out volumes for a weight, even with a factor to one', () => {
@@ -210,10 +210,10 @@ describe('pantryUnitChoices', () => {
   });
 
   it('offers only the pantry unit when nothing converts', () => {
-    expect(units('black bean', 'can')).toEqual(['can']);
+    expect(units('canned mixed vegetables', 'can')).toEqual(['can']);
   });
 
   it('marks the pantry unit itself as exact', () => {
-    expect(pantryUnitChoices('onion', 'each')).toEqual([{ unit: 'each', approximate: false }]);
+    expect(pantryUnitChoices('red onion', 'each')).toEqual([{ unit: 'each', approximate: false }]);
   });
 });

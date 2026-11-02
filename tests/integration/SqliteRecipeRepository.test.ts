@@ -86,13 +86,19 @@ describe('SqliteRecipeRepository', () => {
       expect(names(await repo.findByIngredient('chickpea'))).toEqual([
         'Scallion Herb Chickpea Salad',
         'Greek Style Sausage & Chick Peas',
+        'Sriracha Chickpea Salad Wraps',
+        'Vegetarian Chili for One',
         'Curried Chickpeas with Spinach',
+        '1-Pot Chickpea Shakshuka',
         'Pasta e Ceci',
+        'Beef and Tomato Rice Bowl',
+        'Spanish Chickpeas and Rice',
+        'Easy Homemade Falafel',
       ]);
     });
 
     it('resolves an alias to its canonical name', async () => {
-      expect(await repo.findByIngredient('scallions')).toHaveLength(23);
+      expect(await repo.findByIngredient('scallions')).toHaveLength(85);
     });
 
     it('returns nothing when there is no exact match', async () => {
@@ -103,8 +109,19 @@ describe('SqliteRecipeRepository', () => {
   describe('findByIngredientContaining', () => {
     it('matches part of an ingredient name, ordered by recipe name', async () => {
       expect(names(await repo.findByIngredientContaining('noodle'))).toEqual([
+        'Beef Stroganoff',
+        'Beef Teriyaki Noodles',
+        'Chicken Noodle Casserole',
+        'Crockpot Chicken Noodle Soup',
+        'Easy Tuna Casserole',
+        "Grandma's Tomato Soup",
         'Hearty Beef Noodle Soup',
+        'Lo Mein for One',
+        "Poor Man's Casserole",
         'Quick and Easy Goulash',
+        'Skillet Lasagna',
+        'Slow-Cooker Chicken Stroganoff',
+        'Slow-Cooker Ranch Chicken',
         'Spicy Sriracha Noodles',
       ]);
     });
@@ -191,12 +208,12 @@ describe('SqliteRecipeRepository', () => {
 
   describe('listRecipeSummaries and listIngredientUsage', () => {
     it('lists every recipe', async () => {
-      expect(await repo.listRecipeSummaries()).toHaveLength(130);
+      expect(await repo.listRecipeSummaries()).toHaveLength(594);
     });
 
     it('lists every ingredient line with its optional flag as a boolean', async () => {
       const usage = await repo.listIngredientUsage();
-      expect(usage).toHaveLength(1017);
+      expect(usage).toHaveLength(5902);
       expect(usage).toContainEqual({ recipeId: 1, ingredient: 'cilantro', isOptional: true });
     });
   });
