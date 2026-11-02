@@ -72,6 +72,15 @@ describe('the ingredients table', () => {
     ['canned mixed vegetables', 'can'],
     ['mini pretzel', 'cup'],
     ['sourdough pretzel', 'each'],
+    // Data version 3: the import's units, corrected to the unit its lines use most (or the produce rule)
+    ['monterey jack cheese', 'cup'],
+    ['enchilada sauce', 'oz'],
+    ['rice vinegar', 'tbsp'],
+    ['roasted red pepper', 'oz'],
+    ['chicken sausage', 'oz'],
+    ['ham', 'cup'],
+    ['red potato', 'each'],
+    ['beef bouillon', 'tsp'],
   ])('counts %s in %s', (name, unit) => {
     expect(find(name)).toEqual(expect.objectContaining({ tracking: 'count', defaultUnit: unit }));
   });
