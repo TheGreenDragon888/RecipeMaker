@@ -89,9 +89,9 @@ describe('the ingredients table', () => {
     expect(find(name)).toEqual(expect.objectContaining({ tracking: 'presence', defaultUnit: null }));
   });
 
-  it('puts 35 seasonings in the tray (the on/off ingredients minus the staples)', async () => {
+  it('puts 61 seasonings in the tray (the on/off ingredients minus the staples)', async () => {
     const catalog = await getPantryCatalog(repo);
-    expect(catalog.seasoningGroups.flatMap((group) => group.seasonings)).toHaveLength(35);
+    expect(catalog.seasoningGroups.flatMap((group) => group.seasonings)).toHaveLength(61);
   });
 });
 
@@ -175,8 +175,8 @@ describe('unit chips (pantryUnitChoices)', () => {
     expect(alone).toEqual([]);
   });
 
-  it('offers only its own unit for 84 of the 229 counted ingredients (cans, packages, most produce)', () => {
+  it('offers only its own unit for 110 of the 398 counted ingredients (cans, packages, most produce)', () => {
     const alone = counted.filter(({ ingredient, unit }) => pantryUnitChoices(ingredient, unit).length === 1);
-    expect([alone.length, counted.length]).toEqual([84, 229]);
+    expect([alone.length, counted.length]).toEqual([110, 398]);
   });
 });
