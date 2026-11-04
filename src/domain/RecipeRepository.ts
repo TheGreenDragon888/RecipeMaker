@@ -16,8 +16,11 @@ export interface RecipeRepository {
   listIngredientUsage(): Promise<IngredientUsage[]>;
   /** Maps each name to its canonical ingredient, or returns it unchanged when there is no alias. */
   resolveIngredientNames(names: string[]): Promise<string[]>;
-  /** Direct canonical-name matches first, then alias matches, each alphabetically. */
-  suggestIngredients(prefix: string, limit: number): Promise<IngredientSuggestion[]>;
+  /**
+   * Every canonical ingredient name that contains the text (matchedAlias null), and every alias that contains it
+   * (with the alias), ignoring case. In no particular order and with no limit: ranking is the service's job.
+   */
+  findIngredientMatches(text: string): Promise<IngredientSuggestion[]>;
   /** The canonical name for an ingredient name or alias (ignoring case), or null when there is no such ingredient. */
   findIngredient(name: string): Promise<string | null>;
   findByDuplicateGroup(group: string): Promise<RecipeSummary[]>;

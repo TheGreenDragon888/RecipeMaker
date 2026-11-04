@@ -59,21 +59,14 @@ SELECT recipe_id, ingredient, is_optional FROM recipe_ingredients ORDER BY recip
 
 export const RESOLVE_ALIAS_SQL = `SELECT ingredient FROM ingredient_aliases WHERE alias = $name;`;
 
-export const SUGGEST_DIRECT_INGREDIENTS_SQL = String.raw`
-SELECT DISTINCT ingredient
+export const FIND_INGREDIENT_MATCHES_SQL = String.raw`
+SELECT DISTINCT ingredient, NULL AS matchedAlias
 FROM recipe_ingredients
-WHERE ingredient LIKE '%' || $prefix || '%' ESCAPE '\'
-ORDER BY CASE WHEN ingredient LIKE $prefix || '%' ESCAPE '\' THEN 0 ELSE 1 END,
-         ingredient COLLATE NOCASE
-LIMIT $limit;`;
-
-export const SUGGEST_ALIAS_INGREDIENTS_SQL = String.raw`
+WHERE ingredient LIKE '%' || $text || '%' ESCAPE '\'
+UNION ALL
 SELECT ingredient, alias AS matchedAlias
 FROM ingredient_aliases
-WHERE alias LIKE '%' || $prefix || '%' ESCAPE '\'
-ORDER BY CASE WHEN alias LIKE $prefix || '%' ESCAPE '\' THEN 0 ELSE 1 END,
-         ingredient COLLATE NOCASE, alias COLLATE NOCASE
-LIMIT $limit;`;
+WHERE alias LIKE '%' || $text || '%' ESCAPE '\';`;
 
 /** Alias first (it also maps each canonical name to itself), then a direct ingredient name. Both columns are NOCASE. */
 export const FIND_INGREDIENT_SQL = `
@@ -139,27 +132,8 @@ export class SqliteRecipeRepository implements RecipeRepository {
     );
   }
 
-  async suggestIngredients(prefix: string, limit: number) {
-    const directRows = await this.db.getAllAsync<{ ingredient: string }>(SUGGEST_DIRECT_INGREDIENTS_SQL, {
-      $prefix: escapeLike(prefix),
-      $limit: limit,
-    });
-    const direct = directRows.map((row): IngredientSuggestion => ({ ingredient: row.ingredient, matchedAlias: null }));
-    if (direct.length >= limit) return direct;
-
-    const directNames = new Set(direct.map((item) => item.ingredient.toLowerCase()));
-    const aliasRows = await this.db.getAllAsync<{ ingredient: string; matchedAlias: string }>(SUGGEST_ALIAS_INGREDIENTS_SQL, {
-      $prefix: escapeLike(prefix),
-      $limit: limit,
-    });
-    const aliasMatches = new Map<string, IngredientSuggestion>();
-    for (const row of aliasRows) {
-      const key = row.ingredient.toLowerCase();
-      if (!directNames.has(key) && !aliasMatches.has(key)) {
-        aliasMatches.set(key, { ingredient: row.ingredient, matchedAlias: row.matchedAlias });
-      }
-    }
-    return [...direct, ...aliasMatches.values()].slice(0, limit);
+  async findIngredientMatches(text: string) {
+    return this.db.getAllAsync<IngredientSuggestion>(FIND_INGREDIENT_MATCHES_SQL, { $text: escapeLike(text) });
   }
 
   async findIngredient(name: string) {

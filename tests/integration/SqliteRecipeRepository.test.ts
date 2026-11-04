@@ -148,45 +148,30 @@ describe('SqliteRecipeRepository', () => {
     });
   });
 
-  describe('suggestIngredients', () => {
-    it('ranks direct name matches before aliases and returns the matching alias', async () => {
-      const suggestions = await repo.suggestIngredients('g', 100);
-      const garlicIndex = suggestions.findIndex((item) => item.ingredient.toLowerCase() === 'garlic');
-      const aliasMatch = suggestions.find((item) => item.matchedAlias?.toLowerCase() === 'ground black pepper');
-      expect(garlicIndex).toBeGreaterThanOrEqual(0);
-      expect(aliasMatch?.ingredient.toLowerCase()).toBe('black pepper');
-      expect(suggestions.indexOf(aliasMatch!)).toBeGreaterThan(garlicIndex);
+  describe('findIngredientMatches', () => {
+    it('finds an ingredient name that contains the text', async () => {
+      expect(await repo.findIngredientMatches('tomato')).toContainEqual({ ingredient: 'grape tomato', matchedAlias: null });
     });
 
-    it('returns direct names before alias matches when the search text appears within a name', async () => {
-      const suggestions = await repo.suggestIngredients('par', 10);
-      expect(suggestions.slice(0, 2)).toEqual([
-        { ingredient: 'Parmesan cheese', matchedAlias: null },
-        { ingredient: 'parsley', matchedAlias: null },
-      ]);
-      expect(suggestions).toContainEqual({ ingredient: 'brown gravy', matchedAlias: 'prepared brown gravy' });
-    });
-
-    it('matches ingredient names when the search text appears after the first word', async () => {
-      expect(await repo.suggestIngredients('tomato', 100)).toContainEqual({
-        ingredient: 'grape tomato',
-        matchedAlias: null,
-      });
-    });
-
-    it('matches aliases when the search text appears after the first word', async () => {
-      expect(await repo.suggestIngredients('pepper', 100)).toContainEqual({
+    it('finds an alias that contains the text, with its ingredient', async () => {
+      expect(await repo.findIngredientMatches('pepper')).toContainEqual({
         ingredient: 'jalapeño',
         matchedAlias: 'jalapeno peppers',
       });
     });
 
-    it('respects the limit', async () => {
-      expect(await repo.suggestIngredients('c', 3)).toHaveLength(3);
+    it('lists an ingredient name once, however many recipes use it', async () => {
+      const matches = await repo.findIngredientMatches('ground beef');
+      expect(matches.filter((m) => m.ingredient === 'ground beef' && m.matchedAlias === null)).toHaveLength(1);
+    });
+
+    it('finds every match, with no limit', async () => {
+      // 131 ingredient names alone contain "g" in data version 3.
+      expect((await repo.findIngredientMatches('g')).length).toBeGreaterThan(131);
     });
 
     it('treats % as a literal character', async () => {
-      expect(await repo.suggestIngredients('%', 10)).toEqual([]);
+      expect(await repo.findIngredientMatches('%')).toEqual([]);
     });
   });
 

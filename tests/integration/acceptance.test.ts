@@ -74,14 +74,23 @@ describe('acceptance checks', () => {
     expect(await filterRecipes(repo, { maxActiveMinutes: 15, people: 4 })).toHaveLength(65);
   });
 
-  it('autocompleting "par" suggests direct names before matching aliases', async () => {
+  it('autocompleting "par" suggests names starting with it, then names containing it, then aliases containing it', async () => {
     expect(await suggestIngredients(repo, 'par')).toEqual([
       { ingredient: 'Parmesan cheese', matchedAlias: null },
       { ingredient: 'parsley', matchedAlias: null },
+      { ingredient: 'asparagus', matchedAlias: null },
       { ingredient: 'brown gravy', matchedAlias: 'prepared brown gravy' },
       { ingredient: 'everything bagel seasoning', matchedAlias: 'prepared everything bagel topping' },
       { ingredient: 'Italian meatball', matchedAlias: 'prepared italian meatballs' },
       { ingredient: 'marinara sauce', matchedAlias: 'prepared marinara sauce' },
+      { ingredient: 'sun-dried tomato pesto', matchedAlias: 'prepared sun dried tomato pesto' },
+    ]);
+  });
+
+  it('autocompleting "ground b" suggests the name ground beef before the alias for black pepper', async () => {
+    expect(await suggestIngredients(repo, 'ground b')).toEqual([
+      { ingredient: 'ground beef', matchedAlias: null },
+      { ingredient: 'black pepper', matchedAlias: 'ground black pepper' },
     ]);
   });
 

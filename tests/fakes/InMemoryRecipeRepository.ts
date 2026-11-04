@@ -125,25 +125,17 @@ export class InMemoryRecipeRepository implements RecipeRepository {
     return names.map((n) => this.resolve(n));
   }
 
-  async suggestIngredients(prefix: string, limit: number) {
-    const p = prefix.toLowerCase();
-    const suggestions = new Map<string, IngredientSuggestion>();
+  async findIngredientMatches(text: string) {
+    const t = text.toLowerCase();
+    const names = new Set<string>();
     for (const ings of this.ingredients.values()) {
-      for (const ing of ings) {
-        if (ing.ingredient.toLowerCase().startsWith(p)) {
-          suggestions.set(ing.ingredient, { ingredient: ing.ingredient, matchedAlias: null });
-        }
-      }
+      for (const ing of ings) if (ing.ingredient.toLowerCase().includes(t)) names.add(ing.ingredient);
     }
-    for (const [alias, canonical] of this.aliases) {
-      if (alias.startsWith(p) && !suggestions.has(canonical)) {
-        suggestions.set(canonical, { ingredient: canonical, matchedAlias: alias });
-      }
-    }
-    return [...suggestions.values()].sort((a, b) =>
-      Number(a.matchedAlias !== null) - Number(b.matchedAlias !== null) ||
-      a.ingredient.localeCompare(b.ingredient),
-    ).slice(0, limit);
+    const direct = [...names].map((ingredient): IngredientSuggestion => ({ ingredient, matchedAlias: null }));
+    const aliases = [...this.aliases]
+      .filter(([alias]) => alias.includes(t))
+      .map(([alias, ingredient]): IngredientSuggestion => ({ ingredient, matchedAlias: alias }));
+    return [...direct, ...aliases];
   }
 
   async findIngredient(name: string) {
