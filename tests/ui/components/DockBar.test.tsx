@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react-native';
 import { DockBar } from '../../../src/ui/components/DockBar';
 import { colors } from '../../../src/ui/theme';
 import type { DockSurface } from '../../../src/ui/platform/dockSurface';
-import { shownOfType, shownText, styleOf } from '../../support/screen';
+import { shownText, styleOf } from '../../support/screen';
 
 // expo-blur's own view turns the blur target into a native id, so the test can't see which view it is.
 // A plain stand-in shows exactly what DockBar hands to BlurView.
@@ -24,7 +24,6 @@ const renderBar = (surface: DockSurface, blurTarget?: React.RefObject<React.Comp
 // The dock is a container, not something a screen reader focuses, so RNTL's getByRole skips it.
 const tabList = () => screen.container.queryAll((node) => node.props.accessibilityRole === 'tablist')[0];
 const blur = () => screen.queryByTestId('blur');
-const glass = () => shownOfType('ViewManagerAdapter_ExpoGlassEffect');
 
 describe('DockBar', () => {
   it('shows the tabs given to it', async () => {
@@ -42,27 +41,10 @@ describe('DockBar', () => {
     expect(tabList()).toBeDefined();
   });
 
-  describe('with Liquid Glass', () => {
-    it('draws the tabs on interactive glass', async () => {
-      await renderBar('liquidGlass');
-      expect(glass()[0].props.isInteractive).toBe(true);
-    });
-
-    it('does not blur', async () => {
-      await renderBar('liquidGlass');
-      expect(blur()).not.toBeOnTheScreen();
-    });
-  });
-
   describe('with a blur', () => {
     it('draws the tabs on a blur of whatever is behind the dock', async () => {
       await renderBar('blur');
       expect(blur()!.props.blurTarget).toBeUndefined();
-    });
-
-    it('does not use glass', async () => {
-      await renderBar('blur');
-      expect(glass()).toHaveLength(0);
     });
   });
 
@@ -80,9 +62,9 @@ describe('DockBar', () => {
   });
 
   describe('as a plain translucent bar', () => {
-    it('neither blurs nor uses glass', async () => {
+    it('does not blur', async () => {
       await renderBar('translucent');
-      expect([blur(), glass()]).toEqual([null, []]);
+      expect(blur()).not.toBeOnTheScreen();
     });
 
     it('fills with the see-through dock color', async () => {

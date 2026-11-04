@@ -1,9 +1,8 @@
 // PRESENTATION LAYER: the floating bottom dock from the board, a rounded pill that holds the tab buttons.
-// Its background depends on the device (see platform/dockSurface): Liquid Glass, a blur, or a see-through fill.
+// Its background depends on the device (see platform/dockSurface): a blur, or a see-through fill.
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { GlassView } from 'expo-glass-effect';
 import type { DockSurface } from '../platform/dockSurface';
 import { colors, dock, radii, shadows } from '../theme';
 
@@ -26,11 +25,7 @@ export function DockBar({ surface, bottom, blurTarget, children }: Props) {
       pointerEvents="box-none"
       style={[styles.floating, { bottom }, surface === 'translucent' && styles.translucent]}
     >
-      {surface === 'liquidGlass' ? (
-        <GlassView isInteractive glassEffectStyle="regular" style={styles.pill}>
-          {children}
-        </GlassView>
-      ) : surface === 'blur' ? (
+      {surface === 'blur' ? (
         <BlurView tint="light" intensity={BLUR_INTENSITY} style={[styles.pill, styles.outlined]}>
           {children}
         </BlurView>

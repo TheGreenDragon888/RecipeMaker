@@ -56,9 +56,10 @@ RecipeMaker uses a **three-tier architecture**. Dependencies point downward only
 * [ ] Scale ingredient amounts to a different number of people
 * [x] "Similar recipes": the same dish from other sources
 * [ ] Estimated cost to buy the missing ingredients
-* [ ] Save favorite recipes and your pantry between sessions
+* [x] Save your pantry between sessions
+* [ ] Save favorite recipes
 
-*The app has a floating bottom dock (Liquid Glass on iOS 26+, a blur elsewhere) with two tabs, Pantry (enter ingredients, with autocomplete) and Recipes (every recipe, A to Z), plus a Bookmarks button that is shown but not built yet. Results (recipes ranked for your pantry) and Recipe detail (ingredients, steps, the source, and similar recipes) open over the tabs, without the dock. Single-ingredient search, filters and serving scaling are built and tested in the business layer, but no screen uses them yet. Estimated cost, favorites and a saved pantry are not built yet.*
+*The app has a floating bottom dock on iOS and Android (a blur on iOS and Android 12+, a see-through bar on older Android) with two tabs, Pantry (enter ingredients, with autocomplete, and switch seasonings on in a pull-up tray) and Recipes (every recipe, A to Z), plus a Bookmarks button that is shown but not built yet. The pantry is saved on the phone and comes back the next time the app opens. Results (recipes ranked for your pantry) and Recipe detail (ingredients, steps, the source, and similar recipes) open over the tabs, without the dock. Recipe detail marks each ingredient against your pantry (have it, not enough, a swap you have, or missing) and lists them in that order. Single-ingredient search, filters and serving scaling are built and tested in the business layer, but no screen uses them yet. Estimated cost and favorites are not built yet.*
 
 ## Team Communication
 

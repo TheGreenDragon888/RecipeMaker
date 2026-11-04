@@ -32,9 +32,9 @@ export const colors = {
   surfaceTranslucent: 'rgba(255,253,249,0.92)',
   /** A pressed row, and the highlighted first row, in the suggestion dropdown. */
   pressed: '#F6EBD3',
-  /** The bottom dock's see-through fill where there is no Liquid Glass (surface at 55% opacity). */
+  /** The bottom dock's see-through fill on Android 11 and older, where there is no blur (surface at 55% opacity). */
   dockSurface: 'rgba(255,253,249,0.55)',
-  /** The dock's thin glassy outline. */
+  /** The dock's thin outline. */
   dockBorder: 'rgba(255,255,255,0.75)',
   /** The pill behind the current tab in the dock (accent at 14% opacity). */
   accentTint: 'rgba(163,74,27,0.14)',

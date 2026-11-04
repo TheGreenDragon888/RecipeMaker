@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import type { RecipeServices } from '../../../src/createRecipeServices';
@@ -6,12 +7,10 @@ import { RecipeServicesProvider } from '../../../src/ui/RecipeServicesContext';
 import { PantryScreen } from '../../../src/ui/screens/PantryScreen';
 import IndexRoute from '../../../app/(tabs)/index';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { currentTabBar } from '../../../src/ui/platform/tabBar';
 import { lastProps } from '../../support/recordProps';
 
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: jest.fn() }));
-jest.mock('../../../src/ui/platform/tabBar', () => ({ currentTabBar: jest.fn() }));
 jest.mock('../../../src/ui/screens/PantryScreen', () => {
   const { recordProps } = jest.requireActual('../../support/recordProps');
   const actual = jest.requireActual('../../../src/ui/screens/PantryScreen');
@@ -34,14 +33,14 @@ const renderRoute = () =>
 
 const screenProps = () => lastProps(PantryScreen);
 
-/** The insets inside a tab: a 34 px home indicator, plus the 49 pt bar on iOS (measured in Expo Go). */
+/** The insets inside a tab: a 34 px home indicator, on both platforms. */
 const onAndroid = () => {
-  jest.mocked(currentTabBar).mockReturnValue('dock');
+  jest.replaceProperty(Platform, 'OS', 'android');
   jest.mocked(useSafeAreaInsets).mockReturnValue({ top: 47, right: 0, bottom: 34, left: 0 });
 };
 const onIOS = () => {
-  jest.mocked(currentTabBar).mockReturnValue('native');
-  jest.mocked(useSafeAreaInsets).mockReturnValue({ top: 0, right: 0, bottom: 83, left: 0 });
+  jest.replaceProperty(Platform, 'OS', 'ios');
+  jest.mocked(useSafeAreaInsets).mockReturnValue({ top: 47, right: 0, bottom: 34, left: 0 });
 };
 
 beforeEach(onAndroid);
@@ -52,10 +51,10 @@ describe('index route', () => {
     expect(screenProps().bottomClearance).toBe(110);
   });
 
-  it("leaves room for iOS's tab bar and the board's 24 px gap above it", async () => {
+  it('leaves room for the dock above the home indicator on iOS', async () => {
     onIOS();
     await renderRoute();
-    expect(screenProps().bottomClearance).toBe(83 + 24);
+    expect(screenProps().bottomClearance).toBe(110);
   });
 
   it('passes the bottom inset, so the amount sheet can rise above the keyboard', async () => {
