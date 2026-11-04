@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import { RecipeNotFoundError } from '../../domain/errors';
+import { orderIngredientLines } from '../../domain/ingredientOrder';
 import type { PantryCheck } from '../../domain/pantryCheck';
 import type { RecipeSummary } from '../../domain/recipe';
 import type { RecipeDetail } from '../../services/getRecipeDetail';
@@ -111,8 +112,9 @@ export function RecipeDetailScreen({
     </View>
   );
 
-  function renderRecipe({ recipe, ingredients }: RecipeDetail) {
+  function renderRecipe({ recipe, ingredients, seasonings }: RecipeDetail) {
     const yieldText = formatYield(recipe);
+    const seasoningNames = new Set(seasonings);
     return (
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {banner}
@@ -132,12 +134,13 @@ export function RecipeDetailScreen({
 
           <Text style={styles.sectionTitle}>Ingredients</Text>
           {checks ? <PantryCheckLegend marks={legendMarks([...checks.values()])} /> : null}
+          {/* Each group is sorted on its own: by pantry check, seasonings first, then A to Z. */}
           {groupIngredientsByComponent(ingredients).map((group) => (
             <View key={group.component ?? ''}>
               {group.component ? (
                 <Text style={styles.groupHeading}>{formatIngredientGroupHeading(group.component)}</Text>
               ) : null}
-              {group.ingredients.map((ingredient, index) => (
+              {orderIngredientLines(group.ingredients, seasoningNames, checks).map((ingredient, index) => (
                 <IngredientRow
                   key={ingredient.lineNumber}
                   text={formatIngredientLine(ingredient)}

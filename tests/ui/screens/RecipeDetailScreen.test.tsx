@@ -3,8 +3,9 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import { RecipeNotFoundError } from '../../../src/domain/errors';
 import type { PantryCheck } from '../../../src/domain/pantryCheck';
-import type { RecipeSummary } from '../../../src/domain/recipe';
+import type { RecipeIngredient, RecipeSummary } from '../../../src/domain/recipe';
 import type { RecipeDetail } from '../../../src/services/getRecipeDetail';
+import { formatIngredientLine } from '../../../src/ui/format/ingredientLine';
 import { RecipeDetailScreen } from '../../../src/ui/screens/RecipeDetailScreen';
 import { makeIngredient, makeRecipe } from '../../fakes/InMemoryRecipeRepository';
 import { colors } from '../../../src/ui/theme';
@@ -23,7 +24,7 @@ const sloppyJoes = makeRecipe({
 });
 const garlic = makeIngredient({ lineNumber: 1, ingredient: 'garlic', quantityMin: 3, quantityMax: 3, unit: 'clove', preparation: 'minced' });
 const soySauce = makeIngredient({ lineNumber: 2, component: 'stir fry sauce', ingredient: 'soy sauce', quantityMin: 2, quantityMax: 2, unit: 'tbsp' });
-const detail: RecipeDetail = { recipe: sloppyJoes, ingredients: [garlic, soySauce] };
+const detail: RecipeDetail = { recipe: sloppyJoes, ingredients: [garlic, soySauce], seasonings: [] };
 
 const otherSloppyJoes: RecipeSummary = {
   id: 8,
@@ -113,7 +114,7 @@ describe('RecipeDetailScreen', () => {
       const { showRecipe } = await setup({ recipeId: 7, getRecipeDetail });
       await showRecipe(8);
 
-      await act(async () => forEight.resolve({ recipe: makeRecipe({ ...otherSloppyJoes }), ingredients: [] }));
+      await act(async () => forEight.resolve({ recipe: makeRecipe({ ...otherSloppyJoes }), ingredients: [], seasonings: [] }));
       await act(async () => forSeven.resolve(detail));
 
       expect(shownText()).not.toContain('Sloppy Joes');
@@ -207,6 +208,46 @@ describe('RecipeDetailScreen', () => {
         await act(async () => forSeven.resolve(gotGarlicNotSoy));
 
         expect(pantryIcons()).toEqual([]);
+      });
+    });
+
+    describe('order', () => {
+      // Listed in the recipe as rice, carrot, paprika, onion; paprika is a seasoning.
+      const rice = makeIngredient({ lineNumber: 1, ingredient: 'rice', quantityMin: 1, quantityMax: 1, unit: 'cup' });
+      const carrot = makeIngredient({ lineNumber: 2, ingredient: 'carrot', quantityMin: 2, quantityMax: 2, unit: 'each' });
+      const paprika = makeIngredient({ lineNumber: 3, ingredient: 'paprika', quantityMin: 1, quantityMax: 1, unit: 'tsp' });
+      const onion = makeIngredient({ lineNumber: 4, ingredient: 'onion', quantityMin: 1, quantityMax: 1, unit: 'each', substitute: 'shallot' });
+      const mixed: RecipeDetail = { recipe: sloppyJoes, ingredients: [rice, carrot, paprika, onion], seasonings: ['paprika'] };
+      const lineTexts = (lines: RecipeIngredient[]) => lines.map(formatIngredientLine);
+      /** The ingredient lines on screen, top to bottom. */
+      const shownLines = (of: RecipeIngredient[]) => shownText().filter((text) => lineTexts(of).includes(text));
+
+      it('lists what you have first, then swaps, then what is missing', async () => {
+        const checks = new Map<number, PantryCheck>([
+          [1, { status: 'missing' }],
+          [2, { status: 'have', have: null }],
+          [3, { status: 'have', have: null }],
+          [4, { status: 'swap', substitute: 'shallot', have: null }],
+        ]);
+        await setup({
+          getRecipeDetail: jest.fn().mockResolvedValue(mixed),
+          checkRecipeAgainstPantry: jest.fn().mockResolvedValue(checks),
+        });
+        expect(shownLines(mixed.ingredients)).toEqual(lineTexts([paprika, carrot, onion, rice]));
+      });
+
+      it('lists seasonings first, then A to Z, when there is no pantry to compare with', async () => {
+        await setup({ getRecipeDetail: jest.fn().mockResolvedValue(mixed) });
+        expect(shownLines(mixed.ingredients)).toEqual(lineTexts([paprika, carrot, onion, rice]));
+      });
+
+      it('sorts each group on its own, under its heading', async () => {
+        const vinegar = makeIngredient({ lineNumber: 3, component: 'stir fry sauce', ingredient: 'vinegar', quantityMin: 1, quantityMax: 1, unit: 'tbsp' });
+        const grouped: RecipeDetail = { recipe: sloppyJoes, ingredients: [garlic, soySauce, vinegar, rice], seasonings: [] };
+        await setup({ getRecipeDetail: jest.fn().mockResolvedValue(grouped) });
+        const text = shownText();
+        const shown = text.filter((t) => t === 'For the stir fry sauce' || lineTexts(grouped.ingredients).includes(t));
+        expect(shown).toEqual([...lineTexts([garlic, rice]), 'For the stir fry sauce', ...lineTexts([soySauce, vinegar])]);
       });
     });
 
