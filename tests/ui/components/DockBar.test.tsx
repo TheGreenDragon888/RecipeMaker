@@ -1,7 +1,10 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { act } from 'react';
+import { AccessibilityInfo, Text, View } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import { DockBar } from '../../../src/ui/components/DockBar';
+import { DockItem } from '../../../src/ui/components/DockItem';
+import { indicatorOffset } from '../../../src/ui/motion/dockSwipe';
 import { colors } from '../../../src/ui/theme';
 import type { DockSurface } from '../../../src/ui/platform/dockSurface';
 import { shownText, styleOf } from '../../support/screen';
@@ -24,6 +27,21 @@ const renderBar = (surface: DockSurface, blurTarget?: React.RefObject<React.Comp
 // The dock is a container, not something a screen reader focuses, so RNTL's getByRole skips it.
 const tabList = () => screen.container.queryAll((node) => node.props.accessibilityRole === 'tablist')[0];
 const blur = () => screen.queryByTestId('blur');
+/** The pill behind the current tab, which screen readers skip. */
+const pill = () => screen.queryByTestId('dock-indicator', { includeHiddenElements: true });
+const pillX = () => (styleOf(pill()!).transform as { translateX: number }[])[0].translateX;
+
+/** A dock of three tabs, with the one at `focused` selected and the last one disabled, as in the app. */
+const tabs = (focused: number | null) => [
+  <DockItem key="p" label="Pantry" icon="pantry" isFocused={focused === 0} />,
+  <DockItem key="r" label="Recipes" icon="recipes" isFocused={focused === 1} />,
+  <DockItem key="b" label="Bookmarks" icon="bookmark" disabled />,
+];
+const dockOf = (focused: number | null, surface: DockSurface = 'translucent') => (
+  <DockBar surface={surface} bottom={24}>
+    {tabs(focused)}
+  </DockBar>
+);
 
 describe('DockBar', () => {
   it('shows the tabs given to it', async () => {
@@ -70,6 +88,69 @@ describe('DockBar', () => {
     it('fills with the see-through dock color', async () => {
       await renderBar('translucent');
       expect(styleOf(tabList()).backgroundColor).toBe(colors.dockSurface);
+    });
+  });
+
+  describe('the pill behind the current tab', () => {
+    it('sits under the first tab when it is selected', async () => {
+      await render(dockOf(0));
+      expect(pillX()).toBe(indicatorOffset(0));
+    });
+
+    it('sits under the second tab when it is selected', async () => {
+      await render(dockOf(1));
+      expect(pillX()).toBe(indicatorOffset(1));
+    });
+
+    it('is the accent-tinted pill from the board', async () => {
+      await render(dockOf(0));
+      expect(styleOf(pill()!).backgroundColor).toBe(colors.accentTint);
+    });
+
+    it.each<DockSurface>(['blur', 'androidBlur', 'translucent'])('is drawn on the %s dock', async (surface) => {
+      await render(dockOf(1, surface));
+      expect(pillX()).toBe(indicatorOffset(1));
+    });
+
+    it('is not drawn when no tab is selected', async () => {
+      await render(dockOf(null));
+      expect(pill()).toBeNull();
+    });
+  });
+
+  describe('when another tab is selected', () => {
+    const wait = (ms: number) => act(async () => { jest.advanceTimersByTime(ms); });
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      // Unless a test says otherwise, the Reduce Motion setting never arrives, so the dock treats it as off.
+      jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockReturnValue(new Promise<boolean>(() => {}));
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+      jest.restoreAllMocks();
+    });
+
+    it('slides the pill part of the way there at first', async () => {
+      await render(dockOf(0));
+      await screen.rerender(dockOf(1));
+      await wait(50);
+      expect(pillX()).toBeGreaterThan(indicatorOffset(0));
+      expect(pillX()).toBeLessThan(indicatorOffset(1));
+    });
+
+    it('ends with the pill under the newly selected tab', async () => {
+      await render(dockOf(0));
+      await screen.rerender(dockOf(1));
+      await wait(1500);
+      expect(pillX()).toBe(indicatorOffset(1));
+    });
+
+    it('moves the pill there at once with Reduce Motion on', async () => {
+      jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+      await render(dockOf(0));
+      await screen.rerender(dockOf(1));
+      expect(pillX()).toBe(indicatorOffset(1));
     });
   });
 });

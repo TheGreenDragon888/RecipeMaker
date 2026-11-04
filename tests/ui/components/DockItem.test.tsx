@@ -40,9 +40,10 @@ describe('DockItem', () => {
       expect(tab().props.accessibilityState).toEqual({ selected: true, disabled: false });
     });
 
-    it('sits on the accent-tinted pill', async () => {
+    // The dock draws one pill behind the current tab and slides it between tabs (see DockBar).
+    it('leaves the tinted pill to the dock', async () => {
       await render(<DockItem label="Pantry" icon="pantry" isFocused />);
-      expect(styleOf(tab()).backgroundColor).toBe(colors.accentTint);
+      expect(styleOf(tab()).backgroundColor).toBeUndefined();
     });
 
     it('draws its icon in the accent color', async () => {

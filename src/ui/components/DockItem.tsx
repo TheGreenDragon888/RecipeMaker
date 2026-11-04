@@ -1,8 +1,10 @@
 // PRESENTATION LAYER: one button in the bottom dock (an icon over a short label), as drawn on the board.
 // The dock's tab navigator hands it isFocused and onPress; a disabled item stands for a tab that isn't built yet.
+// The tinted pill behind the current tab is drawn by DockBar, which this item tells when it is selected.
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { colors, dock, fonts, fontSize, radii, spacing } from '../theme';
+import { useReportToDock } from './DockBar';
 import { Icon, type IconName } from './Icon';
 
 type Props = {
@@ -17,6 +19,7 @@ type Props = {
 };
 
 export function DockItem({ label, icon, isFocused = false, disabled = false, onPress, accessibilityLabel }: Props) {
+  useReportToDock({ isFocused, disabled, onPress });
   const color = isFocused ? colors.accent : colors.textSecondary;
   return (
     <Pressable
@@ -29,7 +32,6 @@ export function DockItem({ label, icon, isFocused = false, disabled = false, onP
       needsOffscreenAlphaCompositing
       style={({ pressed }) => [
         styles.item,
-        isFocused && styles.focused,
         pressed && styles.pressed,
         disabled && styles.disabled,
       ]}
@@ -49,7 +51,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xxs,
   },
-  focused: { backgroundColor: colors.accentTint },
   pressed: { opacity: 0.85 },
   disabled: { opacity: 0.5 },
   label: { fontSize: fontSize.label, fontFamily: fonts.bold },
