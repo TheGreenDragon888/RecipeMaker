@@ -7,12 +7,17 @@ import { shownText, styleOf } from '../../support/screen';
 
 // Stand-ins for the headless tabs. Each tab trigger and the slot show up as a plain view that carries
 // what the layout gave them, and their children render so the dock can be inspected.
+const tabListChild: { current: unknown } = { current: null };
 jest.mock('expo-router/ui', () => {
   const { View } = jest.requireActual('react-native');
   return {
     Tabs: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
     TabSlot: () => <View testID="tab-slot" />,
-    TabList: ({ children }: { children: React.ReactNode }) => children,
+    // Keeps the element it was given, so a test can check what the layout put directly inside the dock.
+    TabList: ({ children }: { children: React.ReactNode }) => {
+      tabListChild.current = children;
+      return children;
+    },
     TabTrigger: ({ children, name, href }: { children: React.ReactNode; name: string; href: string }) => (
       <View testID="tab-trigger" tabName={name} href={href}>
         {children}
@@ -53,6 +58,17 @@ describe('tabs layout (the floating dock)', () => {
       ['index', '/'],
       ['recipes', '/recipes'],
     ]);
+  });
+
+  // Expo Router finds the tabs by reading the dock's own children before anything is drawn (see AGENTS.md §5.2).
+  it('puts the tab triggers directly inside the dock', async () => {
+    const { TabTrigger } = jest.requireMock('expo-router/ui');
+    await render(<TabsLayout />);
+    const dockElement = tabListChild.current as React.ReactElement<{ children: React.ReactNode }>;
+    const triggers = React.Children.toArray(dockElement.props.children).filter(
+      (child) => React.isValidElement(child) && child.type === TabTrigger,
+    );
+    expect(triggers).toHaveLength(2);
   });
 
   it('shows Pantry, Recipes and Bookmarks in the dock, in that order', async () => {

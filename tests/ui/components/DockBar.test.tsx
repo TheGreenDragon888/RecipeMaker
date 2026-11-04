@@ -1,13 +1,15 @@
 import React from 'react';
 import { act } from 'react';
 import { AccessibilityInfo, Text, View } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { DockBar } from '../../../src/ui/components/DockBar';
 import { DockItem } from '../../../src/ui/components/DockItem';
 import { indicatorOffset } from '../../../src/ui/motion/dockSwipe';
 import { colors } from '../../../src/ui/theme';
 import type { DockSurface } from '../../../src/ui/platform/dockSurface';
-import { shownText, styleOf } from '../../support/screen';
+import { drag } from '../../support/drag';
+import { placeViewsAt } from '../../support/measure';
+import { iconDrawing, shownText, styleOf } from '../../support/screen';
 
 // expo-blur's own view turns the blur target into a native id, so the test can't see which view it is.
 // A plain stand-in shows exactly what DockBar hands to BlurView.
@@ -151,6 +153,138 @@ describe('DockBar', () => {
       await render(dockOf(0));
       await screen.rerender(dockOf(1));
       expect(pillX()).toBe(indicatorOffset(1));
+    });
+  });
+
+  describe('swiping along the dock', () => {
+    const wait = (ms: number) => act(async () => { jest.advanceTimersByTime(ms); });
+    const openPantry = jest.fn();
+    const openRecipes = jest.fn();
+    const openBookmarks = jest.fn();
+    /** Pantry is open; Bookmarks is disabled, as in the app. */
+    const swipeDock = () => (
+      <DockBar surface="translucent" bottom={24}>
+        <DockItem label="Pantry" icon="pantry" isFocused onPress={openPantry} />
+        <DockItem label="Recipes" icon="recipes" onPress={openRecipes} />
+        <DockItem label="Bookmarks" icon="bookmark" disabled onPress={openBookmarks} />
+      </DockBar>
+    );
+    // The dock's row, which follows the finger. It sits at x 50, y 700 on screen, 276 × 64 px: the first tab
+    // spans x 56–144, the second 144–232 and the third 232–320.
+    const row = () => screen.getByTestId('dock-row');
+    const onPantry = { x: 100, y: 730 };
+    const onBookmarks = { x: 280, y: 730 };
+    /** From Pantry, the distance that brings the finger over Recipes. */
+    const toRecipes = 90;
+    const opened = () => [openPantry, openRecipes, openBookmarks].map((open) => open.mock.calls.length);
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockReturnValue(new Promise<boolean>(() => {}));
+      placeViewsAt({ x: 50, y: 700, width: 276, height: 64 });
+      [openPantry, openRecipes, openBookmarks].forEach((open) => open.mockClear());
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+      jest.restoreAllMocks();
+    });
+
+    it('moves the pill to the tab under the finger before it lets go', async () => {
+      await render(swipeDock());
+      drag(row(), [10, 40, toRecipes], { axis: 'x', from: onPantry, release: false });
+      await wait(1500);
+      expect(pillX()).toBe(indicatorOffset(1));
+    });
+
+    it('colors the tab under the finger as the selected one', async () => {
+      await render(swipeDock());
+      drag(row(), [10, 40, toRecipes], { axis: 'x', from: onPantry, release: false });
+      expect([iconDrawing('pantry').props.stroke, iconDrawing('recipes').props.stroke]).toEqual([colors.textSecondary, colors.accent]);
+    });
+
+    it('still tells screen readers the open tab is the selected one', async () => {
+      await render(swipeDock());
+      drag(row(), [10, 40, toRecipes], { axis: 'x', from: onPantry, release: false });
+      expect(screen.getByRole('tab', { name: 'Pantry' }).props.accessibilityState.selected).toBe(true);
+    });
+
+    it('opens the tab under the finger when it lets go', async () => {
+      await render(swipeDock());
+      drag(row(), [10, 40, toRecipes], { axis: 'x', from: onPantry });
+      expect(opened()).toEqual([0, 1, 0]);
+    });
+
+    it('moves the pill there at once with Reduce Motion on', async () => {
+      jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+      await render(swipeDock());
+      drag(row(), [10, 40, toRecipes], { axis: 'x', from: onPantry, release: false });
+      expect(pillX()).toBe(indicatorOffset(1));
+    });
+
+    it('can start on the disabled Bookmarks tab', async () => {
+      await render(swipeDock());
+      drag(row(), [-10, -60, -130], { axis: 'x', from: onBookmarks });
+      expect(opened()).toEqual([0, 1, 0]);
+    });
+
+    it('opens nothing when it lets go over the tab already open', async () => {
+      await render(swipeDock());
+      drag(row(), [10, 40, toRecipes, 20], { axis: 'x', from: onPantry });
+      expect(opened()).toEqual([0, 0, 0]);
+    });
+
+    describe('over the disabled Bookmarks tab', () => {
+      const toBookmarks = 190;
+
+      it('keeps the pill on the open tab', async () => {
+        await render(swipeDock());
+        drag(row(), [10, toRecipes, toBookmarks], { axis: 'x', from: onPantry, release: false });
+        await wait(1500);
+        expect(pillX()).toBe(indicatorOffset(0));
+      });
+
+      it('opens nothing when the finger lets go', async () => {
+        await render(swipeDock());
+        drag(row(), [10, toRecipes, toBookmarks], { axis: 'x', from: onPantry });
+        expect(opened()).toEqual([0, 0, 0]);
+      });
+    });
+
+    describe('when the finger slides well off the dock', () => {
+      const offTheDock = 400;
+
+      it('puts the pill back on the open tab', async () => {
+        await render(swipeDock());
+        drag(row(), [10, toRecipes, offTheDock], { axis: 'x', from: onPantry, release: false });
+        await wait(1500);
+        expect(pillX()).toBe(indicatorOffset(0));
+      });
+
+      it('opens nothing when the finger lets go', async () => {
+        await render(swipeDock());
+        drag(row(), [10, toRecipes, offTheDock], { axis: 'x', from: onPantry });
+        expect(opened()).toEqual([0, 0, 0]);
+      });
+    });
+
+    it('puts the pill back when something else takes the touch', async () => {
+      await render(swipeDock());
+      drag(row(), [10, toRecipes], { axis: 'x', from: onPantry, release: false });
+      act(() => row().props.onResponderTerminate({ nativeEvent: {}, touchHistory: { touchBank: [] } }));
+      await wait(1500);
+      expect(pillX()).toBe(indicatorOffset(0));
+    });
+
+    it('opens nothing after a touch that never slid sideways', async () => {
+      await render(swipeDock());
+      drag(row(), [2, 4, 3], { axis: 'x', from: onBookmarks });
+      expect(opened()).toEqual([0, 0, 0]);
+    });
+
+    it('leaves a tap to the tab itself', async () => {
+      await render(swipeDock());
+      await fireEvent.press(screen.getByRole('tab', { name: 'Recipes' }));
+      expect(opened()).toEqual([0, 1, 0]);
     });
   });
 });

@@ -19,8 +19,9 @@ type Props = {
 };
 
 export function DockItem({ label, icon, isFocused = false, disabled = false, onPress, accessibilityLabel }: Props) {
-  useReportToDock({ isFocused, disabled, onPress });
-  const color = isFocused ? colors.accent : colors.textSecondary;
+  // Looks selected while the dock's pill is on it, which during a swipe can be before it opens.
+  const looksSelected = useReportToDock({ isFocused, disabled, onPress });
+  const color = looksSelected ? colors.accent : colors.textSecondary;
   return (
     <Pressable
       accessibilityRole="tab"
@@ -37,7 +38,7 @@ export function DockItem({ label, icon, isFocused = false, disabled = false, onP
       ]}
     >
       <Icon name={icon} size={dock.iconSize} color={color} />
-      <Text style={[styles.label, { color }, isFocused && styles.focusedLabel]}>{label}</Text>
+      <Text style={[styles.label, { color }, looksSelected && styles.focusedLabel]}>{label}</Text>
     </Pressable>
   );
 }
