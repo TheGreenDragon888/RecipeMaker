@@ -22,6 +22,10 @@ describe('createRecipeServices', () => {
     expect(names(await services.searchRecipesByIngredient('beef'))).toEqual(['Joes A', 'Joes B']);
   });
 
+  it('wires combined recipe search to the repository', async () => {
+    expect(names(await services.searchRecipes('beef'))).toEqual(['Joes A', 'Joes B']);
+  });
+
   it('wires pantry matching to the repository', async () => {
     expect(await services.findRecipesFromPantry(['beef'])).toHaveLength(2);
   });

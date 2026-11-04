@@ -126,6 +126,12 @@ describe('SqliteRecipeRepository', () => {
       ]);
     });
 
+    it('matches a partial alias to its canonical ingredient', async () => {
+      const partialAliasMatches = names(await repo.findByIngredientOrAliasContaining('scallio')).sort((a, b) => a.localeCompare(b));
+      const canonicalMatches = names(await repo.findByIngredient('scallions')).sort((a, b) => a.localeCompare(b));
+      expect(partialAliasMatches).toEqual(canonicalMatches);
+    });
+
     it('treats % and _ as literal characters, not wildcards', async () => {
       expect(await repo.findByIngredientContaining('%')).toEqual([]);
       expect(await repo.findByIngredientContaining('_')).toEqual([]);

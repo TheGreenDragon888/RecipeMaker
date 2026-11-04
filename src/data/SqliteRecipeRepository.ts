@@ -35,6 +35,16 @@ FROM recipes AS r JOIN recipe_ingredients AS ri USING (recipe_id)
 WHERE ri.ingredient LIKE '%' || $term || '%' ESCAPE '\'
 ORDER BY r.recipe_name;`;
 
+export const SEARCH_PARTIAL_WITH_ALIASES_SQL = String.raw`
+SELECT DISTINCT ${SUMMARY_COLUMNS}
+FROM recipes AS r JOIN recipe_ingredients AS ri USING (recipe_id)
+WHERE ri.ingredient LIKE '%' || $term || '%' ESCAPE '\'
+   OR ri.ingredient IN (
+     SELECT a.ingredient FROM ingredient_aliases AS a
+     WHERE a.alias LIKE '%' || $term || '%' ESCAPE '\'
+   )
+ORDER BY r.recipe_name;`;
+
 export const GET_RECIPE_SQL = `SELECT * FROM recipes WHERE recipe_id = $id;`;
 
 export const GET_INGREDIENTS_SQL = `
@@ -90,6 +100,13 @@ export class SqliteRecipeRepository implements RecipeRepository {
 
   async findByIngredientContaining(text: string) {
     const rows = await this.db.getAllAsync<RecipeSummaryRow>(SEARCH_PARTIAL_SQL, { $term: escapeLike(text) });
+    return rows.map(toRecipeSummary);
+  }
+
+  async findByIngredientOrAliasContaining(text: string) {
+    const rows = await this.db.getAllAsync<RecipeSummaryRow>(SEARCH_PARTIAL_WITH_ALIASES_SQL, {
+      $term: escapeLike(text),
+    });
     return rows.map(toRecipeSummary);
   }
 

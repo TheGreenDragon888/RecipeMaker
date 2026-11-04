@@ -6,8 +6,10 @@ import type { PantryTracking } from './pantryCatalog';
 export interface RecipeRepository {
   /** Recipes using this ingredient. The name is resolved through the alias table first ("scallions" -> "green onion"). */
   findByIngredient(name: string): Promise<RecipeSummary[]>;
-  /** Recipes with any ingredient whose canonical name contains the text. */
+  /** Recipes with any canonical ingredient name that contains the text. */
   findByIngredientContaining(text: string): Promise<RecipeSummary[]>;
+  /** Recipes with an ingredient name or alias that contains the text. */
+  findByIngredientOrAliasContaining(text: string): Promise<RecipeSummary[]>;
   getRecipe(id: number): Promise<Recipe | null>;
   getIngredients(recipeId: number): Promise<RecipeIngredient[]>;
   listRecipeSummaries(): Promise<RecipeSummary[]>;

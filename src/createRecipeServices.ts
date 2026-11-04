@@ -12,6 +12,7 @@ import { getSimilarRecipes } from './services/getSimilarRecipes';
 import { listAllRecipes } from './services/listAllRecipes';
 import { loadSavedPantry } from './services/loadSavedPantry';
 import { savePantry } from './services/savePantry';
+import { searchRecipes } from './services/searchRecipes';
 import { searchRecipesByIngredient } from './services/searchRecipesByIngredient';
 import { suggestIngredients } from './services/suggestIngredients';
 
@@ -20,6 +21,7 @@ export type RecipeServices = ReturnType<typeof createRecipeServices>;
 export function createRecipeServices(repo: RecipeRepository, pantryRepo: PantryRepository) {
   return {
     searchRecipesByIngredient: (raw: string) => searchRecipesByIngredient(repo, raw),
+    searchRecipes: (raw: string) => searchRecipes(repo, raw),
     findRecipesFromPantry: (pantryItems: string[]) => findRecipesFromPantry(repo, pantryItems),
     filterRecipes: (filter: RecipeFilter) => filterRecipes(repo, filter),
     getRecipeDetail: (recipeId: number) => getRecipeDetail(repo, recipeId),

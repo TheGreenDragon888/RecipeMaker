@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import type { RecipeSummary } from '../../../src/domain/recipe';
 import { RecipesScreen } from '../../../src/ui/screens/RecipesScreen';
@@ -13,12 +13,13 @@ function makeSummary(id: number, name: string): RecipeSummary {
 /** By default the service returns no recipes. */
 async function setup({
   listAllRecipes = jest.fn().mockResolvedValue([]),
+  searchRecipes = jest.fn().mockResolvedValue([]),
   bottomClearance,
-}: { listAllRecipes?: jest.Mock; bottomClearance?: number } = {}) {
-  const services = { listAllRecipes } as unknown as RecipeServices;
+}: { listAllRecipes?: jest.Mock; searchRecipes?: jest.Mock; bottomClearance?: number } = {}) {
+  const services = { listAllRecipes, searchRecipes } as unknown as RecipeServices;
   const onOpenRecipe = jest.fn();
   await render(<RecipesScreen services={services} onOpenRecipe={onOpenRecipe} bottomClearance={bottomClearance} />);
-  return { listAllRecipes, onOpenRecipe };
+  return { listAllRecipes, searchRecipes, onOpenRecipe };
 }
 
 const never = () => new Promise<never>(() => {});
@@ -45,6 +46,74 @@ describe('RecipesScreen', () => {
     it('has the title "Recipes"', async () => {
       await setup();
       expect(shownText()).toContain('Recipes');
+    });
+
+    describe('search', () => {
+      afterEach(() => jest.useRealTimers());
+
+      it('shows a search field matching the pantry field prompt', async () => {
+        await setup();
+        expect(screen.getByLabelText('Search recipes')).toBeTruthy();
+        expect(screen.getByPlaceholderText('Search recipes…')).toBeTruthy();
+      });
+
+      it('searches after typing and displays the matching recipes', async () => {
+        const { searchRecipes } = await setup({
+          listAllRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'Apple Pie')]),
+          searchRecipes: jest.fn().mockResolvedValue([makeSummary(2, 'Potato Soup')]),
+        });
+
+        jest.useFakeTimers();
+        await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'potato');
+        expect(searchRecipes).not.toHaveBeenCalled();
+        await act(async () => {
+          jest.advanceTimersByTime(250);
+        });
+
+        expect(searchRecipes).toHaveBeenCalledWith('potato');
+        expect(recipeCardNames()).toEqual(['Potato Soup']);
+      });
+
+      it('restores the full list when the search is cleared', async () => {
+        const { searchRecipes } = await setup({
+          listAllRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'Apple Pie'), makeSummary(2, 'Potato Soup')]),
+          searchRecipes: jest.fn().mockResolvedValue([makeSummary(2, 'Potato Soup')]),
+        });
+
+        jest.useFakeTimers();
+        await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'potato');
+        await act(async () => {
+          jest.advanceTimersByTime(250);
+        });
+        expect(recipeCardNames()).toEqual(['Potato Soup']);
+
+        await fireEvent.changeText(screen.getByLabelText('Search recipes'), '');
+        expect(searchRecipes).toHaveBeenCalledTimes(1);
+        expect(recipeCardNames()).toEqual(['Apple Pie', 'Potato Soup']);
+      });
+
+      it('shows a search-specific empty state when there are no matches', async () => {
+        await setup({ listAllRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'Apple Pie')]) });
+        jest.useFakeTimers();
+        await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'missing');
+        await act(async () => {
+          jest.advanceTimersByTime(250);
+        });
+
+        expect(shownText()).toContain('No recipes found.');
+        expect(shownText()).not.toContain('No recipes yet.');
+      });
+
+      it('shows an error when searching fails', async () => {
+        await setup({ searchRecipes: jest.fn().mockRejectedValue(new Error('database busy')) });
+        jest.useFakeTimers();
+        await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'potato');
+        await act(async () => {
+          jest.advanceTimersByTime(250);
+        });
+
+        expect(shownText()).toContain("Couldn't search recipes.");
+      });
     });
 
     it('lists the recipes in the order the service returns them', async () => {

@@ -84,7 +84,23 @@ export class InMemoryRecipeRepository implements RecipeRepository {
 
   async findByIngredientContaining(text: string) {
     const needle = text.toLowerCase();
-    return this.recipes.filter((r) => this.usesIngredient(r.id, (i) => i.includes(needle))).map(toSummary);
+    return this.recipes
+      .filter((r) => this.usesIngredient(r.id, (ingredient) => ingredient.includes(needle)))
+      .map(toSummary);
+  }
+
+  async findByIngredientOrAliasContaining(text: string) {
+    const needle = text.toLowerCase();
+    const matchingIngredients = new Set(
+      [...this.aliases]
+        .filter(([alias]) => alias.includes(needle))
+        .map(([, canonical]) => canonical.toLowerCase()),
+    );
+    return this.recipes
+      .filter((r) =>
+        this.usesIngredient(r.id, (ingredient) => ingredient.includes(needle) || matchingIngredients.has(ingredient)),
+      )
+      .map(toSummary);
   }
 
   async getRecipe(id: number) {
