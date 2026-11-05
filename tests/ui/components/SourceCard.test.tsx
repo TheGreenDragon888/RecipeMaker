@@ -1,7 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SourceCard } from '../../../src/ui/components/SourceCard';
-import { shownIcons, shownText } from '../../support/screen';
+import { shownIcons, shownText, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 const budgetBytes = { sourceSite: 'Budget Bytes', sourceUrl: 'https://www.budgetbytes.com/sloppy-joes/' };
 
@@ -36,5 +37,12 @@ describe('SourceCard', () => {
   it('draws an open-externally icon in its link', async () => {
     await render(<SourceCard recipe={budgetBytes} onOpen={() => {}} />);
     expect(shownIcons(screen.getByRole('link'))).toEqual(['externalLink']);
+  });
+});
+
+describe('SourceCard press feedback', () => {
+  it('shrinks the link while a finger is on it', async () => {
+    await render(<SourceCard recipe={budgetBytes} onOpen={() => {}} />);
+    expect(await scaleWhilePressed(screen.getByRole('link'))).toBeCloseTo(pressedScale('button', false), 3);
   });
 });

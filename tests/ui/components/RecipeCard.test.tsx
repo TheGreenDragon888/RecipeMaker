@@ -2,7 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { RecipeSummary } from '../../../src/domain/recipe';
 import { RecipeCard } from '../../../src/ui/components/RecipeCard';
-import { fadedViews, fadesAsOnePicture, pressIn, shownIcons, shownText } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, pressIn, shownIcons, shownText, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 const recipe: RecipeSummary = {
   id: 7,
@@ -51,5 +52,12 @@ describe('RecipeCard', () => {
   it('draws a clock icon beside the total time', async () => {
     await render(<RecipeCard recipe={recipe} onHand={onHand} onPress={() => {}} />);
     expect(shownIcons()).toEqual(['clock']);
+  });
+});
+
+describe('RecipeCard press feedback', () => {
+  it('shrinks the card while a finger is on it', async () => {
+    await render(<RecipeCard recipe={recipe} onPress={() => {}} />);
+    expect(await scaleWhilePressed(screen.getByRole('button'))).toBeCloseTo(pressedScale('card', false), 3);
   });
 });

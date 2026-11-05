@@ -1,7 +1,8 @@
 // PRESENTATION LAYER: one unit in the amount sheet's unit row, a pill the user taps to pick that unit (blue when
 // picked). Exactly one is picked, so screen readers hear a choice (radio), not an on/off switch.
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+import { PressableScale } from './PressableScale';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
 
 type Props = {
@@ -13,7 +14,8 @@ type Props = {
 
 export function UnitChip({ label, selected, onPress }: Props) {
   return (
-    <Pressable
+    <PressableScale
+      size="small"
       accessibilityRole="radio"
       accessibilityLabel={label}
       accessibilityState={{ checked: selected }}
@@ -23,7 +25,7 @@ export function UnitChip({ label, selected, onPress }: Props) {
       {({ pressed }) => (
         <Text style={[styles.label, selected ? styles.labelOn : styles.labelOff, pressed && styles.pressed]}>{label}</Text>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 

@@ -4,9 +4,10 @@
 // When one step leaves nothing, the − button becomes a remove button (× icon). The mockup's category dot and
 // category label are left out: no data backs them. The rules (the maximum, when − removes) come in as props.
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { formatEditAmountLabel, formatPantryAmount, formatQuantityStepLabel } from '../format/pantryAmount';
 import { formatIngredientName, formatPantryUnit } from '../format/pantryInfo';
+import { PressableScale } from './PressableScale';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
 import { Icon, type IconName } from './Icon';
 
@@ -67,7 +68,8 @@ export function PantryItemRow({
           onPress={onDecrease}
         />
         {onEditAmount ? (
-          <Pressable
+          <PressableScale
+            size="small"
             accessibilityRole="button"
             accessibilityLabel={formatEditAmountLabel(name, hasOtherUnits)}
             accessibilityValue={{ text: unitText ? `${amountText} ${unitText}` : amountText }}
@@ -75,7 +77,7 @@ export function PantryItemRow({
             style={styles.amountTouch}
           >
             {({ pressed }) => <View style={[styles.amountFace, pressed && styles.circlePressed]}>{amount}</View>}
-          </Pressable>
+          </PressableScale>
         ) : (
           amount
         )}
@@ -94,7 +96,8 @@ type StepButtonProps = { label: string; icon: IconName; onPress: () => void; dis
 
 function StepButton({ label, icon, onPress, disabled = false }: StepButtonProps) {
   return (
-    <Pressable
+    <PressableScale
+      size="small"
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
@@ -111,7 +114,7 @@ function StepButton({ label, icon, onPress, disabled = false }: StepButtonProps)
           <Icon name={icon} size={14} color={colors.accent} strokeWidth={2.5} />
         </View>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 

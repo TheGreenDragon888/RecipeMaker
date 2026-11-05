@@ -5,7 +5,8 @@ import type { PantryItem } from '../../../src/domain/pantry';
 import { shownPantryAmount } from '../../../src/domain/pantry';
 import { pantryUnitChoices } from '../../../src/domain/unitConversions';
 import { AmountSheet } from '../../../src/ui/components/AmountSheet';
-import { fadedViews, fadesAsOnePicture, pressIn, shownOfType, shownText } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, pressIn, shownOfType, shownText, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 const flour: PantryItem = { name: 'all-purpose flour', quantity: 2, unit: 'cup' };
 
@@ -203,5 +204,12 @@ describe('AmountSheet', () => {
       await press('Close without saving');
       expect([onClose.mock.calls.length, onSave.mock.calls.length]).toEqual([1, 0]);
     });
+  });
+});
+
+describe('AmountSheet press feedback', () => {
+  it('shrinks a step button while a finger is on it', async () => {
+    await renderSheet();
+    expect(await scaleWhilePressed(screen.getByRole('button', { name: 'Add 1 cup' }))).toBeCloseTo(pressedScale('small', false), 3);
   });
 });

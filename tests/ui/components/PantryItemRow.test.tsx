@@ -2,7 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { TestInstance } from 'test-renderer';
 import { PantryItemRow } from '../../../src/ui/components/PantryItemRow';
-import { fadedViews, fadesAsOnePicture, shownIcons, shownText, styleOf } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, shownIcons, shownText, styleOf, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 type RowProps = React.ComponentProps<typeof PantryItemRow>;
 
@@ -194,5 +195,17 @@ describe('PantryItemRow', () => {
       const pill = screen.getByTestId('quantity-pill');
       expect(ancestors(button(label))).not.toContain(pill);
     });
+  });
+});
+
+describe('PantryItemRow press feedback', () => {
+  it('shrinks a − / + button while a finger is on it', async () => {
+    await renderRow();
+    expect(await scaleWhilePressed(button('Increase green onion quantity'))).toBeCloseTo(pressedScale('small', false), 3);
+  });
+
+  it('shrinks the amount while a finger is on it', async () => {
+    await renderRow({ onEditAmount: () => {}, hasOtherUnits: true });
+    expect(await scaleWhilePressed(screen.getByRole('button', { name: 'Edit amount and unit for green onion' }))).toBeCloseTo(pressedScale('small', false), 3);
   });
 });

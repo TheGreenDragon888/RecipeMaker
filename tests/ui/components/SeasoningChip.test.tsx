@@ -1,7 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SeasoningChip } from '../../../src/ui/components/SeasoningChip';
-import { shownIcons, shownText, styleOf } from '../../support/screen';
+import { shownIcons, shownText, styleOf, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 type ChipProps = React.ComponentProps<typeof SeasoningChip>;
 
@@ -46,5 +47,12 @@ describe('SeasoningChip', () => {
   it('gives its touch area at least 44px of height', async () => {
     await renderChip();
     expect(styleOf(chip()).minHeight).toBeGreaterThanOrEqual(44);
+  });
+});
+
+describe('SeasoningChip press feedback', () => {
+  it('shrinks the chip while a finger is on it', async () => {
+    await renderChip();
+    expect(await scaleWhilePressed(chip())).toBeCloseTo(pressedScale('small', false), 3);
   });
 });

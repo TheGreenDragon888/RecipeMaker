@@ -2,10 +2,11 @@
 // The dock's tab navigator hands it isFocused and onPress; a disabled item stands for a tab that isn't built yet.
 // The tinted pill behind the current tab is drawn by DockBar, which this item tells when it is selected.
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { colors, dock, fonts, fontSize, radii, spacing } from '../theme';
 import { useReportToDock } from './DockBar';
 import { Icon, type IconName } from './Icon';
+import { PressableScale } from './PressableScale';
 
 type Props = {
   label: string;
@@ -23,7 +24,8 @@ export function DockItem({ label, icon, isFocused = false, disabled = false, onP
   const looksSelected = useReportToDock({ isFocused, disabled, onPress });
   const color = looksSelected ? colors.accent : colors.textSecondary;
   return (
-    <Pressable
+    <PressableScale
+      size="button"
       accessibilityRole="tab"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ selected: isFocused, disabled }}
@@ -39,7 +41,7 @@ export function DockItem({ label, icon, isFocused = false, disabled = false, onP
     >
       <Icon name={icon} size={dock.iconSize} color={color} />
       <Text style={[styles.label, { color }, looksSelected && styles.focusedLabel]}>{label}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 

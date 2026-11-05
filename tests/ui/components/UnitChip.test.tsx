@@ -2,7 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { UnitChip } from '../../../src/ui/components/UnitChip';
 import { colors } from '../../../src/ui/theme';
-import { styleOf } from '../../support/screen';
+import { styleOf, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 describe('UnitChip', () => {
   it('is a choice named by its label', async () => {
@@ -37,5 +38,12 @@ describe('UnitChip', () => {
     await render(<UnitChip label="mL" selected={false} onPress={onPress} />);
     await fireEvent.press(screen.getByRole('radio', { name: 'mL' }));
     expect(onPress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('UnitChip press feedback', () => {
+  it('shrinks the chip while a finger is on it', async () => {
+    await render(<UnitChip label="cups" selected={false} onPress={() => {}} />);
+    expect(await scaleWhilePressed(screen.getByRole('radio'))).toBeCloseTo(pressedScale('small', false), 3);
   });
 });

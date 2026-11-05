@@ -1,6 +1,7 @@
 // PRESENTATION LAYER: one seasoning in the tray, a pill the user taps to switch on (blue, with a check) or off.
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+import { PressableScale } from './PressableScale';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
 import { Icon } from './Icon';
 
@@ -13,7 +14,8 @@ type Props = {
 
 export function SeasoningChip({ label, on, onToggle }: Props) {
   return (
-    <Pressable
+    <PressableScale
+      size="small"
       accessibilityRole="togglebutton"
       accessibilityState={{ checked: on }}
       onPress={onToggle}
@@ -25,7 +27,7 @@ export function SeasoningChip({ label, on, onToggle }: Props) {
           <Text style={[styles.label, on ? styles.labelOn : styles.labelOff, pressed && styles.pressed]}>{label}</Text>
         </>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 

@@ -2,9 +2,10 @@
 // From the mockup's "External Source" variant, minus its "steps are on the original site" text and author line
 // (every recipe has its steps in the app, and there is no author data).
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { Recipe } from '../../domain/recipe';
 import { formatSourceName, formatViewSourceLabel } from '../format/recipeInfo';
+import { PressableScale } from './PressableScale';
 import { colors, fonts, fontSize, radii, shadows, spacing } from '../theme';
 import { Icon } from './Icon';
 
@@ -30,7 +31,8 @@ export function SourceCard({ recipe, onOpen }: Props) {
             <Text style={styles.site}>{formatSourceName(recipe)}</Text>
           </View>
         </View>
-        <Pressable
+        <PressableScale
+          size="button"
           accessibilityRole="link"
           accessibilityLabel={linkLabel}
           onPress={onOpen}
@@ -38,7 +40,7 @@ export function SourceCard({ recipe, onOpen }: Props) {
         >
           <Text style={styles.linkText}>{linkLabel}</Text>
           <Icon name="externalLink" size={17} color={colors.accent} strokeWidth={2} />
-        </Pressable>
+        </PressableScale>
       </View>
       <Text style={styles.note}>Opens in your browser.</Text>
     </View>

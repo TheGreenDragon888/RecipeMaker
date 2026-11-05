@@ -5,6 +5,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
 import { Icon, type IconName } from './Icon';
+import { PressableScale } from './PressableScale';
 
 /** The bar at the top of a sheet; tapping it closes the sheet. */
 export function SheetGrabBar({ label, onPress }: { label: string; onPress: () => void }) {
@@ -46,7 +47,8 @@ type FooterButtonProps = { label: string; onPress: () => void; disabled?: boolea
 export function SheetFooterButton({ label, onPress, disabled = false }: FooterButtonProps) {
   return (
     <View style={styles.footer}>
-      <Pressable
+      <PressableScale
+        size="button"
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ disabled }}
@@ -57,7 +59,7 @@ export function SheetFooterButton({ label, onPress, disabled = false }: FooterBu
         style={[styles.button, disabled && styles.buttonDisabled]}
       >
         <Text style={styles.buttonText}>{label}</Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }

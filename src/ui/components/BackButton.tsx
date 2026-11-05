@@ -1,6 +1,7 @@
 // PRESENTATION LAYER: the mockup's round back button, used at the top of a screen.
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { PressableScale } from './PressableScale';
 import { colors, radii } from '../theme';
 import { Icon } from './Icon';
 
@@ -16,7 +17,8 @@ const SIZE = 38;
 
 export function BackButton({ label, onPress, overBanner = false }: Props) {
   return (
-    <Pressable
+    <PressableScale
+      size="small"
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={6}
@@ -28,7 +30,7 @@ export function BackButton({ label, onPress, overBanner = false }: Props) {
       ]}
     >
       <Icon name="chevronLeft" size={20} color={colors.text} strokeWidth={2} />
-    </Pressable>
+    </PressableScale>
   );
 }
 

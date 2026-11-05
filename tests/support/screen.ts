@@ -50,6 +50,52 @@ export async function pressIn(element: TestInstance) {
   await fireEvent(element, 'responderGrant', touchEvent());
 }
 
+/** Lifts the finger put down by pressIn, as React Native's touch-end event. */
+export async function pressOut(element: TestInstance) {
+  await fireEvent(element, 'responderRelease', touchEvent());
+}
+
+/**
+ * How much a view is scaled right now: its own `scale` transform, or that of the nearest view around it that
+ * has one (PressableScale scales a wrapper around its button). 1 when nothing around it is scaled.
+ */
+export function scaleOf(element: TestInstance): number {
+  for (let node: TestInstance | null = element; node; node = node.parent) {
+    const transform = typeof node.type === 'string' ? (styleOf(node).transform as Record<string, number>[] | undefined) : undefined;
+    const scale = transform?.find((step) => 'scale' in step)?.scale;
+    if (scale !== undefined) return scale;
+  }
+  return 1;
+}
+
+/**
+ * The box a button takes up in its parent's layout: the wrapper PressableScale scales, when it has one, else the
+ * button itself. Use it to walk from a button to the views around it.
+ */
+export function layoutBoxOf(element: TestInstance): TestInstance {
+  const parent = element.parent;
+  if (!parent || typeof parent.type !== 'string') return element;
+  const transform = styleOf(parent).transform as Record<string, number>[] | undefined;
+  return transform?.some((step) => 'scale' in step) ? parent : element;
+}
+
+/**
+ * How much a button is scaled once a finger has been on it long enough for the press to settle. Uses Jest's
+ * fake timers for the press spring and puts the real ones back, so call it only where a test uses real timers.
+ */
+export async function scaleWhilePressed(element: TestInstance): Promise<number> {
+  jest.useFakeTimers();
+  try {
+    await pressIn(element);
+    await act(async () => {
+      jest.advanceTimersByTime(1500);
+    });
+    return scaleOf(element);
+  } finally {
+    jest.useRealTimers();
+  }
+}
+
 /**
  * Taps a button twice before the screen redraws, as two very fast taps can. Each tap is the touch-start and
  * touch-end a finger sends; both run inside one React update, so the second tap still sees the first render.

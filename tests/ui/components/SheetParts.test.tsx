@@ -2,7 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SheetFooterButton, SheetGrabBar, SheetHeader, SheetSectionLabel } from '../../../src/ui/components/SheetParts';
 import { colors } from '../../../src/ui/theme';
-import { fadedViews, fadesAsOnePicture, iconDrawing, shownIcons, shownText } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, iconDrawing, shownIcons, shownText, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 describe('SheetGrabBar', () => {
   it('is a button with the label it is given', async () => {
@@ -70,5 +71,12 @@ describe('SheetFooterButton', () => {
   it('fades as one picture when disabled', async () => {
     await render(<SheetFooterButton label="Save" onPress={() => {}} disabled />);
     expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
+  });
+});
+
+describe('SheetParts press feedback', () => {
+  it('shrinks the footer button while a finger is on it', async () => {
+    await render(<SheetFooterButton label="Save" onPress={() => {}} />);
+    expect(await scaleWhilePressed(screen.getByRole('button', { name: 'Save' }))).toBeCloseTo(pressedScale('button', false), 3);
   });
 });

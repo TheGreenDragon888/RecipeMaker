@@ -5,7 +5,7 @@
 // Unlike the board, picking a unit converts the amount (2 cups → 32 tbsp) rather than only relabelling it.
 // Left out from the board: the category and "profile" in the header (no data), and "Common amounts".
 import React, { useState } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { isValidPantryAmount, pantryAmountLimit, shownPantryAmount, stepDraftAmount, type PantryItem } from '../../domain/pantry';
 import { convertPantryAmount, type UnitChoice } from '../../domain/unitConversions';
 import {
@@ -19,6 +19,7 @@ import {
   parseAmountText,
 } from '../format/pantryAmount';
 import { formatIngredientName, formatPantryUnit } from '../format/pantryInfo';
+import { PressableScale } from './PressableScale';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
 import { SheetFooterButton, SheetGrabBar, SheetHeader, SheetSectionLabel } from './SheetParts';
 import { UnitChip } from './UnitChip';
@@ -138,7 +139,8 @@ export function AmountSheet({ item, choices, onSave, onClose }: Props) {
 function StepButton({ by, unit, onPress }: { by: number; unit: string | null; onPress: () => void }) {
   const big = Math.abs(by) === 5;
   return (
-    <Pressable
+    <PressableScale
+      size="small"
       accessibilityRole="button"
       accessibilityLabel={formatSheetStepLabel(by, unit)}
       onPress={onPress}
@@ -147,7 +149,7 @@ function StepButton({ by, unit, onPress }: { by: number; unit: string | null; on
       style={({ pressed }) => [styles.step, big ? styles.stepBig : styles.stepSmall, pressed && styles.stepPressed]}
     >
       <Text style={styles.stepText}>{by < 0 ? `−${-by}` : `+${by}`}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 

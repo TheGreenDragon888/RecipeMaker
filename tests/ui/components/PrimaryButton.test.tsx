@@ -1,7 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { PrimaryButton } from '../../../src/ui/components/PrimaryButton';
-import { fadedViews, fadesAsOnePicture, pressIn, shownIcons, shownText } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, pressIn, shownIcons, shownText, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 describe('PrimaryButton', () => {
   it('shows its label', async () => {
@@ -45,5 +46,12 @@ describe('PrimaryButton', () => {
   it('draws no icon without showArrow', async () => {
     await render(<PrimaryButton label="Return to Pantry" onPress={() => {}} />);
     expect(shownIcons()).toEqual([]);
+  });
+});
+
+describe('PrimaryButton press feedback', () => {
+  it('shrinks the button while a finger is on it', async () => {
+    await render(<PrimaryButton label="Find recipes" onPress={() => {}} />);
+    expect(await scaleWhilePressed(screen.getByRole('button'))).toBeCloseTo(pressedScale('button', false), 3);
   });
 });

@@ -1,7 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SeasoningTrayHandle } from '../../../src/ui/components/SeasoningTrayHandle';
-import { shownIcons, shownText, styleOf } from '../../support/screen';
+import { shownIcons, shownText, styleOf, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 const renderHandle = (onOpen = () => {}) => render(<SeasoningTrayHandle onCount={4} onOpen={onOpen} />);
 const handle = () => screen.getByLabelText('Open seasonings tray');
@@ -47,5 +48,12 @@ describe('SeasoningTrayHandle', () => {
   it('is at least 44px tall', async () => {
     await renderHandle();
     expect(styleOf(handle()).minHeight).toBeGreaterThanOrEqual(44);
+  });
+});
+
+describe('SeasoningTrayHandle press feedback', () => {
+  it('shrinks the handle while a finger is on it', async () => {
+    await renderHandle();
+    expect(await scaleWhilePressed(handle())).toBeCloseTo(pressedScale('card', false), 3);
   });
 });

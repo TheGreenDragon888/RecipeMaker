@@ -2,7 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { BackButton } from '../../../src/ui/components/BackButton';
 import { colors } from '../../../src/ui/theme';
-import { shownIcons, styleOf } from '../../support/screen';
+import { shownIcons, styleOf, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 describe('BackButton', () => {
   it('is announced by its label', async () => {
@@ -31,5 +32,12 @@ describe('BackButton', () => {
     await render(<BackButton label="Back to recipes" onPress={() => {}} overBanner />);
     const style = styleOf(screen.getByRole('button'));
     expect([style.borderWidth ?? 0, style.backgroundColor]).toEqual([0, colors.surfaceTranslucent]);
+  });
+});
+
+describe('BackButton press feedback', () => {
+  it('shrinks the button while a finger is on it', async () => {
+    await render(<BackButton label="Back to pantry" onPress={() => {}} />);
+    expect(await scaleWhilePressed(screen.getByRole('button'))).toBeCloseTo(pressedScale('small', false), 3);
   });
 });

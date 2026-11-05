@@ -2,7 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { DockItem } from '../../../src/ui/components/DockItem';
 import { colors } from '../../../src/ui/theme';
-import { fadedViews, fadesAsOnePicture, iconDrawing, pressIn, shownIcons, shownText, styleOf } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, iconDrawing, pressIn, shownIcons, shownText, styleOf, scaleWhilePressed } from '../../support/screen';
+import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 const tab = () => screen.getByRole('tab');
 
@@ -99,5 +100,12 @@ describe('DockItem', () => {
       await pressIn(tab());
       expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
     });
+  });
+});
+
+describe('DockItem press feedback', () => {
+  it('shrinks the tab while a finger is on it', async () => {
+    await render(<DockItem label="Pantry" icon="pantry" />);
+    expect(await scaleWhilePressed(tab())).toBeCloseTo(pressedScale('button', false), 3);
   });
 });

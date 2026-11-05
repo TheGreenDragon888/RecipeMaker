@@ -3,10 +3,11 @@
 // shows it pulls up, so it leaves out the board's ^ chevron. With `fill` it stretches to cover the whole
 // growing sheet, so nothing under it shows through while it fades.
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { formatOnHand } from '../format/pantryInfo';
 import { colors, fonts, fontSize, radii, shadows, spacing } from '../theme';
 import { Icon } from './Icon';
+import { PressableScale } from './PressableScale';
 
 /** The handle's height; SeasoningDrawer shrinks the sheet to it. */
 export const SEASONING_HANDLE_HEIGHT = 52;
@@ -21,7 +22,9 @@ type Props = {
 
 export function SeasoningTrayHandle({ onCount, onOpen, fill = false }: Props) {
   return (
-    <Pressable
+    <PressableScale
+      size="card"
+      wrapperStyle={fill && styles.fill}
       accessibilityRole="button"
       accessibilityLabel="Open seasonings tray"
       onPress={onOpen}
@@ -33,7 +36,7 @@ export function SeasoningTrayHandle({ onCount, onOpen, fill = false }: Props) {
         <Text style={styles.title}>Seasonings</Text>
         <Text style={styles.badge}>{formatOnHand(onCount)}</Text>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 

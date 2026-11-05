@@ -1,6 +1,7 @@
 // PRESENTATION LAYER: the full-width accent button ("Find recipes with 8 ingredients" plus an arrow, "Return to Pantry").
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
+import { PressableScale } from './PressableScale';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
 import { Icon } from './Icon';
 
@@ -14,7 +15,8 @@ type Props = {
 
 export function PrimaryButton({ label, onPress, disabled = false, showArrow = false }: Props) {
   return (
-    <Pressable
+    <PressableScale
+      size="button"
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
@@ -26,7 +28,7 @@ export function PrimaryButton({ label, onPress, disabled = false, showArrow = fa
     >
       <Text style={styles.label}>{label}</Text>
       {showArrow ? <Icon name="arrowRight" size={18} color={colors.onAccent} strokeWidth={2} /> : null}
-    </Pressable>
+    </PressableScale>
   );
 }
 

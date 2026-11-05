@@ -8,7 +8,7 @@ import { colors, dock, shadows, spacing } from '../../../src/ui/theme';
 import type { PantryCatalog } from '../../../src/domain/pantryCatalog';
 import type { PantryItem } from '../../../src/domain/pantry';
 import type { PantryRestoreChange, RestoredPantry } from '../../../src/domain/savedPantry';
-import { fadesAsOnePicture, listContentStyle, shownIcons, shownText, styleOf, tapTwiceBeforeRedraw } from '../../support/screen';
+import { fadesAsOnePicture, layoutBoxOf, listContentStyle, shownIcons, shownText, styleOf, tapTwiceBeforeRedraw } from '../../support/screen';
 
 const suggestion = (ingredient: string, matchedAlias: string | null = null) => ({ ingredient, matchedAlias });
 
@@ -95,7 +95,7 @@ async function addIngredient(text: string) {
 function pantryRows() {
   return screen.queryAllByLabelText(/^Increase .+ quantity$/).map((increase) => {
     const label = String(increase.props.accessibilityLabel);
-    const text = shownText(increase.parent!.parent!).filter((piece) => piece.trim() !== '');
+    const text = shownText(layoutBoxOf(increase).parent!.parent!).filter((piece) => piece.trim() !== '');
     return {
       name: label.slice('Increase '.length, -' quantity'.length),
       quantity: Number(text[1]),
@@ -111,7 +111,7 @@ const pantryQuantities = () => pantryRows().map((row) => row.quantity);
 const suggestionButtons = () => screen.queryAllByRole('button', { name: /^Add / }).map((b) => b.props.accessibilityLabel);
 
 /** The view the find button floats in. */
-const findButtonHolder = (label: string) => byLabel(label).parent!;
+const findButtonHolder = (label: string) => layoutBoxOf(byLabel(label)).parent!;
 
 describe('PantryScreen', () => {
   describe('pantry list', () => {
