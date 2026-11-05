@@ -4,7 +4,8 @@
 // whether it is selected, so the dock knows where to put the pill without being told by the tab navigator.
 // A finger can also slide along the dock: a tap stays with the tab under it, but once the finger moves
 // sideways (dockSwipe's startsDockSwipe) the dock takes the touch, the pill follows the finger to the tab
-// that letting go would open, and letting go presses that tab. Sliding well off the dock cancels.
+// that letting go would open, and letting go presses that tab. Past either end the end tab stays picked, and a
+// disabled tab gives way to the nearest one that works; sliding well above or below the dock cancels.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';

@@ -236,33 +236,77 @@ describe('DockBar', () => {
     describe('over the disabled Bookmarks tab', () => {
       const toBookmarks = 190;
 
-      it('keeps the pill on the open tab', async () => {
+      it('moves the pill to the nearest tab that works, Recipes', async () => {
         await render(swipeDock());
         drag(row(), [10, toRecipes, toBookmarks], { axis: 'x', from: onPantry, release: false });
         await wait(1500);
-        expect(pillX()).toBe(indicatorOffset(0));
+        expect(pillX()).toBe(indicatorOffset(1));
       });
 
-      it('opens nothing when the finger lets go', async () => {
+      it('opens Recipes when the finger lets go', async () => {
         await render(swipeDock());
         drag(row(), [10, toRecipes, toBookmarks], { axis: 'x', from: onPantry });
-        expect(opened()).toEqual([0, 0, 0]);
+        expect(opened()).toEqual([0, 1, 0]);
       });
     });
 
-    describe('when the finger slides well off the dock', () => {
+    describe('when the finger slides well past the right end of the dock', () => {
       const offTheDock = 400;
+
+      it('moves the pill to the rightmost tab that works, Recipes', async () => {
+        await render(swipeDock());
+        drag(row(), [10, toRecipes, offTheDock], { axis: 'x', from: onPantry, release: false });
+        await wait(1500);
+        expect(pillX()).toBe(indicatorOffset(1));
+      });
+
+      it('opens Recipes when the finger lets go', async () => {
+        await render(swipeDock());
+        drag(row(), [10, toRecipes, offTheDock], { axis: 'x', from: onPantry });
+        expect(opened()).toEqual([0, 1, 0]);
+      });
+    });
+
+    describe('when the finger slides well past the left end of the dock', () => {
+      /** Recipes is open this time, so sliding off the left end has somewhere new to go. */
+      const recipesOpenDock = () => (
+        <DockBar surface="translucent" bottom={24}>
+          <DockItem label="Pantry" icon="pantry" onPress={openPantry} />
+          <DockItem label="Recipes" icon="recipes" isFocused onPress={openRecipes} />
+          <DockItem label="Bookmarks" icon="bookmark" disabled onPress={openBookmarks} />
+        </DockBar>
+      );
+      const onRecipes = { x: 190, y: 730 };
+      const offTheDock = -400;
+
+      it('moves the pill to the leftmost tab, Pantry', async () => {
+        await render(recipesOpenDock());
+        drag(row(), [-10, -90, offTheDock], { axis: 'x', from: onRecipes, release: false });
+        await wait(1500);
+        expect(pillX()).toBe(indicatorOffset(0));
+      });
+
+      it('opens Pantry when the finger lets go', async () => {
+        await render(recipesOpenDock());
+        drag(row(), [-10, -90, offTheDock], { axis: 'x', from: onRecipes });
+        expect(opened()).toEqual([1, 0, 0]);
+      });
+    });
+
+    describe('when the finger slides along well above the dock', () => {
+      // 60 px above the dock's top edge (y 700), past the room allowed above it.
+      const aboveTheDock = { x: 100, y: 640 };
 
       it('puts the pill back on the open tab', async () => {
         await render(swipeDock());
-        drag(row(), [10, toRecipes, offTheDock], { axis: 'x', from: onPantry, release: false });
+        drag(row(), [10, toRecipes], { axis: 'x', from: aboveTheDock, release: false });
         await wait(1500);
         expect(pillX()).toBe(indicatorOffset(0));
       });
 
       it('opens nothing when the finger lets go', async () => {
         await render(swipeDock());
-        drag(row(), [10, toRecipes, offTheDock], { axis: 'x', from: onPantry });
+        drag(row(), [10, toRecipes], { axis: 'x', from: aboveTheDock });
         expect(opened()).toEqual([0, 0, 0]);
       });
     });

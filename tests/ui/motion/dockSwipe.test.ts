@@ -61,12 +61,16 @@ describe('dockSlotAt', () => {
     expect(dockSlotAt(50, -60, 3)).toBeNull();
   });
 
-  it('finds no tab once the finger is well past the end of the dock', () => {
-    expect(dockSlotAt(276 + 60, 30, 3)).toBeNull();
+  it('keeps the last tab however far the finger slides past the end of the dock', () => {
+    expect(dockSlotAt(276 + 400, 30, 3)).toBe(2);
   });
 
-  it('finds no tab once the finger is well before the start of the dock', () => {
-    expect(dockSlotAt(-60, 30, 3)).toBeNull();
+  it('keeps the first tab however far the finger slides before the start of the dock', () => {
+    expect(dockSlotAt(-400, 30, 3)).toBe(0);
+  });
+
+  it('finds no tab once the finger is well above the dock, even past its end', () => {
+    expect(dockSlotAt(276 + 400, -60, 3)).toBeNull();
   });
 
   it('finds no tab once the finger is well below the dock', () => {
@@ -81,8 +85,20 @@ describe('swipeTarget', () => {
     expect(swipeTarget(1, tabs)).toBe(1);
   });
 
-  it('opens nothing over a disabled tab', () => {
-    expect(swipeTarget(2, tabs)).toBeNull();
+  it('opens the nearest enabled tab over a disabled one', () => {
+    expect(swipeTarget(2, tabs)).toBe(1);
+  });
+
+  it('opens the nearest enabled tab to the right when the left one is further away', () => {
+    expect(swipeTarget(0, [{ disabled: true }, { disabled: false }, { disabled: false }])).toBe(1);
+  });
+
+  it('opens the left one when two enabled tabs are equally near', () => {
+    expect(swipeTarget(1, [{ disabled: false }, { disabled: true }, { disabled: false }])).toBe(0);
+  });
+
+  it('opens nothing when no tab is enabled', () => {
+    expect(swipeTarget(1, [{ disabled: true }, { disabled: true }])).toBeNull();
   });
 
   it('opens nothing when the finger is off the dock', () => {
