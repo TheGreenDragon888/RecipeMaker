@@ -63,7 +63,13 @@ export function DockBar({ surface, bottom, blurTarget, children }: Props) {
 
   /** During a swipe, the tab letting go would open (null for none); undefined when no swipe is going on. */
   const [swipingTo, setSwipingTo] = useState<number | null | undefined>(undefined);
-  const pillAt = swipingTo ?? focused;
+  /**
+   * The tab a swipe just opened, until the navigator says which tab is open. Its screen can take a moment to
+   * load, and the pill stays on it meanwhile instead of drifting back to the tab that was open.
+   */
+  const [opening, setOpening] = useState<number | null>(null);
+  useEffect(() => setOpening(null), [focused]);
+  const pillAt = swipingTo ?? opening ?? focused;
 
   // Where the dock's row is on screen, so a finger's place on screen can be turned into a tab.
   const row = useRef<React.ComponentRef<typeof View>>(null);
@@ -116,7 +122,9 @@ export function DockBar({ surface, bottom, blurTarget, children }: Props) {
       onPanResponderRelease: () => {
         const chosen = swiping ? target : null;
         end();
-        if (chosen !== null && chosen !== latest.current.focused) items.current[chosen]?.onPress?.();
+        if (chosen === null || chosen === latest.current.focused) return;
+        setOpening(chosen);
+        items.current[chosen]?.onPress?.();
       },
       onPanResponderTerminate: end,
     });

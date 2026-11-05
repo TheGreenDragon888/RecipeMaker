@@ -161,11 +161,11 @@ describe('DockBar', () => {
     const openPantry = jest.fn();
     const openRecipes = jest.fn();
     const openBookmarks = jest.fn();
-    /** Pantry is open; Bookmarks is disabled, as in the app. */
-    const swipeDock = () => (
+    /** Pantry is open unless `open` says another tab is; Bookmarks is disabled, as in the app. */
+    const swipeDock = (open = 0) => (
       <DockBar surface="translucent" bottom={24}>
-        <DockItem label="Pantry" icon="pantry" isFocused onPress={openPantry} />
-        <DockItem label="Recipes" icon="recipes" onPress={openRecipes} />
+        <DockItem label="Pantry" icon="pantry" isFocused={open === 0} onPress={openPantry} />
+        <DockItem label="Recipes" icon="recipes" isFocused={open === 1} onPress={openRecipes} />
         <DockItem label="Bookmarks" icon="bookmark" disabled onPress={openBookmarks} />
       </DockBar>
     );
@@ -212,6 +212,30 @@ describe('DockBar', () => {
       await render(swipeDock());
       drag(row(), [10, 40, toRecipes], { axis: 'x', from: onPantry });
       expect(opened()).toEqual([0, 1, 0]);
+    });
+
+    describe('after letting go, while the chosen tab is still opening', () => {
+      it('keeps the pill on the chosen tab', async () => {
+        await render(swipeDock());
+        drag(row(), [10, 40, toRecipes], { axis: 'x', from: onPantry });
+        await wait(1500);
+        expect(pillX()).toBe(indicatorOffset(1));
+      });
+
+      it('keeps the chosen tab colored as the selected one', async () => {
+        await render(swipeDock());
+        drag(row(), [10, 40, toRecipes], { axis: 'x', from: onPantry });
+        expect(iconDrawing('recipes').props.stroke).toBe(colors.accent);
+      });
+
+      it('follows the open tab again once it has opened', async () => {
+        await render(swipeDock());
+        drag(row(), [10, 40, toRecipes], { axis: 'x', from: onPantry });
+        await screen.rerender(swipeDock(1));
+        await screen.rerender(swipeDock(0));
+        await wait(1500);
+        expect(pillX()).toBe(indicatorOffset(0));
+      });
     });
 
     it('moves the pill there at once with Reduce Motion on', async () => {
