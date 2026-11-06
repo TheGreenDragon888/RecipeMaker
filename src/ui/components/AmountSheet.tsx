@@ -1,12 +1,13 @@
 // PRESENTATION LAYER: what the amount sheet shows, as on the board's "Pantry — Amount & Unit Sheet" artboard:
 // a grab bar, a header ("Garlic", "Counted in cloves", "Now 2 cloves"), the amount with −5 / −1 / +1 / +5 and a
 // number field, a row of unit chips, and Save. It fills the BottomSheet the screen draws. It edits a draft:
-// Save hands the amount and unit to onSave; the grab bar (like the backdrop) closes without saving.
+// Save hands the amount and unit to onSave; the grab bar (like the backdrop) closes without saving. The grab bar
+// and header can be dragged through dragHandlers (BottomSheet moves the sheet with them).
 // Remove (beside Save, or Save itself once the amount is 0) hands the item to onRemove. The board has no Remove.
 // Unlike the board, picking a unit converts the amount (2 cups → 32 tbsp) rather than only relabelling it.
 // Left out from the board: the category and "profile" in the header (no data), and "Common amounts".
 import React, { useState } from 'react';
-import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View, type GestureResponderHandlers } from 'react-native';
 import { amountSheetAction, isValidPantryAmount, pantryAmountLimit, shownPantryAmount, stepDraftAmount, type PantryItem } from '../../domain/pantry';
 import { convertPantryAmount, type UnitChoice } from '../../domain/unitConversions';
 import {
@@ -34,11 +35,13 @@ type Props = {
   /** Removes the item: from the Remove button beside Save, or from Save once the amount is 0 (it reads Remove then). */
   onRemove: () => void;
   onClose: () => void;
+  /** Lets a finger drag the sheet down by its grab bar and header (from BottomSheet). */
+  dragHandlers?: Partial<GestureResponderHandlers>;
 };
 
 const STEPS = [-5, -1, 1, 5];
 
-export function AmountSheet({ item, choices, onSave, onRemove, onClose }: Props) {
+export function AmountSheet({ item, choices, onSave, onRemove, onClose, dragHandlers }: Props) {
   const onHand = shownPantryAmount(item);
   const [unit, setUnit] = useState(onHand.unit);
   /** The draft amount, exact: the field shows it rounded, so a unit change there and back doesn't drift. */
@@ -87,13 +90,15 @@ export function AmountSheet({ item, choices, onSave, onRemove, onClose }: Props)
 
   return (
     <View>
-      <SheetGrabBar label="Close without saving" onPress={onClose} />
-      <SheetHeader
-        icon="pantry"
-        title={formatIngredientName(item.name)}
-        subtitle={formatCountedIn(item.unit)}
-        badge={formatNowBadge(onHand.amount, onHand.unit, onHand.approximate)}
-      />
+      <View testID="amount-sheet-drag-area" {...dragHandlers}>
+        <SheetGrabBar label="Close without saving" onPress={onClose} />
+        <SheetHeader
+          icon="pantry"
+          title={formatIngredientName(item.name)}
+          subtitle={formatCountedIn(item.unit)}
+          badge={formatNowBadge(onHand.amount, onHand.unit, onHand.approximate)}
+        />
+      </View>
 
       <View style={styles.amountRow}>
         {STEPS.slice(0, 2).map((by) => (

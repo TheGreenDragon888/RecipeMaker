@@ -1,14 +1,19 @@
 import React from 'react';
-import { AccessibilityInfo, BackHandler, DeviceEventEmitter, Text } from 'react-native';
+import { AccessibilityInfo, BackHandler, DeviceEventEmitter, Keyboard, Text, View } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { BottomSheet } from '../../../src/ui/components/BottomSheet';
 import { TRAY_SLIDE_MS } from '../../../src/ui/motion/trayDrag';
+import { drag } from '../../support/drag';
 import { styleOf } from '../../support/screen';
 
 type SheetProps = React.ComponentProps<typeof BottomSheet>;
 const element = (props: Partial<SheetProps> = {}) => (
   <BottomSheet open={false} bottomInset={34} closeLabel="Close without saving" onClose={() => {}} {...props}>
-    <Text>Sheet content</Text>
+    {(dragHandlers) => (
+      <View testID="sheet-drag-area" {...dragHandlers}>
+        <Text>Sheet content</Text>
+      </View>
+    )}
   </BottomSheet>
 );
 
@@ -122,6 +127,135 @@ describe('BottomSheet', () => {
     await render(element({ open: true, onClose }));
     handlers[handlers.length - 1]({} as Parameters<(typeof handlers)[number]>[0]);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  describe('dragged down by its content', () => {
+    /** The sheet measures 400 px tall, so a third of the way is 133 px. */
+    const openMeasured = async (props: Partial<SheetProps> = {}) => {
+      await render(element({ open: true, ...props }));
+      await fireEvent(sheet(), 'layout', { nativeEvent: { layout: { x: 0, y: 444, width: 390, height: 400 } } });
+    };
+    const dragArea = () => screen.getByTestId('sheet-drag-area', everything);
+    const backdropOpacity = () => styleOf(screen.getByTestId('bottom-sheet-backdrop', everything)).opacity as number;
+
+    it('moves down with the finger', async () => {
+      await openMeasured();
+      drag(dragArea(), [40, 80, 120], { release: false });
+      expect(translateY()).toBe(120);
+    });
+
+    it('fades the backdrop as it moves down', async () => {
+      await openMeasured();
+      drag(dragArea(), [100, 200], { release: false });
+      expect(backdropOpacity()).toBeCloseTo(0.5, 5);
+    });
+
+    it('stays where it stands when dragged up', async () => {
+      await openMeasured();
+      drag(dragArea(), [-40, -80], { release: false });
+      expect(translateY()).toBe(0);
+    });
+
+    it('closes the keyboard when a drag starts, since the sheet moves down past it', async () => {
+      const dismiss = jest.spyOn(Keyboard, 'dismiss');
+      await openMeasured();
+      drag(dragArea(), [40, 80], { release: false });
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('calls onClose when let go past a third of the way down', async () => {
+      const onClose = jest.fn();
+      await openMeasured({ onClose });
+      drag(dragArea(), [100, 200, 200], { msPerStep: 50 });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onClose after a quick flick down, however short', async () => {
+      const onClose = jest.fn();
+      await openMeasured({ onClose });
+      drag(dragArea(), [20, 60]);
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('springs back after a short, slow drag down', async () => {
+      const onClose = jest.fn();
+      await openMeasured({ onClose });
+      drag(dragArea(), [50, 100, 100], { msPerStep: 50 });
+      // A spring takes longer to come to rest than a slide.
+      await wait(1500);
+      expect([onClose.mock.calls.length, translateY()]).toEqual([0, 0]);
+    });
+
+    it('slides the rest of the way off the screen once closed by a drag', async () => {
+      await openMeasured();
+      drag(dragArea(), [100, 200, 200], { msPerStep: 50 });
+      await screen.rerender(element({ open: false }));
+      await settle();
+      expect(content()).toBeNull();
+    });
+
+    it('starts the next opening from its place, not where the last drag left it', async () => {
+      await openMeasured();
+      drag(dragArea(), [100, 200, 200], { msPerStep: 50 });
+      await screen.rerender(element({ open: false }));
+      await settle();
+      await screen.rerender(element({ open: true }));
+      await settle();
+      expect(translateY()).toBe(0);
+    });
+
+    it('jumps back with Reduce Motion on', async () => {
+      jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+      await openMeasured();
+      drag(dragArea(), [50, 100, 100], { msPerStep: 50 });
+      expect(translateY()).toBe(0);
+    });
+  });
+
+  describe("making room for the dock", () => {
+    // The board's dock: from 24 to 88 px up from the screen's bottom edge.
+    const DOCK = { bottom: 24, top: 88 };
+    const withDock = (props: Partial<SheetProps> = {}) => element({ dockSpot: DOCK, ...props });
+    const lastReport = (reporter: jest.Mock) => reporter.mock.calls.at(-1)?.[0];
+
+    it('says nothing while closed', async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ onCoversDockChange }));
+      expect(onCoversDockChange).not.toHaveBeenCalled();
+    });
+
+    it("says it covers the dock as soon as it slides up over the dock's spot", async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ onCoversDockChange }));
+      await screen.rerender(withDock({ open: true, onCoversDockChange }));
+      await wait(50);
+      expect(lastReport(onCoversDockChange)).toBe(true);
+    });
+
+    it('gives the dock its room back once it has slid down below it', async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ open: true, onCoversDockChange }));
+      await settle();
+      await screen.rerender(withDock({ open: false, onCoversDockChange }));
+      await settle();
+      expect(lastReport(onCoversDockChange)).toBe(false);
+    });
+
+    it("gives the dock its room back while dragged down past the dock's spot", async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ open: true, onCoversDockChange }));
+      await fireEvent(sheet(), 'layout', { nativeEvent: { layout: { x: 0, y: 444, width: 390, height: 400 } } });
+      drag(screen.getByTestId('sheet-drag-area', everything), [200, 390], { release: false });
+      expect(lastReport(onCoversDockChange)).toBe(false);
+    });
+
+    it('covers the dock again when dragged back up over it', async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ open: true, onCoversDockChange }));
+      await fireEvent(sheet(), 'layout', { nativeEvent: { layout: { x: 0, y: 444, width: 390, height: 400 } } });
+      drag(screen.getByTestId('sheet-drag-area', everything), [200, 390, 300], { release: false });
+      expect(lastReport(onCoversDockChange)).toBe(true);
+    });
   });
 
   describe('with Reduce Motion on', () => {

@@ -1,4 +1,4 @@
-import { dockClearance, dockHiddenDrop, dockOffset } from '../../../src/ui/platform/dockLayout';
+import { dockClearance, dockHasRoom, dockHiddenDrop, dockOffset, dockSpot } from '../../../src/ui/platform/dockLayout';
 import { dock } from '../../../src/ui/theme';
 
 describe('dockOffset', () => {
@@ -34,5 +34,40 @@ describe('dockHiddenDrop', () => {
 
   it('drops a dock lifted above a home indicator by as much more', () => {
     expect(dockHiddenDrop(34) - dockHiddenDrop(dock.bottom)).toBe(34 - dock.bottom);
+  });
+});
+
+describe('dockSpot', () => {
+  it("is the dock's bottom and top edges, up from the screen's bottom edge", () => {
+    expect(dockSpot(0)).toEqual({ bottom: dock.bottom, top: dock.bottom + dock.itemHeight + 2 * dock.padding });
+  });
+
+  it('sits above a home indicator taller than the board gap', () => {
+    expect(dockSpot(34).bottom).toBe(34);
+  });
+});
+
+describe('dockHasRoom', () => {
+  // The board's dock: from 24 to 88 px up.
+  const spot = { bottom: 24, top: 88 };
+
+  it('has room once a sheet sits well above it', () => {
+    expect(dockHasRoom({ sheetBottom: 100, sheetTop: 600, dock: spot, hadRoom: false })).toBe(true);
+  });
+
+  it('has no room while a sheet reaches down over it', () => {
+    expect(dockHasRoom({ sheetBottom: 40, sheetTop: 600, dock: spot, hadRoom: true })).toBe(false);
+  });
+
+  it('has room once a sheet has slid down below it', () => {
+    expect(dockHasRoom({ sheetBottom: -500, sheetTop: 10, dock: spot, hadRoom: false })).toBe(true);
+  });
+
+  it('waits for a little more than bare room before the dock comes back, so it never flickers', () => {
+    expect(dockHasRoom({ sheetBottom: 90, sheetTop: 600, dock: spot, hadRoom: false })).toBe(false);
+  });
+
+  it('keeps the dock while a sheet only touches its edge', () => {
+    expect(dockHasRoom({ sheetBottom: 88, sheetTop: 600, dock: spot, hadRoom: true })).toBe(true);
   });
 });

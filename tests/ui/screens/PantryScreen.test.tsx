@@ -685,6 +685,7 @@ describe('PantryScreen', () => {
     });
 
     describe('moving the dock out of the way of a sheet', () => {
+      // Without a home indicator the dock sits from 24 to 88 px up, and the closed handle 162 px up.
       const withReporter = async () => {
         const onSheetShownChange = jest.fn();
         await setup({ getPantryCatalog: jest.fn().mockResolvedValue(CATALOG), onSheetShownChange });
@@ -692,42 +693,67 @@ describe('PantryScreen', () => {
         return onSheetShownChange;
       };
       const lastReport = (reporter: jest.Mock) => reporter.mock.calls.at(-1)?.[0];
+      const wait = (ms: number) => act(async () => { jest.advanceTimersByTime(ms); });
+      beforeEach(() => jest.useFakeTimers());
+      afterEach(() => jest.useRealTimers());
 
       it('leaves the dock alone while no sheet is open', async () => {
         const reporter = await withReporter();
         expect(reporter).not.toHaveBeenCalledWith(true);
       });
 
-      it('says a sheet is showing when the seasoning tray opens', async () => {
+      it("says a sheet covers the dock once the opening tray reaches the dock's spot", async () => {
         const reporter = await withReporter();
         await openTray();
+        await wait(TRAY_SLIDE_MS);
         expect(lastReport(reporter)).toBe(true);
       });
 
-      it('says the sheet is gone when the seasoning tray closes', async () => {
+      it('gives the dock back while the tray is still shrinking into its handle', async () => {
         const reporter = await withReporter();
         await openTray();
+        await wait(TRAY_SLIDE_MS);
         await press('Done');
-        expect(lastReport(reporter)).toBe(false);
+        await wait(TRAY_SLIDE_MS / 2);
+        expect([lastReport(reporter), trays().length]).toEqual([false, 1]);
       });
 
-      it('says a sheet is showing as soon as the handle is dragged up', async () => {
+      it('leaves the dock alone for a short drag of the handle', async () => {
         const reporter = await withReporter();
         drag(screen.getByTestId('seasoning-handle-drag-area', everything), [-10, -20], { release: false });
+        await flush();
+        expect(reporter).not.toHaveBeenCalledWith(true);
+      });
+
+      it('says a sheet covers the dock once the handle is dragged up far enough', async () => {
+        const reporter = await withReporter();
+        drag(screen.getByTestId('seasoning-handle-drag-area', everything), [-100, -250], { release: false });
         await flush();
         expect(lastReport(reporter)).toBe(true);
       });
 
-      it('says a sheet is showing when the amount sheet opens', async () => {
+      it('says a sheet covers the dock as the amount sheet slides up', async () => {
         const reporter = await withReporter();
         await addIngredient('garlic');
         await fireEvent.press(screen.getByRole('button', { name: /^Edit amount.* for garlic$/ }));
+        await wait(50);
         expect(lastReport(reporter)).toBe(true);
       });
 
-      it('says the sheet is gone when the screen goes away with a sheet open', async () => {
+      it('gives the dock back once an amount sheet dragged away has slid off', async () => {
+        const reporter = await withReporter();
+        await addIngredient('garlic');
+        await fireEvent.press(screen.getByRole('button', { name: /^Edit amount.* for garlic$/ }));
+        await wait(TRAY_SLIDE_MS);
+        drag(screen.getByTestId('amount-sheet-drag-area'), [20, 60]);
+        await wait(TRAY_SLIDE_MS);
+        expect(lastReport(reporter)).toBe(false);
+      });
+
+      it('gives the dock back when the screen goes away with a sheet over it', async () => {
         const reporter = await withReporter();
         await openTray();
+        await wait(TRAY_SLIDE_MS);
         await screen.unmount();
         expect(lastReport(reporter)).toBe(false);
       });
@@ -905,6 +931,23 @@ describe('PantryScreen', () => {
         await press('Increase flour by 1 cup');
         expect(rowAmounts()).toEqual(['473 mL']);
       });
+
+      it('closes without saving when dragged down by its header', async () => {
+        await flourInPantry();
+        await editFlour();
+        await fireEvent.changeText(amountField(), '5');
+        drag(screen.getByTestId('amount-sheet-drag-area'), [20, 60]);
+        await act(async () => {});
+        expect(rowAmounts()).toEqual(['1 cup']);
+      });
+
+      it('starts closing when dragged down by its header', withFakeTimers(async () => {
+        await flourInPantry();
+        await editFlour();
+        drag(screen.getByTestId('amount-sheet-drag-area'), [20, 60]);
+        await slide();
+        expect(sheets()).toHaveLength(0);
+      }));
 
       it('closes without saving from the backdrop', async () => {
         await flourInPantry();

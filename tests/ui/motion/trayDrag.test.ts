@@ -1,4 +1,4 @@
-import { draggedOffset, settlesOpen, startsTrayDrag, trayTravel } from '../../../src/ui/motion/trayDrag';
+import { draggedOffset, settlesOpen, startsTrayDrag, trayEdgesAt, trayTravel } from '../../../src/ui/motion/trayDrag';
 
 // Offsets are how far the sheet's top edge sits below its open position: 0 is open, closedOffset is closed.
 const HEIGHT = 520;
@@ -76,5 +76,26 @@ describe('settlesOpen', () => {
 
   it('goes by distance when the finger slows down before letting go', () => {
     expect(settlesOpen({ startedOpen: true, offset: 300, velocity: -0.2, closedOffset: HEIGHT })).toBe(false);
+  });
+});
+
+describe('trayEdgesAt', () => {
+  // Open: 554 px on the screen's bottom edge. Closed: the 52 px handle, 172 px up. The top edge travels 330 px.
+  const frames = { open: { bottom: 0, height: 554 }, closed: { bottom: 172, height: 52 } };
+
+  it('is the open sheet at offset 0', () => {
+    expect(trayEdgesAt(0, frames)).toEqual({ bottom: 0, top: 554 });
+  });
+
+  it('is the handle once closed', () => {
+    expect(trayEdgesAt(330, frames)).toEqual({ bottom: 172, top: 224 });
+  });
+
+  it('moves the bottom edge in step with the top one in between', () => {
+    expect(trayEdgesAt(165, frames)).toEqual({ bottom: 86, top: 389 });
+  });
+
+  it('keeps the bottom edge on the screen edge while dragged above open', () => {
+    expect(trayEdgesAt(-10, frames)).toEqual({ bottom: 0, top: 564 });
   });
 });

@@ -7,13 +7,14 @@
 // the grab bar plays that over TRAY_SLIDE_MS. Dragging the handle up, or the sheet's grab bar and header
 // down, moves the top edge with the finger; when let go it springs to where trayDrag's settlesOpen says,
 // calling onOpen or onClose if that is a change. With Reduce Motion on, it jumps instead. Android's back
-// button closes the open tray. It says when the handle is being dragged (onHandleDragChange), since the sheet
-// then shows before the screen opens it.
+// button closes the open tray. As the sheet moves, it says when it comes over the dock's spot and when it leaves the
+// dock room again (onCoversDockChange), so the dock gets out of the way only while it would be covered.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import type { SeasoningGroup } from '../../domain/seasonings';
-import { draggedOffset, settlesOpen, startsTrayDrag, trayTravel, TRAY_SLIDE_MS } from '../motion/trayDrag';
+import { draggedOffset, settlesOpen, startsTrayDrag, trayEdgesAt, trayTravel, TRAY_SLIDE_MS } from '../motion/trayDrag';
 import { useReduceMotion } from '../motion/useReduceMotion';
+import { dockHasRoom } from '../platform/dockLayout';
 import { useCloseOnBack } from '../platform/useCloseOnBack';
 import { colors, radii, shadows, spacing } from '../theme';
 import { SeasoningTray } from './SeasoningTray';
@@ -31,8 +32,10 @@ type Props = {
   onOpen: () => void;
   onClose: () => void;
   onToggle: (name: string) => void;
-  /** Called with true when a finger starts dragging the handle up, and false when it lets go. */
-  onHandleDragChange?: (dragging: boolean) => void;
+  /** The dock's bottom and top edges (platform/dockLayout's dockSpot), for onCoversDockChange. */
+  dockSpot?: { bottom: number; top: number };
+  /** Called with true when the sheet comes over the dock's spot, and false once it leaves the dock room again. */
+  onCoversDockChange?: (covers: boolean) => void;
 };
 
 /** The board's sheet height... */
@@ -44,7 +47,7 @@ const HANDLE_FADE_PX = 80;
 /** A settling spring with a small bounce at open. */
 const SPRING = { damping: 22, stiffness: 220, mass: 1 };
 
-export function SeasoningDrawer({ groups, on, bottomInset, handleBottom, open, onOpen, onClose, onToggle, onHandleDragChange }: Props) {
+export function SeasoningDrawer({ groups, on, bottomInset, handleBottom, open, onOpen, onClose, onToggle, dockSpot, onCoversDockChange }: Props) {
   const [screenHeight, setScreenHeight] = useState<number | null>(null);
   /** The tray's own height; the open sheet adds the room for the home indicator under it. */
   const sheetHeight = screenHeight === null ? BOARD_SHEET_HEIGHT : Math.min(BOARD_SHEET_HEIGHT, screenHeight * MAX_SHEET_SHARE);
@@ -56,20 +59,32 @@ export function SeasoningDrawer({ groups, on, bottomInset, handleBottom, open, o
   /** Whether the sheet is open and still; only then is the handle gone. */
   const [settledOpen, setSettledOpen] = useState(open);
   const [draggingHandle, setDraggingHandle] = useState(false);
-  const latestOnHandleDragChange = useRef(onHandleDragChange);
-  latestOnHandleDragChange.current = onHandleDragChange;
-  const firstDragReport = useRef(true);
-  useEffect(() => {
-    if (firstDragReport.current) {
-      firstDragReport.current = false;
-      return;
-    }
-    latestOnHandleDragChange.current?.(draggingHandle);
-  }, [draggingHandle]);
   const reduceMotion = useReduceMotion();
   useCloseOnBack(open, onClose);
   /** How far the top edge sits below open: 0 is open, travel is closed (the sheet is the handle). */
   const offset = useRef(new Animated.Value(open ? 0 : travel)).current;
+
+  // Says when the sheet comes over the dock's spot and leaves it, wherever a tap, drag or spring moves it.
+  const frames = { open: { bottom: 0, height: openHeight }, closed: { bottom: handleBottom, height: SEASONING_HANDLE_HEIGHT } };
+  const dockWatch = useRef({ dockSpot, onCoversDockChange, frames, offset: open ? 0 : travel, hasRoom: true });
+  Object.assign(dockWatch.current, { dockSpot, onCoversDockChange, frames });
+  const checkDockRoom = useRef(() => {
+    const watch = dockWatch.current;
+    if (!watch.dockSpot) return;
+    const edges = trayEdgesAt(watch.offset, watch.frames);
+    const hasRoom = dockHasRoom({ sheetBottom: edges.bottom, sheetTop: edges.top, dock: watch.dockSpot, hadRoom: watch.hasRoom });
+    if (hasRoom === watch.hasRoom) return;
+    watch.hasRoom = hasRoom;
+    watch.onCoversDockChange?.(!hasRoom);
+  }).current;
+  useEffect(() => {
+    const listener = offset.addListener(({ value }) => {
+      dockWatch.current.offset = value;
+      checkDockRoom();
+    });
+    checkDockRoom();
+    return () => offset.removeListener(listener);
+  }, [offset, checkDockRoom]);
 
   // The drag handlers are made once, so they read the latest props and state through this ref.
   const latest = useRef({ open, onOpen, onClose, travel, reduceMotion, sheetShown });

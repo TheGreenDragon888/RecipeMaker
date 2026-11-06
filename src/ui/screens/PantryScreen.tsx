@@ -50,6 +50,7 @@ import {
   formatUndoRemoveLabel,
   formatUnknownIngredient,
 } from '../format/pantryInfo';
+import { dockSpot } from '../platform/dockLayout';
 import { colors, dock, fonts, fontSize, radii, shadows, spacing } from '../theme';
 
 type Props = {
@@ -101,11 +102,14 @@ export function PantryScreen({
   const openings = useRef(0);
   const trayOpen = panel?.kind === 'seasonings';
   const amountItem = panel?.kind === 'amount' ? pantry.find((item) => item.name === panel.name) : undefined;
-  /** Whether a finger is dragging the seasoning tray's handle up, which shows the sheet before it opens. */
-  const [draggingHandle, setDraggingHandle] = useState(false);
+  /** Whether the seasoning tray, and the amount sheet, are over the dock's spot as they move. */
+  const [trayCoversDock, setTrayCoversDock] = useState(false);
+  const [amountCoversDock, setAmountCoversDock] = useState(false);
+  const spot = dockSpot(bottomInset);
 
-  // While a sheet shows, the dock must move out of its way, so the sheet can reach the bottom of the screen.
-  const sheetShown = trayOpen || amountItem !== undefined || draggingHandle;
+  // While a sheet is over the dock's spot, the dock must move out of its way, so the sheet can reach the bottom of
+  // the screen; it comes back as soon as the sheet leaves it room.
+  const sheetShown = trayCoversDock || amountCoversDock;
   const latestOnSheetShownChange = useRef(onSheetShownChange);
   latestOnSheetShownChange.current = onSheetShownChange;
   useEffect(() => {
@@ -375,7 +379,8 @@ export function PantryScreen({
           onOpen={() => setPanel({ kind: 'seasonings' })}
           onClose={() => close('seasonings')}
           onToggle={toggle}
-          onHandleDragChange={setDraggingHandle}
+          dockSpot={spot}
+          onCoversDockChange={setTrayCoversDock}
         />
       ) : null}
 
@@ -384,18 +389,23 @@ export function PantryScreen({
         bottomInset={bottomInset}
         closeLabel="Close without saving"
         label="Amount and unit"
+        dockSpot={spot}
+        onCoversDockChange={setAmountCoversDock}
         onClose={() => close('amount')}
       >
-        {amountItem && panel?.kind === 'amount' ? (
-          <AmountSheet
-            key={panel.opening}
-            item={amountItem}
-            choices={unitChoices(amountItem)}
-            onSave={(amount, unit) => saveAmount(amountItem.name, amount, unit)}
-            onRemove={() => remove(amountItem.name)}
-            onClose={() => close('amount')}
-          />
-        ) : null}
+        {(dragHandlers) =>
+          amountItem && panel?.kind === 'amount' ? (
+            <AmountSheet
+              key={panel.opening}
+              item={amountItem}
+              choices={unitChoices(amountItem)}
+              onSave={(amount, unit) => saveAmount(amountItem.name, amount, unit)}
+              onRemove={() => remove(amountItem.name)}
+              onClose={() => close('amount')}
+              dragHandlers={dragHandlers}
+            />
+          ) : null
+        }
       </BottomSheet>
 
       {/*

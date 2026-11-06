@@ -246,22 +246,6 @@ describe('SeasoningDrawer', () => {
       expect(fadesAsOnePicture(view('seasoning-handle-drag-area'))).toBe(true);
     });
 
-    it('says when the handle starts being dragged, so the dock can move out of the way first', async () => {
-      const onHandleDragChange = jest.fn();
-      await render(element({ onHandleDragChange }));
-      drag(view('seasoning-handle-drag-area'), [-10, -20], { release: false });
-      await act(async () => {});
-      expect(onHandleDragChange).toHaveBeenLastCalledWith(true);
-    });
-
-    it('says when the handle is let go', async () => {
-      const onHandleDragChange = jest.fn();
-      await render(element({ onHandleDragChange }));
-      drag(view('seasoning-handle-drag-area'), [-10, -20]);
-      await act(async () => {});
-      expect(onHandleDragChange).toHaveBeenLastCalledWith(false);
-    });
-
     it('calls onOpen when let go past a third of the way up', async () => {
       const onOpen = jest.fn();
       await render(element({ onOpen }));
@@ -275,6 +259,57 @@ describe('SeasoningDrawer', () => {
       drag(view('seasoning-handle-drag-area'), [-50, -100, -100], { msPerStep: 50 });
       await settle();
       expect([onOpen.mock.calls.length, trays().length, frame()]).toEqual([0, 0, HANDLE_FRAME]);
+    });
+  });
+
+  describe('making room for the dock', () => {
+    // The dock sits just above the 34 px home indicator, from 34 to 98 px up. The sheet's top edge travels 330 px.
+    const DOCK = { bottom: 34, top: 98 };
+    const withDock = (props: Partial<DrawerProps> = {}) => element({ dockSpot: DOCK, ...props });
+    const lastReport = (reporter: jest.Mock) => reporter.mock.calls.at(-1)?.[0];
+
+    it('says nothing for a short drag of the handle, which stays clear of the dock', async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ onCoversDockChange }));
+      drag(view('seasoning-handle-drag-area'), [-10, -20], { release: false });
+      expect(onCoversDockChange).not.toHaveBeenCalled();
+    });
+
+    it("says it covers the dock once the handle is dragged up far enough to reach the dock's spot", async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ onCoversDockChange }));
+      drag(view('seasoning-handle-drag-area'), [-100, -200], { release: false });
+      expect(lastReport(onCoversDockChange)).toBe(true);
+    });
+
+    it('says it covers the dock when opened', async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ onCoversDockChange }));
+      await screen.rerender(withDock({ open: true, onCoversDockChange }));
+      await settle();
+      expect(lastReport(onCoversDockChange)).toBe(true);
+    });
+
+    it('gives the dock its room back while closing, before the tray has shrunk into the handle', async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ open: true, onCoversDockChange }));
+      await screen.rerender(withDock({ open: false, onCoversDockChange }));
+      await wait(TRAY_SLIDE_MS / 2);
+      expect([lastReport(onCoversDockChange), trays().length]).toEqual([false, 1]);
+    });
+
+    it('gives the dock its room back while the open tray is dragged most of the way down', async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ open: true, onCoversDockChange }));
+      drag(view('seasoning-tray-drag-area'), [100, 250], { release: false });
+      expect(lastReport(onCoversDockChange)).toBe(false);
+    });
+
+    it('covers the dock again when dragged back up', async () => {
+      const onCoversDockChange = jest.fn();
+      await render(withDock({ open: true, onCoversDockChange }));
+      drag(view('seasoning-tray-drag-area'), [100, 250, 100], { release: false });
+      expect(lastReport(onCoversDockChange)).toBe(true);
     });
   });
 

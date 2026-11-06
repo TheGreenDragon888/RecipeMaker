@@ -284,6 +284,12 @@ describe('AmountSheet', () => {
       await press('Close without saving');
       expect([onClose.mock.calls.length, onSave.mock.calls.length]).toEqual([1, 0]);
     });
+
+    it('lets the grab bar and header be dragged with dragHandlers', async () => {
+      const onResponderGrant = jest.fn();
+      await renderSheet({ dragHandlers: { onResponderGrant } });
+      expect(screen.getByTestId('amount-sheet-drag-area').props.onResponderGrant).toBe(onResponderGrant);
+    });
   });
 });
 

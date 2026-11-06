@@ -20,3 +20,32 @@ const SHADOW_ROOM = 24;
 export function dockHiddenDrop(dockBottom: number): number {
   return dockBottom + dock.itemHeight + 2 * dock.padding + SHADOW_ROOM;
 }
+
+/** The dock's bottom and top edges, up from the screen's bottom edge. */
+export function dockSpot(bottomInset: number): { bottom: number; top: number } {
+  const bottom = dockOffset(bottomInset);
+  return { bottom, top: bottom + dock.itemHeight + 2 * dock.padding };
+}
+
+/** A sheet must be this much clear of the dock's spot before the dock comes back, so it never flickers there. */
+const ROOM_MARGIN = 8;
+
+/**
+ * Whether the dock can show beside a sheet whose edges are `sheetBottom` and `sheetTop` (up from the screen's
+ * bottom edge, as it moves): when the sheet is above the dock's spot or has slid below it. `hadRoom` is the last
+ * answer; coming back needs ROOM_MARGIN more room than staying does.
+ */
+export function dockHasRoom({
+  sheetBottom,
+  sheetTop,
+  dock: spot,
+  hadRoom,
+}: {
+  sheetBottom: number;
+  sheetTop: number;
+  dock: { bottom: number; top: number };
+  hadRoom: boolean;
+}): boolean {
+  const margin = hadRoom ? 0 : ROOM_MARGIN;
+  return sheetBottom >= spot.top + margin || sheetTop <= spot.bottom - margin;
+}

@@ -55,3 +55,13 @@ export function settlesOpen({
   const switched = moved > closedOffset / 3;
   return startedOpen ? !switched : switched;
 }
+
+/**
+ * Where the sheet's bottom and top edges are at `offset`. The top edge follows the offset, also past open; the
+ * bottom edge moves between the open sheet's and the handle's in step with it.
+ */
+export function trayEdgesAt(offset: number, { open, closed }: { open: VerticalFrame; closed: VerticalFrame }): { bottom: number; top: number } {
+  const travel = trayTravel(open, closed);
+  const share = travel > 0 ? Math.min(1, Math.max(0, offset / travel)) : 1;
+  return { bottom: open.bottom + share * (closed.bottom - open.bottom), top: open.bottom + open.height - offset };
+}
