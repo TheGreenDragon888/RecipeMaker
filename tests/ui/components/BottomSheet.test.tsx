@@ -7,7 +7,7 @@ import { styleOf } from '../../support/screen';
 
 type SheetProps = React.ComponentProps<typeof BottomSheet>;
 const element = (props: Partial<SheetProps> = {}) => (
-  <BottomSheet open={false} bottom={100} bottomInset={34} closeLabel="Close without saving" onClose={() => {}} {...props}>
+  <BottomSheet open={false} bottomInset={34} closeLabel="Close without saving" onClose={() => {}} {...props}>
     <Text>Sheet content</Text>
   </BottomSheet>
 );
@@ -42,14 +42,27 @@ describe('BottomSheet', () => {
     expect(content()).toBeOnTheScreen();
   });
 
-  it('dims the screen down to its bottom edge, leaving the dock below it uncovered', async () => {
+  it("dims the whole screen, down to its bottom edge where the dock was", async () => {
     await render(element({ open: true }));
-    expect(styleOf(screen.getByTestId('bottom-sheet-backdrop', everything))).toEqual(expect.objectContaining({ top: 0, bottom: 100 }));
+    expect(styleOf(screen.getByTestId('bottom-sheet-backdrop', everything))).toEqual(expect.objectContaining({ top: 0, bottom: 0 }));
   });
 
-  it('stands on the given bottom', async () => {
+  it('stands on the bottom edge of the screen', async () => {
     await render(element({ open: true }));
-    expect(styleOf(sheet()).bottom).toBe(100);
+    expect(styleOf(sheet()).bottom).toBe(0);
+  });
+
+  it('leaves room under its content for the home indicator or navigation bar', async () => {
+    await render(element({ open: true }));
+    expect(styleOf(sheet()).paddingBottom).toBe(34);
+  });
+
+  it('drops that room while it sits on the keyboard', async () => {
+    await render(element({ open: true }));
+    await act(async () => {
+      DeviceEventEmitter.emit('keyboardWillShow', { endCoordinates: { height: 291, screenX: 0, screenY: 553, width: 390 }, duration: 250 });
+    });
+    expect(styleOf(sheet()).paddingBottom).toBe(0);
   });
 
   it('calls onClose from the backdrop, which is labelled for screen readers', async () => {
@@ -77,13 +90,13 @@ describe('BottomSheet', () => {
     expect([halfway === null, content()]).toEqual([false, null]);
   });
 
-  it('rises above the keyboard', async () => {
+  it('rises to sit on the keyboard', async () => {
     await render(element({ open: true }));
     await act(async () => {
       DeviceEventEmitter.emit('keyboardWillShow', { endCoordinates: { height: 291, screenX: 0, screenY: 553, width: 390 }, duration: 250 });
     });
     await settle();
-    expect(styleOf(sheet()).bottom).toBe(299);
+    expect(styleOf(sheet()).bottom).toBe(291);
   });
 
   it('goes back down when the keyboard closes', async () => {
@@ -96,7 +109,7 @@ describe('BottomSheet', () => {
       DeviceEventEmitter.emit('keyboardWillHide', { endCoordinates: { height: 0, screenX: 0, screenY: 844, width: 390 }, duration: 250 });
     });
     await settle();
-    expect(styleOf(sheet()).bottom).toBe(100);
+    expect(styleOf(sheet()).bottom).toBe(0);
   });
 
   it("closes on Android's back button", async () => {

@@ -1,12 +1,14 @@
 // PRESENTATION LAYER: the seasoning tray's handle and sheet, and how one turns into the other.
 // The screen says whether the tray is open; this component moves the sheet there. Closed, the sheet is the
-// handle's box above "Find recipes"; open, it is the full sheet above the tab bar. In between, its top edge,
+// handle's box above "Find recipes"; open, it is the full sheet on the screen's bottom edge (the tab bar moves out
+// of its way), with room under the tray for the home indicator or navigation bar. In between, its top edge,
 // bottom edge, side margins and corners all blend between the two, and the handle fades out on top of it,
 // so the sheet grows out of the handle and shrinks back into it. A tap on the handle, Done, the backdrop or
 // the grab bar plays that over TRAY_SLIDE_MS. Dragging the handle up, or the sheet's grab bar and header
 // down, moves the top edge with the finger; when let go it springs to where trayDrag's settlesOpen says,
 // calling onOpen or onClose if that is a change. With Reduce Motion on, it jumps instead. Android's back
-// button closes the open tray.
+// button closes the open tray. It says when the handle is being dragged (onHandleDragChange), since the sheet
+// then shows before the screen opens it.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import type { SeasoningGroup } from '../../domain/seasonings';
@@ -21,14 +23,16 @@ type Props = {
   groups: SeasoningGroup[];
   /** Names of the seasonings that are on. */
   on: string[];
-  /** Distance from the screen's bottom edge to the open sheet's bottom (the tab screen's clearance for its tab bar). */
-  bottom: number;
+  /** The safe area's bottom inset: room the open sheet leaves under the tray. */
+  bottomInset: number;
   /** Distance from the screen's bottom edge to the closed handle's bottom. */
   handleBottom: number;
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
   onToggle: (name: string) => void;
+  /** Called with true when a finger starts dragging the handle up, and false when it lets go. */
+  onHandleDragChange?: (dragging: boolean) => void;
 };
 
 /** The board's sheet height... */
@@ -40,16 +44,28 @@ const HANDLE_FADE_PX = 80;
 /** A settling spring with a small bounce at open. */
 const SPRING = { damping: 22, stiffness: 220, mass: 1 };
 
-export function SeasoningDrawer({ groups, on, bottom, handleBottom, open, onOpen, onClose, onToggle }: Props) {
+export function SeasoningDrawer({ groups, on, bottomInset, handleBottom, open, onOpen, onClose, onToggle, onHandleDragChange }: Props) {
   const [screenHeight, setScreenHeight] = useState<number | null>(null);
+  /** The tray's own height; the open sheet adds the room for the home indicator under it. */
   const sheetHeight = screenHeight === null ? BOARD_SHEET_HEIGHT : Math.min(BOARD_SHEET_HEIGHT, screenHeight * MAX_SHEET_SHARE);
-  const travel = Math.max(1, trayTravel({ bottom, height: sheetHeight }, { bottom: handleBottom, height: SEASONING_HANDLE_HEIGHT }));
+  const openHeight = sheetHeight + bottomInset;
+  const travel = Math.max(1, trayTravel({ bottom: 0, height: openHeight }, { bottom: handleBottom, height: SEASONING_HANDLE_HEIGHT }));
 
   /** Whether the tray's content is drawn: while open, while moving, and while dragged out of the handle. */
   const [sheetShown, setSheetShown] = useState(open);
   /** Whether the sheet is open and still; only then is the handle gone. */
   const [settledOpen, setSettledOpen] = useState(open);
   const [draggingHandle, setDraggingHandle] = useState(false);
+  const latestOnHandleDragChange = useRef(onHandleDragChange);
+  latestOnHandleDragChange.current = onHandleDragChange;
+  const firstDragReport = useRef(true);
+  useEffect(() => {
+    if (firstDragReport.current) {
+      firstDragReport.current = false;
+      return;
+    }
+    latestOnHandleDragChange.current?.(draggingHandle);
+  }, [draggingHandle]);
   const reduceMotion = useReduceMotion();
   useCloseOnBack(open, onClose);
   /** How far the top edge sits below open: 0 is open, travel is closed (the sheet is the handle). */
@@ -166,11 +182,11 @@ export function SeasoningDrawer({ groups, on, bottom, handleBottom, open, onOpen
   const shape = useMemo(() => {
     const between = (openValue: number, closedValue: number) =>
       offset.interpolate({ inputRange: [0, travel], outputRange: [openValue, closedValue], extrapolate: 'clamp' });
-    const frameBottom = between(bottom, handleBottom);
+    const frameBottom = between(0, handleBottom);
     // The top edge alone keeps moving past open, so a drag above open still stretches the sheet a little.
     const top = offset.interpolate({
       inputRange: [0, travel],
-      outputRange: [bottom + sheetHeight, handleBottom + SEASONING_HANDLE_HEIGHT],
+      outputRange: [openHeight, handleBottom + SEASONING_HANDLE_HEIGHT],
       extrapolateLeft: 'extend',
       extrapolateRight: 'clamp',
     });
@@ -198,7 +214,7 @@ export function SeasoningDrawer({ groups, on, bottom, handleBottom, open, onOpen
         extrapolate: 'clamp',
       }),
     };
-  }, [offset, travel, bottom, handleBottom, sheetHeight]);
+  }, [offset, travel, handleBottom, openHeight]);
 
   return (
     <View
@@ -208,7 +224,7 @@ export function SeasoningDrawer({ groups, on, bottom, handleBottom, open, onOpen
       onLayout={(event) => setScreenHeight(event.nativeEvent.layout.height)}
     >
       {sheetShown ? (
-        <Animated.View testID="seasoning-backdrop" style={[styles.backdrop, { bottom, opacity: shape.backdropOpacity }]}>
+        <Animated.View testID="seasoning-backdrop" style={[styles.backdrop, { opacity: shape.backdropOpacity }]}>
           <Pressable
             testID="seasoning-backdrop-button"
             accessibilityRole="button"
@@ -251,8 +267,8 @@ export function SeasoningDrawer({ groups, on, bottom, handleBottom, open, onOpen
 const styles = StyleSheet.create({
   // The whole screen, so the sheet can be placed by its distance from the bottom; touches pass through.
   area: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
-  // Dims everything above the dock (its bottom is set in the JSX).
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.scrim },
+  // Dims the whole screen, where the dock was too.
+  backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   fill: { flex: 1 },
   // The sheet's box; its edges, size and corners are set in the JSX. The shadow sits outside the clip.
   frame: {

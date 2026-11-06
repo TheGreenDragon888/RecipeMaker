@@ -55,6 +55,8 @@ type Props = {
   bottomClearance?: number;
   /** The safe area's bottom inset, so the amount sheet can rise above the keyboard (see platform/keyboardLift). */
   bottomInset?: number;
+  /** Called with true while a sheet shows (the dock must move out of its way) and false once it's gone. */
+  onSheetShownChange?: (shown: boolean) => void;
 };
 
 /** Which sheet is open: the seasoning tray, or the amount sheet for one ingredient. Never both. */
@@ -66,6 +68,7 @@ export function PantryScreen({
   now = () => new Date(),
   bottomClearance = dock.clearance,
   bottomInset = 0,
+  onSheetShownChange,
 }: Props) {
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [text, setText] = useState('');
@@ -92,6 +95,18 @@ export function PantryScreen({
   const openings = useRef(0);
   const trayOpen = panel?.kind === 'seasonings';
   const amountItem = panel?.kind === 'amount' ? pantry.find((item) => item.name === panel.name) : undefined;
+  /** Whether a finger is dragging the seasoning tray's handle up, which shows the sheet before it opens. */
+  const [draggingHandle, setDraggingHandle] = useState(false);
+
+  // While a sheet shows, the dock must move out of its way, so the sheet can reach the bottom of the screen.
+  const sheetShown = trayOpen || amountItem !== undefined || draggingHandle;
+  const latestOnSheetShownChange = useRef(onSheetShownChange);
+  latestOnSheetShownChange.current = onSheetShownChange;
+  useEffect(() => {
+    latestOnSheetShownChange.current?.(sheetShown);
+  }, [sheetShown]);
+  // Leaving with a sheet open (the screen goes away) must not leave the dock hidden.
+  useEffect(() => () => latestOnSheetShownChange.current?.(false), []);
 
   useEffect(() => {
     noticeOpacity.setValue(1);
@@ -320,18 +335,18 @@ export function PantryScreen({
         <SeasoningDrawer
           groups={catalog.seasoningGroups}
           on={seasoningsOn}
-          bottom={bottomClearance}
+          bottomInset={bottomInset}
           handleBottom={bottomClearance + TRAY_HANDLE_OFFSET}
           open={trayOpen}
           onOpen={() => setPanel({ kind: 'seasonings' })}
           onClose={() => close('seasonings')}
           onToggle={toggle}
+          onHandleDragChange={setDraggingHandle}
         />
       ) : null}
 
       <BottomSheet
         open={amountItem !== undefined}
-        bottom={bottomClearance}
         bottomInset={bottomInset}
         closeLabel="Close without saving"
         label="Amount and unit"

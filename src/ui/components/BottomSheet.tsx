@@ -1,22 +1,21 @@
 // PRESENTATION LAYER: a sheet that slides up over the screen, as the board's amount sheet does: a dimmed backdrop
-// from the top down to the sheet's bottom edge (so the tab bar below stays uncovered), and the sheet itself, with
-// its top corners rounded. It slides in and out over TRAY_SLIDE_MS (it jumps with Reduce Motion on), rises above
-// the on-screen keyboard, and closes on the backdrop and on Android's back button. What it shows comes in as
-// children; it keeps showing them while it slides away.
+// over the whole screen, and the sheet itself standing on the screen's bottom edge, with its top corners rounded.
+// The tab bar moves out of its way while it shows (the screen tells the tabs layout). It leaves room under its
+// content for the home indicator or navigation bar. It slides in and out over TRAY_SLIDE_MS (it jumps with Reduce
+// Motion on), rises to sit on the on-screen keyboard, and closes on the backdrop and on Android's back button.
+// What it shows comes in as children; it keeps showing them while it slides away.
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { TRAY_SLIDE_MS } from '../motion/trayDrag';
 import { useReduceMotion } from '../motion/useReduceMotion';
-import { liftedSheetBottom } from '../platform/keyboardLift';
+import { liftedSheetBottom, sheetSafeAreaPadding } from '../platform/keyboardLift';
 import { useCloseOnBack } from '../platform/useCloseOnBack';
 import { useKeyboardOverlap } from '../platform/useKeyboardOverlap';
 import { colors, radii, shadows } from '../theme';
 
 type Props = {
   open: boolean;
-  /** Distance from the screen's bottom edge to the sheet's bottom edge while the keyboard is hidden. */
-  bottom: number;
-  /** The safe area's bottom inset, for working out where the keyboard's top is (see keyboardLift). */
+  /** The safe area's bottom inset: room left under the content, and for working out where the keyboard's top is (see keyboardLift). */
   bottomInset: number;
   /** What screen readers call the backdrop, which closes the sheet ("Close without saving"). */
   closeLabel: string;
@@ -30,7 +29,7 @@ type Props = {
 const UNMEASURED_HEIGHT = 600;
 const EASE = Easing.out(Easing.cubic);
 
-export function BottomSheet({ open, bottom, bottomInset, closeLabel, onClose, label, children }: Props) {
+export function BottomSheet({ open, bottomInset, closeLabel, onClose, label, children }: Props) {
   const reduceMotion = useReduceMotion();
   useCloseOnBack(open, onClose);
   const keyboard = useKeyboardOverlap(bottomInset);
@@ -67,8 +66,8 @@ export function BottomSheet({ open, bottom, bottomInset, closeLabel, onClose, la
   }, [open, progress]);
 
   // Rises with the keyboard (over its own duration on iOS; at once on Android, or with Reduce Motion on).
-  const sheetBottom = useRef(new Animated.Value(bottom)).current;
-  const target = liftedSheetBottom({ restingBottom: bottom, overlap: keyboard.overlap });
+  const sheetBottom = useRef(new Animated.Value(0)).current;
+  const target = liftedSheetBottom({ restingBottom: 0, overlap: keyboard.overlap });
   useEffect(() => {
     sheetBottom.stopAnimation();
     if (keyboard.duration <= 0 || latestReduceMotion.current) sheetBottom.setValue(target);
@@ -76,17 +75,18 @@ export function BottomSheet({ open, bottom, bottomInset, closeLabel, onClose, la
   }, [target, keyboard.duration, sheetBottom]);
 
   if (!shown) return null;
-  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [height + bottom, 0] });
+  const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] });
+  const paddingBottom = sheetSafeAreaPadding({ bottomInset, overlap: keyboard.overlap });
   return (
     <View style={styles.area} pointerEvents="box-none">
-      <Animated.View testID="bottom-sheet-backdrop" style={[styles.backdrop, { bottom, opacity: progress }]}>
+      <Animated.View testID="bottom-sheet-backdrop" style={[styles.backdrop, { opacity: progress }]}>
         <Pressable accessibilityRole="button" accessibilityLabel={closeLabel} onPress={onClose} style={styles.fill} />
       </Animated.View>
       <Animated.View
         testID="bottom-sheet"
         accessibilityLabel={label}
         onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
-        style={[styles.sheet, { bottom: sheetBottom, transform: [{ translateY }] }]}
+        style={[styles.sheet, { bottom: sheetBottom, paddingBottom, transform: [{ translateY }] }]}
       >
         {lastChildren.current}
       </Animated.View>
@@ -97,7 +97,7 @@ export function BottomSheet({ open, bottom, bottomInset, closeLabel, onClose, la
 const styles = StyleSheet.create({
   // The whole screen, so the sheet can be placed by its distance from the bottom; touches pass through.
   area: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.scrim },
+  backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
   fill: { flex: 1 },
   sheet: {
     position: 'absolute',

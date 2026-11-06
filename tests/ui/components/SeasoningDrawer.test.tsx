@@ -9,13 +9,13 @@ import { fadesAsOnePicture, shownText, styleOf } from '../../support/screen';
 
 const groups: SeasoningGroup[] = [{ section: 'everyday', seasonings: ['paprika', 'onion powder'] }];
 
-// Distances are from the screen's bottom edge. The dock's clearance is 110 and the handle sits 172 up.
+// Distances are from the screen's bottom edge. The home indicator is 34 px tall and the handle sits 172 up.
 type DrawerProps = React.ComponentProps<typeof SeasoningDrawer>;
 const element = (props: Partial<DrawerProps> = {}) => (
   <SeasoningDrawer
     groups={groups}
     on={['paprika']}
-    bottom={110}
+    bottomInset={34}
     handleBottom={172}
     open={false}
     onOpen={() => {}}
@@ -27,8 +27,8 @@ const element = (props: Partial<DrawerProps> = {}) => (
 
 /** Closed, the sheet is the handle: 52 px tall, inset by the screen margin (20 px) on each side. */
 const HANDLE_FRAME = { bottom: 172, height: 52, left: 20, right: 20 };
-/** Open, it is the board's 520 px sheet, edge to edge, standing on the dock's clearance. */
-const OPEN_FRAME = { bottom: 110, height: 520, left: 0, right: 0 };
+/** Open, it is the board's 520 px sheet plus room for the home indicator, edge to edge, on the screen's bottom edge. */
+const OPEN_FRAME = { bottom: 0, height: 520 + 34, left: 0, right: 0 };
 
 // The handle and the tray can be on screen while see-through (fading), so these count them either way.
 const everything = { includeHiddenElements: true };
@@ -95,14 +95,19 @@ describe('SeasoningDrawer', () => {
       expect([handles().length, trays().length]).toEqual([0, 1]);
     });
 
-    it('draws the full sheet, edge to edge, above the dock', async () => {
+    it('draws the full sheet, edge to edge, on the bottom edge of the screen', async () => {
       await render(element({ open: true }));
       expect(frame()).toEqual(OPEN_FRAME);
     });
 
-    it('dims the screen above the dock', async () => {
+    it("keeps the tray the board's height, with the room for the home indicator under it", async () => {
       await render(element({ open: true }));
-      expect(styleOf(view('seasoning-backdrop')).bottom).toBe(110);
+      expect(styleOf(view('seasoning-sheet-content')).height).toBe(520);
+    });
+
+    it('dims the whole screen, down to its bottom edge where the dock was', async () => {
+      await render(element({ open: true }));
+      expect(styleOf(view('seasoning-backdrop'))).toEqual(expect.objectContaining({ top: 0, bottom: 0 }));
     });
 
     it('calls onClose when the dimmed backdrop is tapped', async () => {
@@ -121,10 +126,10 @@ describe('SeasoningDrawer', () => {
       expect([onToggle.mock.calls, onClose.mock.calls.length]).toEqual([[['paprika']], 1]);
     });
 
-    it('is never taller than 85% of the screen', async () => {
+    it('keeps the tray within 85% of the screen, plus the room for the home indicator', async () => {
       await render(element({ open: true }));
       await fireEvent(view('seasoning-tray-area'), 'layout', { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 510 } } });
-      expect(frame().height).toBe(433.5);
+      expect(frame().height).toBe(433.5 + 34);
     });
   });
 
@@ -195,7 +200,7 @@ describe('SeasoningDrawer', () => {
     it('moves the top edge with the finger', async () => {
       await render(element({ open: true }));
       drag(view('seasoning-tray-drag-area'), [40, 80, 120], { release: false });
-      expect(topEdge()).toBe(630 - 120);
+      expect(topEdge()).toBe(554 - 120);
     });
 
     it('calls onClose when let go past a third of the way to the handle', async () => {
@@ -239,6 +244,22 @@ describe('SeasoningDrawer', () => {
       await render(element());
       drag(view('seasoning-handle-drag-area'), [-10, -20], { release: false });
       expect(fadesAsOnePicture(view('seasoning-handle-drag-area'))).toBe(true);
+    });
+
+    it('says when the handle starts being dragged, so the dock can move out of the way first', async () => {
+      const onHandleDragChange = jest.fn();
+      await render(element({ onHandleDragChange }));
+      drag(view('seasoning-handle-drag-area'), [-10, -20], { release: false });
+      await act(async () => {});
+      expect(onHandleDragChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it('says when the handle is let go', async () => {
+      const onHandleDragChange = jest.fn();
+      await render(element({ onHandleDragChange }));
+      drag(view('seasoning-handle-drag-area'), [-10, -20]);
+      await act(async () => {});
+      expect(onHandleDragChange).toHaveBeenLastCalledWith(false);
     });
 
     it('calls onOpen when let go past a third of the way up', async () => {

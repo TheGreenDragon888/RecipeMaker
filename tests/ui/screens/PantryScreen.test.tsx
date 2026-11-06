@@ -8,6 +8,7 @@ import { colors, dock, shadows, spacing } from '../../../src/ui/theme';
 import type { PantryCatalog } from '../../../src/domain/pantryCatalog';
 import type { PantryItem } from '../../../src/domain/pantry';
 import type { PantryRestoreChange, RestoredPantry } from '../../../src/domain/savedPantry';
+import { drag } from '../../support/drag';
 import { fadesAsOnePicture, layoutBoxOf, listContentStyle, shownIcons, shownText, styleOf, tapTwiceBeforeRedraw } from '../../support/screen';
 
 const suggestion = (ingredient: string, matchedAlias: string | null = null) => ({ ingredient, matchedAlias });
@@ -40,6 +41,7 @@ async function setup({
   loadSavedPantry = jest.fn().mockResolvedValue(restored()),
   savePantry = jest.fn().mockResolvedValue(undefined),
   bottomClearance,
+  onSheetShownChange,
 }: {
   suggestIngredients?: jest.Mock;
   findIngredient?: jest.Mock;
@@ -47,10 +49,11 @@ async function setup({
   loadSavedPantry?: jest.Mock;
   savePantry?: jest.Mock;
   bottomClearance?: number;
+  onSheetShownChange?: jest.Mock;
 } = {}) {
   const services = { suggestIngredients, findIngredient, getPantryCatalog, loadSavedPantry, savePantry } as unknown as RecipeServices;
   const onFindRecipes = jest.fn();
-  await render(<PantryScreen services={services} onFindRecipes={onFindRecipes} now={sixPm} bottomClearance={bottomClearance} />);
+  await render(<PantryScreen services={services} onFindRecipes={onFindRecipes} now={sixPm} bottomClearance={bottomClearance} onSheetShownChange={onSheetShownChange} />);
   return { suggestIngredients, findIngredient, getPantryCatalog, loadSavedPantry, savePantry, onFindRecipes };
 }
 
@@ -603,11 +606,11 @@ describe('PantryScreen', () => {
       expect(chip('Paprika').props.accessibilityState).toEqual({ checked: false });
     });
 
-    it('stops the tray above the dock', async () => {
+    it('dims the screen down to its bottom edge for the tray, where the dock was', async () => {
       await setup({ getPantryCatalog: jest.fn().mockResolvedValue(CATALOG), bottomClearance: 110 });
       await flush();
       await openTray();
-      expect(styleOf(screen.getByTestId('seasoning-backdrop', everything)).bottom).toBe(110);
+      expect(styleOf(screen.getByTestId('seasoning-backdrop', everything)).bottom).toBe(0);
     });
 
     it('counts the seasonings that are on on the find button', async () => {
@@ -632,6 +635,55 @@ describe('PantryScreen', () => {
       await flush();
       await addIngredient('paprika');
       expect(byLabel('Find recipes with 1 ingredient')).toBeEnabled();
+    });
+
+    describe('moving the dock out of the way of a sheet', () => {
+      const withReporter = async () => {
+        const onSheetShownChange = jest.fn();
+        await setup({ getPantryCatalog: jest.fn().mockResolvedValue(CATALOG), onSheetShownChange });
+        await flush();
+        return onSheetShownChange;
+      };
+      const lastReport = (reporter: jest.Mock) => reporter.mock.calls.at(-1)?.[0];
+
+      it('leaves the dock alone while no sheet is open', async () => {
+        const reporter = await withReporter();
+        expect(reporter).not.toHaveBeenCalledWith(true);
+      });
+
+      it('says a sheet is showing when the seasoning tray opens', async () => {
+        const reporter = await withReporter();
+        await openTray();
+        expect(lastReport(reporter)).toBe(true);
+      });
+
+      it('says the sheet is gone when the seasoning tray closes', async () => {
+        const reporter = await withReporter();
+        await openTray();
+        await press('Done');
+        expect(lastReport(reporter)).toBe(false);
+      });
+
+      it('says a sheet is showing as soon as the handle is dragged up', async () => {
+        const reporter = await withReporter();
+        drag(screen.getByTestId('seasoning-handle-drag-area', everything), [-10, -20], { release: false });
+        await flush();
+        expect(lastReport(reporter)).toBe(true);
+      });
+
+      it('says a sheet is showing when the amount sheet opens', async () => {
+        const reporter = await withReporter();
+        await addIngredient('garlic');
+        await fireEvent.press(screen.getByRole('button', { name: /^Edit amount.* for garlic$/ }));
+        expect(lastReport(reporter)).toBe(true);
+      });
+
+      it('says the sheet is gone when the screen goes away with a sheet open', async () => {
+        const reporter = await withReporter();
+        await openTray();
+        await screen.unmount();
+        expect(lastReport(reporter)).toBe(false);
+      });
     });
 
     describe('notices that hide themselves', () => {
@@ -804,10 +856,10 @@ describe('PantryScreen', () => {
         dismiss.mockRestore();
       });
 
-      it('stands above the dock', async () => {
+      it('stands on the bottom edge of the screen, where the dock was', async () => {
         await flourInPantry({ bottomClearance: 110 });
         await editFlour();
-        expect(styleOf(screen.getByTestId('bottom-sheet', everything)).bottom).toBe(110);
+        expect(styleOf(screen.getByTestId('bottom-sheet', everything)).bottom).toBe(0);
       });
 
       it('closes the seasoning tray when it opens', withFakeTimers(async () => {

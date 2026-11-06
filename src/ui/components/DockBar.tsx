@@ -6,11 +6,15 @@
 // sideways (dockSwipe's startsDockSwipe) the dock takes the touch, the pill follows the finger to the tab
 // that letting go would open, and letting go presses that tab. Past either end the end tab stays picked, and a
 // disabled tab gives way to the nearest one that works; sliding well above or below the dock cancels.
+// While a sheet is open (`hidden`), the dock slides down off the screen so the sheet can take its place, and
+// takes no touches; screen readers skip it. It slides over the sheets' TRAY_SLIDE_MS, or jumps with Reduce Motion on.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import { Animated, Easing, PanResponder, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { dockSlotAt, indicatorOffset, startsDockSwipe, swipeTarget } from '../motion/dockSwipe';
+import { TRAY_SLIDE_MS } from '../motion/trayDrag';
 import { useReduceMotion } from '../motion/useReduceMotion';
+import { dockHiddenDrop } from '../platform/dockLayout';
 import type { DockSurface } from '../platform/dockSurface';
 import { colors, dock, radii, shadows } from '../theme';
 
@@ -20,6 +24,8 @@ type Props = {
   bottom: number;
   /** For the Android blur: the view holding the screens, which the dock blurs. It must not contain the dock. */
   blurTarget?: React.RefObject<React.ComponentRef<typeof View> | null>;
+  /** True while a sheet is open: the dock moves off the bottom of the screen. */
+  hidden?: boolean;
   children: React.ReactNode;
 };
 
@@ -48,7 +54,7 @@ export function useReportToDock({ isFocused, disabled, onPress }: DockItemReport
   return slot === null || pill === null ? isFocused : pill === slot.index;
 }
 
-export function DockBar({ surface, bottom, blurTarget, children }: Props) {
+export function DockBar({ surface, bottom, blurTarget, hidden = false, children }: Props) {
   const items = useRef<DockItemReport[]>([]);
   const [focused, setFocused] = useState<number | null>(null);
   const report = useCallback((index: number, item: DockItemReport) => {
@@ -148,6 +154,20 @@ export function DockBar({ surface, bottom, blurTarget, children }: Props) {
     Animated.spring(pillX, { toValue, ...PILL_SPRING, useNativeDriver: false }).start();
   }, [pillAt, pillX, reduceMotion]);
 
+  // Moves down off the screen while hidden. The JS driver, for the same reason as the pill.
+  const drop = useRef(new Animated.Value(hidden ? dockHiddenDrop(bottom) : 0)).current;
+  const dropFirstRender = useRef(true);
+  useEffect(() => {
+    const toValue = hidden ? dockHiddenDrop(bottom) : 0;
+    drop.stopAnimation();
+    if (dropFirstRender.current || reduceMotion) {
+      dropFirstRender.current = false;
+      drop.setValue(toValue);
+      return;
+    }
+    Animated.timing(drop, { toValue, duration: TRAY_SLIDE_MS, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [hidden, bottom, drop, reduceMotion]);
+
   const content = (
     <View ref={row} testID="dock-row" style={styles.row} onLayout={measureRow} {...swipe.panHandlers}>
       {pillAt !== null && (
@@ -168,10 +188,12 @@ export function DockBar({ surface, bottom, blurTarget, children }: Props) {
     </View>
   );
   return (
-    <View
+    <Animated.View
       accessibilityRole="tablist"
-      pointerEvents="box-none"
-      style={[styles.floating, { bottom }, surface === 'translucent' && styles.translucent]}
+      pointerEvents={hidden ? 'none' : 'box-none'}
+      accessibilityElementsHidden={hidden}
+      importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
+      style={[styles.floating, { bottom, transform: [{ translateY: drop }] }, surface === 'translucent' && styles.translucent]}
     >
       {surface === 'blur' ? (
         <BlurView tint="light" intensity={BLUR_INTENSITY} style={[styles.pill, styles.outlined]}>
@@ -190,7 +212,7 @@ export function DockBar({ surface, bottom, blurTarget, children }: Props) {
       ) : (
         <View style={[styles.pill, styles.outlined]}>{content}</View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 

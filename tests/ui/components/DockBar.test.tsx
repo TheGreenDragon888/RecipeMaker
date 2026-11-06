@@ -5,6 +5,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { DockBar } from '../../../src/ui/components/DockBar';
 import { DockItem } from '../../../src/ui/components/DockItem';
 import { indicatorOffset } from '../../../src/ui/motion/dockSwipe';
+import { dockHiddenDrop } from '../../../src/ui/platform/dockLayout';
 import { colors } from '../../../src/ui/theme';
 import type { DockSurface } from '../../../src/ui/platform/dockSurface';
 import { drag } from '../../support/drag';
@@ -353,6 +354,81 @@ describe('DockBar', () => {
       await render(swipeDock());
       await fireEvent.press(screen.getByRole('tab', { name: 'Recipes' }));
       expect(opened()).toEqual([0, 1, 0]);
+    });
+  });
+
+  describe('hidden while a sheet is open', () => {
+    const wait = (ms: number) => act(async () => { jest.advanceTimersByTime(ms); });
+    const hiddenDock = (hidden: boolean) => (
+      <DockBar surface="translucent" bottom={24} hidden={hidden}>
+        {tabs(0)}
+      </DockBar>
+    );
+    /** The dock as React Native draws it, including when screen readers are told to skip it. */
+    const dockView = () => screen.container.queryAll((node) => node.props.accessibilityRole === 'tablist')[0];
+    /** Only what tells screen readers to skip the dock (the whole props would include every tab). */
+    const readerProps = () => {
+      const { accessibilityElementsHidden, importantForAccessibility } = dockView().props;
+      return { accessibilityElementsHidden, importantForAccessibility };
+    };
+    const dropped = () => (styleOf(dockView()).transform as { translateY: number }[])[0].translateY;
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockReturnValue(new Promise<boolean>(() => {}));
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+      jest.restoreAllMocks();
+    });
+
+    it('stays in its place while shown', async () => {
+      await render(hiddenDock(false));
+      expect(dropped()).toBe(0);
+    });
+
+    it('slides part of the way down at first', async () => {
+      await render(hiddenDock(false));
+      await screen.rerender(hiddenDock(true));
+      await wait(50);
+      expect(dropped()).toBeGreaterThan(0);
+      expect(dropped()).toBeLessThan(dockHiddenDrop(24));
+    });
+
+    it('ends below the bottom edge of the screen', async () => {
+      await render(hiddenDock(false));
+      await screen.rerender(hiddenDock(true));
+      await wait(1500);
+      expect(dropped()).toBe(dockHiddenDrop(24));
+    });
+
+    it('drops at once with Reduce Motion on', async () => {
+      jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
+      await render(hiddenDock(false));
+      await screen.rerender(hiddenDock(true));
+      expect(dropped()).toBe(dockHiddenDrop(24));
+    });
+
+    it('comes back up when shown again', async () => {
+      await render(hiddenDock(true));
+      await screen.rerender(hiddenDock(false));
+      await wait(1500);
+      expect(dropped()).toBe(0);
+    });
+
+    it('takes no touches', async () => {
+      await render(hiddenDock(true));
+      expect(dockView().props.pointerEvents).toBe('none');
+    });
+
+    it('is skipped by screen readers', async () => {
+      await render(hiddenDock(true));
+      expect(readerProps()).toEqual({ accessibilityElementsHidden: true, importantForAccessibility: 'no-hide-descendants' });
+    });
+
+    it('is read by screen readers again once shown', async () => {
+      await render(hiddenDock(false));
+      expect(readerProps()).toEqual({ accessibilityElementsHidden: false, importantForAccessibility: 'auto' });
     });
   });
 });

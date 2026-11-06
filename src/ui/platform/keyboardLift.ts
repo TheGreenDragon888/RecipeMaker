@@ -20,10 +20,15 @@ export function keyboardOverlap({ platform, keyboardHeight, bottomInset }: Overl
   return platform === 'android' ? keyboardHeight + bottomInset : keyboardHeight;
 }
 
-/** Space left between the keyboard's top and the sheet's bottom edge. */
-export const KEYBOARD_GAP = 8;
-
-/** Where the sheet's bottom edge goes: where it rests, or just above the keyboard when that is higher. */
+/** Where the sheet's bottom edge goes: where it rests, or on the keyboard's top when that is higher. */
 export function liftedSheetBottom({ restingBottom, overlap }: { restingBottom: number; overlap: number }): number {
-  return overlap > 0 ? Math.max(restingBottom, overlap + KEYBOARD_GAP) : restingBottom;
+  return Math.max(restingBottom, overlap);
+}
+
+/**
+ * Room a sheet resting on the screen's bottom edge leaves under its content for the home indicator or navigation
+ * bar. None while the keyboard is up: the sheet then sits on the keyboard, which covers them.
+ */
+export function sheetSafeAreaPadding({ bottomInset, overlap }: { bottomInset: number; overlap: number }): number {
+  return overlap > 0 ? 0 : bottomInset;
 }

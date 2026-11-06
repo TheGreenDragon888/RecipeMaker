@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import type { RecipeServices } from '../../../src/createRecipeServices';
+import { DockVisibilityProvider } from '../../../src/ui/DockVisibilityContext';
 import { RecipeServicesProvider } from '../../../src/ui/RecipeServicesContext';
 import { PantryScreen } from '../../../src/ui/screens/PantryScreen';
 import IndexRoute from '../../../app/(tabs)/index';
@@ -24,11 +25,14 @@ const services = {
   savePantry: jest.fn().mockResolvedValue(undefined),
 } as unknown as RecipeServices;
 
+const onSheetShownChange = jest.fn();
 const renderRoute = () =>
   render(
-    <RecipeServicesProvider start={() => Promise.resolve(services)}>
-      <IndexRoute />
-    </RecipeServicesProvider>,
+    <DockVisibilityProvider onSheetShownChange={onSheetShownChange}>
+      <RecipeServicesProvider start={() => Promise.resolve(services)}>
+        <IndexRoute />
+      </RecipeServicesProvider>
+    </DockVisibilityProvider>,
   );
 
 const screenProps = () => lastProps(PantryScreen);
@@ -71,5 +75,11 @@ describe('index route', () => {
     await renderRoute();
     await act(async () => screenProps().onFindRecipes(['tomato', 'egg']));
     expect(router.push).toHaveBeenCalledWith({ pathname: '/results', params: { pantry: '["tomato","egg"]' } });
+  });
+
+  it('tells the tabs layout when a sheet shows, so the dock moves out of its way', async () => {
+    await renderRoute();
+    await act(async () => screenProps().onSheetShownChange?.(true));
+    expect(onSheetShownChange).toHaveBeenLastCalledWith(true);
   });
 });

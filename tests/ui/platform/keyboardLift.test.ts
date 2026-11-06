@@ -1,4 +1,4 @@
-import { keyboardEventsFor, keyboardOverlap, liftedSheetBottom } from '../../../src/ui/platform/keyboardLift';
+import { keyboardEventsFor, keyboardOverlap, liftedSheetBottom, sheetSafeAreaPadding } from '../../../src/ui/platform/keyboardLift';
 
 describe('keyboardEventsFor', () => {
   it('listens for the keyboard about to move on iOS, so the sheet can move with it', () => {
@@ -29,11 +29,21 @@ describe('liftedSheetBottom', () => {
     expect(liftedSheetBottom({ restingBottom: 100, overlap: 0 })).toBe(100);
   });
 
-  it('lifts the sheet to just above the keyboard', () => {
-    expect(liftedSheetBottom({ restingBottom: 100, overlap: 291 })).toBe(299);
+  it('lifts the sheet to sit right on the keyboard', () => {
+    expect(liftedSheetBottom({ restingBottom: 0, overlap: 291 })).toBe(291);
   });
 
   it('never lowers the sheet below where it rests', () => {
     expect(liftedSheetBottom({ restingBottom: 100, overlap: 60 })).toBe(100);
+  });
+});
+
+describe('sheetSafeAreaPadding', () => {
+  it("keeps the sheet's content clear of the home indicator or navigation bar", () => {
+    expect(sheetSafeAreaPadding({ bottomInset: 34, overlap: 0 })).toBe(34);
+  });
+
+  it('drops the room while the keyboard covers the home indicator', () => {
+    expect(sheetSafeAreaPadding({ bottomInset: 34, overlap: 291 })).toBe(0);
   });
 });

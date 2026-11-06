@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform } from 'react-native';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { currentDockSurface } from '../../../src/ui/platform/dockSurface';
 import TabsLayout from '../../../app/(tabs)/_layout';
 import { shownText, styleOf } from '../../support/screen';
@@ -12,7 +12,22 @@ jest.mock('expo-router/ui', () => {
   const { View } = jest.requireActual('react-native');
   return {
     Tabs: ({ children }: { children: React.ReactNode }) => <View>{children}</View>,
-    TabSlot: () => <View testID="tab-slot" />,
+    // The open tab's screen; its button reports a sheet showing, as the Pantry route does.
+    TabSlot: () => {
+      const { Pressable, Text } = jest.requireActual('react-native');
+      const { useReportSheetShown } = jest.requireActual('../../../src/ui/DockVisibilityContext');
+      const report = useReportSheetShown();
+      return (
+        <View testID="tab-slot">
+          <Pressable accessibilityRole="button" onPress={() => report(true)}>
+            <Text>Open a sheet</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => report(false)}>
+            <Text>Close the sheet</Text>
+          </Pressable>
+        </View>
+      );
+    },
     // Keeps the element it was given, so a test can check what the layout put directly inside the dock.
     TabList: ({ children }: { children: React.ReactNode }) => {
       tabListChild.current = children;
@@ -126,5 +141,27 @@ describe('tabs layout on each platform', () => {
     jest.replaceProperty(Platform, 'OS', 'android');
     await render(<TabsLayout />);
     expect(tabs().map((tab) => shownText(tab).join(''))).toEqual(['Pantry', 'Recipes', 'Bookmarks']);
+  });
+
+  describe('while the open tab shows a sheet', () => {
+    const dockHidden = () => dock().props.accessibilityElementsHidden;
+
+    it('shows the dock while no sheet is showing', async () => {
+      await render(<TabsLayout />);
+      expect(dockHidden()).toBe(false);
+    });
+
+    it('moves the dock out of the way', async () => {
+      await render(<TabsLayout />);
+      await fireEvent.press(screen.getByRole('button', { name: 'Open a sheet' }));
+      expect(dockHidden()).toBe(true);
+    });
+
+    it('brings the dock back once the sheet is gone', async () => {
+      await render(<TabsLayout />);
+      await fireEvent.press(screen.getByRole('button', { name: 'Open a sheet' }));
+      await fireEvent.press(screen.getByRole('button', { name: 'Close the sheet' }));
+      expect(dockHidden()).toBe(false);
+    });
   });
 });
