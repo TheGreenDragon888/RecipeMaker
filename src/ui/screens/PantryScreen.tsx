@@ -2,7 +2,8 @@
 // Only ingredients in the database can be added: a tapped suggestion, or typed text that findIngredient
 // recognizes. Each ingredient has an amount in its pantry unit (− / +, up to 99; − removes it when one step
 // would leave nothing). Tapping the amount opens the amount sheet, to type an amount or show the item in
-// another unit (2 cups as 32 tbsp). Seasonings are switched on and off in the seasoning tray instead, and
+// another unit (2 cups as 32 tbsp), or to remove it (its Remove button, or saving 0). Every removal shows a
+// notice with Undo for 5 seconds, which puts the item back as it was. Seasonings are switched on and off in the seasoning tray instead, and
 // staples aren't added, since recipes already assume them. Only one of the tray and the sheet is open at a time.
 // Amounts and units are display only: onFindRecipes gets the names of the list's ingredients and of the
 // seasonings that are on, and the Results screen runs the pantry search with them.
@@ -21,6 +22,8 @@ import {
   increasePantryQuantity,
   pantryNamesForMatching,
   pantryStepUnit,
+  removePantryItem,
+  restorePantryItem,
   setPantryItemAmount,
   shownPantryAmount,
   toggleSeasoning,
@@ -33,15 +36,18 @@ import { AmountSheet } from '../components/AmountSheet';
 import { BottomSheet } from '../components/BottomSheet';
 import { Icon } from '../components/Icon';
 import { PantryItemRow } from '../components/PantryItemRow';
+import { PressableScale } from '../components/PressableScale';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SeasoningDrawer } from '../components/SeasoningDrawer';
 import { SuggestionList } from '../components/SuggestionList';
 import { formatMealTagline } from '../format/mealTagline';
 import {
   formatFindRecipesLabel,
+  formatRemovedNotice,
   formatRestoreChanges,
   formatSeasoningAdded,
   formatStapleAssumed,
+  formatUndoRemoveLabel,
   formatUnknownIngredient,
 } from '../format/pantryInfo';
 import { colors, dock, fonts, fontSize, radii, shadows, spacing } from '../theme';
@@ -115,7 +121,7 @@ export function PantryScreen({
       Animated.timing(noticeOpacity, { toValue: 0, duration: NOTICE_FADE_MS, useNativeDriver: true }).start(({ finished }) => {
         if (finished) setNotice((current) => (current === notice ? null : current));
       });
-    }, NOTICE_MS - NOTICE_FADE_MS);
+    }, (notice.lastsMs ?? NOTICE_MS) - NOTICE_FADE_MS);
     return () => {
       clearTimeout(fade);
       noticeOpacity.stopAnimation();
@@ -223,8 +229,36 @@ export function PantryScreen({
     setPantry((current) => increasePantryQuantity(current, name));
   }
 
+  /** − on a row: one step down, or out of the list (with Undo) when one step or less is left. */
   function decrease(name: string) {
+    const item = pantry.find((candidate) => candidate.name === name);
+    if (item && decreaseRemovesPantryItem(item)) return remove(name);
     setPantry((current) => decreasePantryQuantity(current, name));
+  }
+
+  /**
+   * Takes an ingredient out of the list (closing its amount sheet if open) and offers Undo, which puts it back
+   * as it was: same amount, same unit shown, same place.
+   */
+  function remove(name: string) {
+    const index = pantry.findIndex((item) => item.name === name);
+    if (index === -1) return;
+    const removed = pantry[index];
+    setPantry((current) => removePantryItem(current, name));
+    setPanel((current) => (current?.kind === 'amount' && current.name === name ? null : current));
+    setNotice({
+      text: formatRemovedNotice(name),
+      hidesItself: true,
+      lastsMs: UNDO_NOTICE_MS,
+      action: {
+        label: 'Undo',
+        accessibilityLabel: formatUndoRemoveLabel(name),
+        onPress: () => {
+          setPantry((current) => restorePantryItem(current, removed, index));
+          setNotice(null);
+        },
+      },
+    });
   }
 
   function toggle(name: string) {
@@ -358,6 +392,7 @@ export function PantryScreen({
             item={amountItem}
             choices={unitChoices(amountItem)}
             onSave={(amount, unit) => saveAmount(amountItem.name, amount, unit)}
+            onRemove={() => remove(amountItem.name)}
             onClose={() => close('amount')}
           />
         ) : null}
@@ -373,8 +408,24 @@ export function PantryScreen({
           {suggestions.length > 0 ? <SuggestionList suggestions={suggestions} typed={text} onSelect={add} /> : null}
           {notice ? (
             // Android fades the notice as one picture, not its box and words separately (see AGENTS.md §5.2).
-            <Animated.View needsOffscreenAlphaCompositing style={{ opacity: noticeOpacity }}>
-              <Text style={styles.notice}>{notice.text}</Text>
+            <Animated.View testID="notice" needsOffscreenAlphaCompositing style={{ opacity: noticeOpacity }}>
+              {notice.action ? (
+                <View style={[styles.noticeBox, styles.noticeRow]}>
+                  <Text style={[styles.noticeText, styles.noticeRowText]}>{notice.text}</Text>
+                  <PressableScale
+                    size="small"
+                    accessibilityRole="button"
+                    accessibilityLabel={notice.action.accessibilityLabel}
+                    onPress={notice.action.onPress}
+                    hitSlop={spacing.sm}
+                    style={styles.noticeAction}
+                  >
+                    <Text style={styles.noticeActionText}>{notice.action.label}</Text>
+                  </PressableScale>
+                </View>
+              ) : (
+                <Text style={[styles.noticeBox, styles.noticeText]}>{notice.text}</Text>
+              )}
             </Animated.View>
           ) : null}
         </View>
@@ -383,12 +434,20 @@ export function PantryScreen({
   );
 }
 
-type Notice = { text: string; hidesItself: boolean };
+/** A notice under the field. One that hides itself lasts lastsMs (NOTICE_MS if not given); action is a button in it (Undo). */
+type Notice = {
+  text: string;
+  hidesItself: boolean;
+  lastsMs?: number;
+  action?: { label: string; accessibilityLabel: string; onPress: () => void };
+};
 const information = (text: string): Notice => ({ text, hidesItself: true });
 const problem = (text: string): Notice => ({ text, hidesItself: false });
 
 /** How long an information notice stays, including its fade-out at the end. */
 const NOTICE_MS = 3000;
+/** How long the Undo notice after a removal stays: longer, since it has a button to reach. */
+const UNDO_NOTICE_MS = 5000;
 const NOTICE_FADE_MS = 200;
 
 /** The find button's height (about 54 px) plus a gap, for the list's bottom padding. */
@@ -446,17 +505,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     elevation: shadows.floatingButton.elevation,
   },
-  notice: {
+  noticeBox: {
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.md,
     backgroundColor: colors.surface,
-    fontFamily: fonts.regular,
-    fontSize: fontSize.caption,
-    color: colors.textSecondary,
     overflow: 'hidden',
   },
+  noticeText: { fontFamily: fonts.regular, fontSize: fontSize.caption, color: colors.textSecondary },
+  // A notice with a button (Undo): the text, then the button at the end of the line.
+  noticeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  noticeRowText: { flex: 1 },
+  noticeAction: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm },
+  noticeActionText: { fontFamily: fonts.heavy, fontSize: fontSize.caption, color: colors.accent },
   list: { flex: 1 },
   // The bottom padding, set in the JSX, lets the last ingredient scroll above the find button and the dock.
   listContent: { paddingTop: 6, paddingHorizontal: spacing.screen },

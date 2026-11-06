@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { SheetFooterButton, SheetGrabBar, SheetHeader, SheetSectionLabel } from '../../../src/ui/components/SheetParts';
 import { colors } from '../../../src/ui/theme';
-import { fadedViews, fadesAsOnePicture, iconDrawing, shownIcons, shownText, scaleWhilePressed } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, iconDrawing, shownIcons, shownText, scaleWhilePressed, styleOf } from '../../support/screen';
 import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 describe('SheetGrabBar', () => {
@@ -71,6 +71,61 @@ describe('SheetFooterButton', () => {
   it('fades as one picture when disabled', async () => {
     await render(<SheetFooterButton label="Save" onPress={() => {}} disabled />);
     expect(fadedViews().map(fadesAsOnePicture)).toEqual([true]);
+  });
+});
+
+describe('SheetFooterButton as a remove button', () => {
+  const removeButton = (
+    <SheetFooterButton label="Remove" accessibilityLabel="Remove Garlic from your pantry" tone="remove" onPress={() => {}} />
+  );
+
+  it('is filled clay instead of blue', async () => {
+    await render(removeButton);
+    expect(styleOf(screen.getByRole('button', { name: 'Remove Garlic from your pantry' })).backgroundColor).toBe(colors.accent);
+  });
+
+  it('shows its label while screen readers hear the longer one', async () => {
+    await render(removeButton);
+    expect(shownText()).toEqual(['Remove']);
+  });
+
+  it('is blue by default', async () => {
+    await render(<SheetFooterButton label="Save" onPress={() => {}} />);
+    expect(styleOf(screen.getByRole('button', { name: 'Save' })).backgroundColor).toBe(colors.blue);
+  });
+});
+
+describe('SheetFooterButton with a side button', () => {
+  const side = { label: 'Remove', accessibilityLabel: 'Remove Garlic from your pantry', icon: 'trash' as const };
+
+  it('shows the side button before the main one, with its icon', async () => {
+    await render(<SheetFooterButton label="Save" onPress={() => {}} side={{ ...side, onPress: () => {} }} />);
+    expect([shownText(), shownIcons()]).toEqual([['Remove', 'Save'], ['trash']]);
+  });
+
+  it("calls the side button's onPress, not the main one's", async () => {
+    const onPress = jest.fn();
+    const onSide = jest.fn();
+    await render(<SheetFooterButton label="Save" onPress={onPress} side={{ ...side, onPress: onSide }} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove Garlic from your pantry' }));
+    expect([onSide.mock.calls.length, onPress.mock.calls.length]).toEqual([1, 0]);
+  });
+
+  it('outlines the side button and its icon in clay', async () => {
+    await render(<SheetFooterButton label="Save" onPress={() => {}} side={{ ...side, onPress: () => {} }} />);
+    const button = screen.getByRole('button', { name: 'Remove Garlic from your pantry' });
+    expect([styleOf(button).borderColor, iconDrawing('trash').props.stroke]).toEqual([colors.accent, colors.accent]);
+  });
+
+  it('fades the pressed side button as one picture', async () => {
+    await render(<SheetFooterButton label="Save" onPress={() => {}} side={{ ...side, onPress: () => {} }} />);
+    expect(fadesAsOnePicture(screen.getByRole('button', { name: 'Remove Garlic from your pantry' }))).toBe(true);
+  });
+
+  it('shrinks the side button while a finger is on it', async () => {
+    await render(<SheetFooterButton label="Save" onPress={() => {}} side={{ ...side, onPress: () => {} }} />);
+    const button = screen.getByRole('button', { name: 'Remove Garlic from your pantry' });
+    expect(await scaleWhilePressed(button)).toBeCloseTo(pressedScale('button', false), 3);
   });
 });
 

@@ -90,6 +90,16 @@ const shapes = {
       <Line x1="10" y1="14" x2="14" y2="14" />
     </>
   ),
+  /** The amount sheet's Remove button (not on the board): a trash can with its lid and handle. */
+  trash: (
+    <>
+      <Line x1="4" y1="7" x2="20" y2="7" />
+      <Path d="M9.5 7V4.5h5V7" />
+      <Path d="M6.5 7l1 13h9l1-13" />
+      <Line x1="10" y1="11" x2="10" y2="16" />
+      <Line x1="14" y1="11" x2="14" y2="16" />
+    </>
+  ),
   check: <Polyline points="5,13 10,18 19,7" />,
   swap: (
     <>

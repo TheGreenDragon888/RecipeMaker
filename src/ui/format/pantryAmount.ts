@@ -1,6 +1,6 @@
 // PRESENTATION LAYER: display text for pantry amounts and the amount sheet: amounts rounded for their unit,
 // the number field's text (and reading it back), the sheet's header, chips and button labels.
-import { formatPantryUnit } from './pantryInfo';
+import { formatIngredientName, formatPantryUnit } from './pantryInfo';
 import { formatKitchenAmount } from './quantity';
 
 /** Metric units shown as whole numbers (one decimal under 10): "473 mL", "4.9 g". */
@@ -92,3 +92,8 @@ export function formatAmountLimit(limit: number, unit: string | null): string {
 
 /** Shown under the unit chips when the picked unit rests on a typical size or density. */
 export const ESTIMATE_NOTE = '≈ Estimated from a typical size';
+
+/** The amount sheet's Remove button, for screen readers: "Remove Garlic from your pantry". */
+export function formatRemoveLabel(name: string): string {
+  return `Remove ${formatIngredientName(name)} from your pantry`;
+}

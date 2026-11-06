@@ -7,6 +7,7 @@ import {
   formatNowBadge,
   formatPantryAmount,
   formatQuantityStepLabel,
+  formatRemoveLabel,
   formatSheetStepLabel,
   formatUnitChoice,
   parseAmountText,
@@ -154,5 +155,11 @@ describe('formatAmountLimit', () => {
 describe('ESTIMATE_NOTE', () => {
   it('explains the "≈"', () => {
     expect(ESTIMATE_NOTE).toBe('≈ Estimated from a typical size');
+  });
+});
+
+describe('formatRemoveLabel', () => {
+  it("names the ingredient for screen readers", () => {
+    expect(formatRemoveLabel('garlic')).toBe('Remove Garlic from your pantry');
   });
 });

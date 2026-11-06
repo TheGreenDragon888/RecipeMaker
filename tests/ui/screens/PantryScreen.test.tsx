@@ -253,6 +253,53 @@ describe('PantryScreen', () => {
       expect(pantryNames()).toEqual(['egg']);
     });
 
+    it('says what − removed at 1, with Undo', async () => {
+      await setup();
+      await addIngredient('tomato');
+      await press('Remove tomato');
+      expect([shownText(), screen.getByRole('button', { name: 'Undo removing Tomato' })]).toEqual([
+        expect.arrayContaining(['Removed Tomato.']),
+        expect.anything(),
+      ]);
+    });
+
+    it('brings back what − removed when Undo is tapped', async () => {
+      await setup();
+      await addIngredient('tomato');
+      await addIngredient('egg');
+      await press('Remove tomato');
+      await press('Undo removing Tomato');
+      expect([pantryNames(), pantryQuantities()]).toEqual([['tomato', 'egg'], [1, 1]]);
+    });
+
+    it('hides the notice once Undo is tapped', async () => {
+      await setup();
+      await addIngredient('tomato');
+      await press('Remove tomato');
+      await press('Undo removing Tomato');
+      expect(shownText()).not.toContain('Removed Tomato.');
+    });
+
+    it('clears Undo when the user types', async () => {
+      await setup();
+      await addIngredient('tomato');
+      await press('Remove tomato');
+      await typeText('e');
+      expect(screen.queryByRole('button', { name: 'Undo removing Tomato' })).toBeNull();
+    });
+
+    it('offers Undo only for the latest removal', async () => {
+      await setup();
+      await addIngredient('tomato');
+      await addIngredient('egg');
+      await press('Remove tomato');
+      await press('Remove egg');
+      expect([
+        screen.queryByRole('button', { name: 'Undo removing Tomato' }),
+        shownText().filter((text) => text.startsWith('Removed')),
+      ]).toEqual([null, ['Removed Egg.']]);
+    });
+
     it('stops the row from increasing at 99', async () => {
       await setup();
       await addIngredient('tomato');
@@ -735,6 +782,33 @@ describe('PantryScreen', () => {
         expect(shownText()).toContain('Ground Cumin is on in Seasonings.');
       });
 
+      it('keeps the Undo notice just before 5 seconds', async () => {
+        await withCatalog();
+        await flush();
+        await addIngredient('garlic');
+        await press('Remove garlic');
+        await wait(4700);
+        expect(screen.getByRole('button', { name: 'Undo removing Garlic' })).toBeOnTheScreen();
+      });
+
+      it('hides the Undo notice after 5 seconds', async () => {
+        await withCatalog();
+        await flush();
+        await addIngredient('garlic');
+        await press('Remove garlic');
+        await wait(5000);
+        expect(screen.queryByRole('button', { name: 'Undo removing Garlic' })).toBeNull();
+      });
+
+      it('fades the Undo notice out as one picture', async () => {
+        await withCatalog();
+        await flush();
+        await addIngredient('garlic');
+        await press('Remove garlic');
+        const fading = screen.getByTestId('notice');
+        expect([styleOf(fading).opacity, fadesAsOnePicture(fading)]).toEqual([1, true]);
+      });
+
       it('keeps an unknown-ingredient message until the user types', async () => {
         const findIngredient = jest.fn().mockResolvedValue(null);
         await setup({ findIngredient, getPantryCatalog: jest.fn().mockResolvedValue(CATALOG) });
@@ -880,6 +954,76 @@ describe('PantryScreen', () => {
       }));
     });
 
+    describe('removing from the amount sheet', () => {
+      const UNITS_CATALOG: PantryCatalog = { ...CATALOG, units: { ...CATALOG.units, flour: 'cup' } };
+      const REMOVE = 'Remove Flour from your pantry';
+      const rowAmounts = () =>
+        screen.queryAllByRole('button', { name: /^Edit amount/ }).map((button) => button.props.accessibilityValue.text);
+      const sheets = () => screen.queryAllByTestId('bottom-sheet', everything);
+
+      async function pantryOfThree() {
+        await setup({ getPantryCatalog: jest.fn().mockResolvedValue(UNITS_CATALOG) });
+        await flush();
+        await addIngredient('egg');
+        await addIngredient('flour');
+        await addIngredient('milk');
+        await press('Edit amount and unit for flour');
+      }
+
+      it("removes the ingredient from the sheet's Remove button", async () => {
+        await pantryOfThree();
+        await press(REMOVE);
+        expect(pantryNames()).toEqual(['egg', 'milk']);
+      });
+
+      it('removes the ingredient when it is saved at 0', async () => {
+        await pantryOfThree();
+        await fireEvent.changeText(screen.getByLabelText('Amount'), '0');
+        await press(REMOVE);
+        expect(pantryNames()).toEqual(['egg', 'milk']);
+      });
+
+      it('closes the sheet once removed, after sliding down', async () => {
+        jest.useFakeTimers();
+        try {
+          await pantryOfThree();
+          await press(REMOVE);
+          await act(async () => { jest.advanceTimersByTime(TRAY_SLIDE_MS); });
+          expect(sheets()).toHaveLength(0);
+        } finally {
+          jest.useRealTimers();
+        }
+      });
+
+      it('says what was removed, with Undo', async () => {
+        await pantryOfThree();
+        await press(REMOVE);
+        expect([shownText(), screen.getByRole('button', { name: 'Undo removing Flour' })]).toEqual([
+          expect.arrayContaining(['Removed Flour.']),
+          expect.anything(),
+        ]);
+      });
+
+      it('shows Undo after saving at 0, too', async () => {
+        await pantryOfThree();
+        await fireEvent.changeText(screen.getByLabelText('Amount'), '0');
+        await press(REMOVE);
+        expect(screen.getByRole('button', { name: 'Undo removing Flour' })).toBeOnTheScreen();
+      });
+
+      it('brings back the same amount, unit shown and place with Undo', async () => {
+        await pantryOfThree();
+        await fireEvent.changeText(screen.getByLabelText('Amount'), '0.5');
+        await fireEvent.press(screen.getByRole('radio', { name: 'tbsp' }));
+        await press('Save');
+        const before = rowAmounts();
+        await press('Edit amount and unit for flour');
+        await press(REMOVE);
+        await press('Undo removing Flour');
+        expect([pantryNames(), rowAmounts()]).toEqual([['egg', 'flour', 'milk'], before]);
+      });
+    });
+
     describe('when the catalog cannot load', () => {
       const failing = () => setup({ getPantryCatalog: jest.fn().mockRejectedValue(new Error('no db')) });
 
@@ -984,6 +1128,22 @@ describe('PantryScreen', () => {
         expect(savePantry).toHaveBeenLastCalledWith([], ['paprika']);
       });
 
+      it('saves the list without an ingredient that was removed', async () => {
+        const { savePantry } = await setup();
+        await addIngredient('garlic');
+        await addIngredient('egg');
+        await press('Remove garlic');
+        expect(savePantry).toHaveBeenLastCalledWith([{ name: 'egg', quantity: 1, unit: null }], []);
+      });
+
+      it('saves the ingredient again after Undo', async () => {
+        const { savePantry } = await setup();
+        await addIngredient('garlic');
+        await press('Remove garlic');
+        await press('Undo removing Garlic');
+        expect(savePantry).toHaveBeenLastCalledWith([{ name: 'garlic', quantity: 1, unit: null }], []);
+      });
+
       it("says so when the pantry can't be saved", async () => {
         await setup({ savePantry: jest.fn().mockRejectedValue(new Error('disk full')) });
         await addIngredient('garlic');
@@ -1033,6 +1193,14 @@ describe('PantryScreen', () => {
         await setup({ loadSavedPantry: failsToLoad() });
         await addIngredient('garlic');
         expect(pantryNames()).toEqual(['garlic']);
+      });
+
+      it("doesn't save a removal or its Undo", async () => {
+        const { savePantry } = await setup({ loadSavedPantry: failsToLoad() });
+        await addIngredient('garlic');
+        await press('Remove garlic');
+        await press('Undo removing Garlic');
+        expect(savePantry).not.toHaveBeenCalled();
       });
 
       it("doesn't save, so the pantry it couldn't read isn't overwritten", async () => {

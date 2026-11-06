@@ -1,5 +1,6 @@
 import {
   addPantryItem,
+  amountSheetAction,
   canIncreasePantryQuantity,
   decreasePantryQuantity,
   decreaseRemovesPantryItem,
@@ -12,6 +13,8 @@ import {
   shownPantryAmount,
   stepDraftAmount,
   pantryNamesForMatching,
+  removePantryItem,
+  restorePantryItem,
   toggleSeasoning,
   turnOnSeasoning,
   type PantryItem,
@@ -348,5 +351,67 @@ describe('stepDraftAmount', () => {
 
   it('stops at 0', () => {
     expect(stepDraftAmount(3, -5)).toBe(0);
+  });
+});
+
+describe('amountSheetAction', () => {
+  const flour = item('flour', 2, 'cup');
+
+  it('saves an amount within the limit', () => {
+    expect(amountSheetAction(flour, 3, 'cup')).toBe('save');
+  });
+
+  it('removes the item at 0', () => {
+    expect(amountSheetAction(flour, 0, 'cup')).toBe('remove');
+  });
+
+  it('removes the item when only rounding noise is left', () => {
+    expect(amountSheetAction(flour, 1e-12, 'tbsp')).toBe('remove');
+  });
+
+  it('does nothing for an empty or unreadable field', () => {
+    expect(amountSheetAction(flour, null, 'cup')).toBeNull();
+  });
+
+  it('does nothing for an amount over the limit', () => {
+    expect(amountSheetAction(flour, 1585, 'tbsp')).toBeNull();
+  });
+
+  it.each([-1, Number.NaN])('does nothing for %p', (amount) => {
+    expect(amountSheetAction(flour, amount, 'cup')).toBeNull();
+  });
+});
+
+describe('removePantryItem', () => {
+  it('takes the named ingredient out and keeps the rest in order', () => {
+    const pantry = [item('egg'), item('garlic'), item('milk')];
+    expect(removePantryItem(pantry, 'garlic')).toEqual([item('egg'), item('milk')]);
+  });
+
+  it('finds the ingredient whatever its capitals and spaces', () => {
+    expect(removePantryItem([item('garlic')], ' Garlic ')).toEqual([]);
+  });
+
+  it('leaves the list as it was for a name not on it', () => {
+    const pantry = [item('egg')];
+    expect(removePantryItem(pantry, 'garlic')).toBe(pantry);
+  });
+});
+
+describe('restorePantryItem', () => {
+  const garlic: PantryItem = { name: 'garlic', quantity: 0.5, unit: 'cup', shownUnit: 'tbsp' };
+
+  it('puts the item back where it was', () => {
+    const pantry = [item('egg'), item('milk')];
+    expect(restorePantryItem(pantry, garlic, 1)).toEqual([item('egg'), garlic, item('milk')]);
+  });
+
+  it('puts the item at the end when the list is now shorter', () => {
+    expect(restorePantryItem([item('egg')], garlic, 3)).toEqual([item('egg'), garlic]);
+  });
+
+  it('changes nothing when the ingredient is already back on the list', () => {
+    const pantry = [item('Garlic', 2)];
+    expect(restorePantryItem(pantry, garlic, 0)).toBe(pantry);
   });
 });

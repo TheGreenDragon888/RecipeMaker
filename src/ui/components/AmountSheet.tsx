@@ -2,11 +2,12 @@
 // a grab bar, a header ("Garlic", "Counted in cloves", "Now 2 cloves"), the amount with −5 / −1 / +1 / +5 and a
 // number field, a row of unit chips, and Save. It fills the BottomSheet the screen draws. It edits a draft:
 // Save hands the amount and unit to onSave; the grab bar (like the backdrop) closes without saving.
+// Remove (beside Save, or Save itself once the amount is 0) hands the item to onRemove. The board has no Remove.
 // Unlike the board, picking a unit converts the amount (2 cups → 32 tbsp) rather than only relabelling it.
 // Left out from the board: the category and "profile" in the header (no data), and "Common amounts".
 import React, { useState } from 'react';
 import { Keyboard, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { isValidPantryAmount, pantryAmountLimit, shownPantryAmount, stepDraftAmount, type PantryItem } from '../../domain/pantry';
+import { amountSheetAction, isValidPantryAmount, pantryAmountLimit, shownPantryAmount, stepDraftAmount, type PantryItem } from '../../domain/pantry';
 import { convertPantryAmount, type UnitChoice } from '../../domain/unitConversions';
 import {
   ESTIMATE_NOTE,
@@ -14,6 +15,7 @@ import {
   formatAmountLimit,
   formatCountedIn,
   formatNowBadge,
+  formatRemoveLabel,
   formatSheetStepLabel,
   formatUnitChoice,
   parseAmountText,
@@ -29,12 +31,14 @@ type Props = {
   /** The units it can be shown in (pantryUnitChoices); one or none hides the unit row. */
   choices: UnitChoice[];
   onSave: (amount: number, unit: string | null) => void;
+  /** Removes the item: from the Remove button beside Save, or from Save once the amount is 0 (it reads Remove then). */
+  onRemove: () => void;
   onClose: () => void;
 };
 
 const STEPS = [-5, -1, 1, 5];
 
-export function AmountSheet({ item, choices, onSave, onClose }: Props) {
+export function AmountSheet({ item, choices, onSave, onRemove, onClose }: Props) {
   const onHand = shownPantryAmount(item);
   const [unit, setUnit] = useState(onHand.unit);
   /** The draft amount, exact: the field shows it rounded, so a unit change there and back doesn't drift. */
@@ -62,15 +66,24 @@ export function AmountSheet({ item, choices, onSave, onClose }: Props) {
     setAmount(parseAmountText(typed));
   }
 
+  const action = amountSheetAction(item, amount, unit);
+
   function save() {
     Keyboard.dismiss();
-    if (amount !== null && isValidPantryAmount(item, amount, unit)) onSave(amount, unit);
+    if (action === 'remove') onRemove();
+    else if (action === 'save' && amount !== null) onSave(amount, unit);
+  }
+
+  function remove() {
+    Keyboard.dismiss();
+    onRemove();
   }
 
   const limit = pantryAmountLimit(item, unit);
   const overLimit = amount !== null && !isValidPantryAmount(item, amount, unit) && amount > 0;
   const estimated = choices.find((choice) => choice.unit === unit)?.approximate ?? false;
   const unitText = formatPantryUnit(amount ?? 0, unit);
+  const removeLabel = formatRemoveLabel(item.name);
 
   return (
     <View>
@@ -130,7 +143,16 @@ export function AmountSheet({ item, choices, onSave, onClose }: Props) {
       ) : null}
 
       <View style={styles.footer}>
-        <SheetFooterButton label="Save" onPress={save} disabled={amount === null || !isValidPantryAmount(item, amount, unit)} />
+        {action === 'remove' ? (
+          <SheetFooterButton label="Remove" accessibilityLabel={removeLabel} tone="remove" onPress={save} />
+        ) : (
+          <SheetFooterButton
+            label="Save"
+            onPress={save}
+            disabled={action === null}
+            side={{ label: 'Remove', accessibilityLabel: removeLabel, icon: 'trash', onPress: remove }}
+          />
+        )}
       </View>
     </View>
   );

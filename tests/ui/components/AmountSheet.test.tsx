@@ -5,7 +5,8 @@ import type { PantryItem } from '../../../src/domain/pantry';
 import { shownPantryAmount } from '../../../src/domain/pantry';
 import { pantryUnitChoices } from '../../../src/domain/unitConversions';
 import { AmountSheet } from '../../../src/ui/components/AmountSheet';
-import { fadedViews, fadesAsOnePicture, pressIn, shownOfType, shownText, scaleWhilePressed } from '../../support/screen';
+import { fadedViews, fadesAsOnePicture, pressIn, shownIcons, shownOfType, shownText, scaleWhilePressed, styleOf } from '../../support/screen';
+import { colors } from '../../../src/ui/theme';
 import { pressedScale } from '../../../src/ui/motion/pressFeedback';
 
 const flour: PantryItem = { name: 'all-purpose flour', quantity: 2, unit: 'cup' };
@@ -18,6 +19,7 @@ const renderSheet = (props: Partial<SheetProps> = {}) => {
       item={item}
       choices={item.unit ? pantryUnitChoices(item.name, item.unit) : []}
       onSave={() => {}}
+      onRemove={() => {}}
       onClose={() => {}}
       {...props}
     />,
@@ -174,7 +176,7 @@ describe('AmountSheet', () => {
       expect(dismiss).toHaveBeenCalled();
     });
 
-    it.each(['', '0', '1/2', 'abc'])('is disabled for "%s"', async (text) => {
+    it.each(['', '1/2', 'abc'])('is disabled for "%s"', async (text) => {
       await renderSheet();
       await fireEvent.changeText(field(), text);
       expect(save()).toBeDisabled();
@@ -192,6 +194,84 @@ describe('AmountSheet', () => {
       await press('Add 1');
       await fireEvent.press(save());
       expect(onSave).toHaveBeenCalledWith(3, null);
+    });
+  });
+
+  describe('removing', () => {
+    const REMOVE = 'Remove All-purpose Flour from your pantry';
+    const removeButtons = () => screen.queryAllByRole('button', { name: REMOVE });
+
+    it('turns Save into Remove when the steps reach 0', async () => {
+      await renderSheet();
+      await press('Subtract 5 cups');
+      expect([shownText(), removeButtons()[0]]).toEqual([expect.arrayContaining(['Remove']), expect.anything()]);
+    });
+
+    it('shows Remove, not Save, at 0', async () => {
+      await renderSheet();
+      await press('Subtract 5 cups');
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    });
+
+    it('makes Remove clay at 0', async () => {
+      await renderSheet();
+      await press('Subtract 5 cups');
+      expect(styleOf(removeButtons()[0]).backgroundColor).toBe(colors.accent);
+    });
+
+    it('removes the item, without saving, when Remove is tapped at 0', async () => {
+      const onSave = jest.fn();
+      const onRemove = jest.fn();
+      await renderSheet({ onSave, onRemove });
+      await press('Subtract 5 cups');
+      await fireEvent.press(removeButtons()[0]);
+      expect([onRemove.mock.calls.length, onSave.mock.calls.length]).toEqual([1, 0]);
+    });
+
+    it.each(['0', '0.0', ' 0 '])('shows Remove for a typed "%s"', async (typed) => {
+      await renderSheet();
+      await fireEvent.changeText(field(), typed);
+      expect(removeButtons()).toHaveLength(1);
+    });
+
+    it('goes back to Save when the amount rises from 0', async () => {
+      await renderSheet();
+      await press('Subtract 5 cups');
+      await press('Add 1 cup');
+      expect(save()).toBeEnabled();
+    });
+
+    it('reaches 0 from a fraction shown in another unit (1/4 cup as 4 tbsp)', async () => {
+      await renderSheet({ item: { ...flour, quantity: 0.25, shownUnit: 'tbsp' } });
+      await press('Subtract 5 tbsp');
+      expect(removeButtons()).toHaveLength(1);
+    });
+
+    it('offers a Remove button with a trash icon beside Save', async () => {
+      await renderSheet();
+      expect([removeButtons().length, shownIcons(removeButtons()[0])]).toEqual([1, ['trash']]);
+    });
+
+    it('removes the item, without saving, from the button beside Save', async () => {
+      const onSave = jest.fn();
+      const onRemove = jest.fn();
+      await renderSheet({ onSave, onRemove });
+      await fireEvent.changeText(field(), '5');
+      await fireEvent.press(removeButtons()[0]);
+      expect([onRemove.mock.calls.length, onSave.mock.calls.length]).toEqual([1, 0]);
+    });
+
+    it('hides the button beside Save at 0, so there is one Remove', async () => {
+      await renderSheet();
+      await fireEvent.changeText(field(), '0');
+      expect(screen.queryAllByTestId('icon-trash')).toEqual([]);
+    });
+
+    it('closes the keyboard', async () => {
+      const dismiss = jest.spyOn(Keyboard, 'dismiss');
+      await renderSheet();
+      await fireEvent.press(removeButtons()[0]);
+      expect(dismiss).toHaveBeenCalled();
     });
   });
 

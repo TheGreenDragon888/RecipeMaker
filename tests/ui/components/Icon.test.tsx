@@ -36,6 +36,11 @@ describe('Icon', () => {
     expect([shownOfType('RNSVGRect').length, shownOfType('RNSVGPath').length, shownOfType('RNSVGLine').length]).toEqual([1, 1, 1]);
   });
 
+  it("draws the Remove button's trash can (a lid, a handle, the can and two lines on it)", async () => {
+    await render(<Icon name="trash" size={18} color="#000" />);
+    expect([shownOfType('RNSVGPath').length, shownOfType('RNSVGLine').length]).toEqual([2, 3]);
+  });
+
   // react-native-svg draws a Polyline as a path through the same points.
   it.each([
     ['check', 'M5 13 10 18 19 7'],

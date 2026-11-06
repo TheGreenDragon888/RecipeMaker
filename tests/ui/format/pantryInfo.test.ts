@@ -4,12 +4,14 @@ import {
   formatMatchedAgainst,
   formatOnHand,
   formatPantryUnit,
+  formatRemovedNotice,
   formatRestoreChanges,
   formatSeasoningAdded,
   formatSeasoningName,
   formatSeasoningSection,
   formatStapleAssumed,
   formatTrayCount,
+  formatUndoRemoveLabel,
   formatUnknownIngredient,
 } from '../../../src/ui/format/pantryInfo';
 
@@ -184,5 +186,17 @@ describe('formatRestoreChanges', () => {
         { kind: 'movedToList', name: 'garlic' },
       ]),
     ).toBe('Updated for new recipe data: Ale removed; Cumin moved to Seasonings; Garlic moved to your list.');
+  });
+});
+
+describe('formatRemovedNotice', () => {
+  it('says which ingredient was removed', () => {
+    expect(formatRemovedNotice('green onion')).toBe('Removed Green Onion.');
+  });
+});
+
+describe('formatUndoRemoveLabel', () => {
+  it("names the ingredient Undo brings back, for screen readers", () => {
+    expect(formatUndoRemoveLabel('garlic')).toBe('Undo removing Garlic');
   });
 });

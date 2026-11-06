@@ -73,6 +73,16 @@ export function formatSeasoningAdded(name: string): string {
   return `${formatIngredientName(name)} is on in Seasonings.`;
 }
 
+/** Shown after an ingredient leaves the list, beside its Undo button: "Removed Garlic." */
+export function formatRemovedNotice(name: string): string {
+  return `Removed ${formatIngredientName(name)}.`;
+}
+
+/** The Undo button's label for screen readers: "Undo removing Garlic". */
+export function formatUndoRemoveLabel(name: string): string {
+  return `Undo removing ${formatIngredientName(name)}`;
+}
+
 /** Shown when a staple is picked in the add field: matching already counts it as on hand. */
 export function formatStapleAssumed(name: string): string {
   return `Recipes already assume you have ${name}.`;

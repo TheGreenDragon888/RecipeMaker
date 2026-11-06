@@ -112,6 +112,30 @@ export function isValidPantryAmount(item: PantryItem, amount: number, unit: stri
   return amount > 0 && amount <= pantryAmountLimit(item, unit) + TOLERANCE;
 }
 
+/**
+ * What the amount sheet's main button does with the amount in its field: save it, remove the item (the amount
+ * is 0), or nothing (null: the field is empty or unreadable, or the amount is over the limit).
+ */
+export function amountSheetAction(item: PantryItem, amount: number | null, unit: string | null): 'save' | 'remove' | null {
+  if (amount === null || Number.isNaN(amount)) return null;
+  if (Math.abs(amount) <= TOLERANCE) return 'remove';
+  return isValidPantryAmount(item, amount, unit) ? 'save' : null;
+}
+
+/** Takes the named ingredient out of the pantry; the rest keep their order. */
+export function removePantryItem(pantry: PantryItem[], name: string): PantryItem[] {
+  return pantry.some((item) => sameName(item, name)) ? pantry.filter((item) => !sameName(item, name)) : pantry;
+}
+
+/**
+ * Puts a removed ingredient back where it was (at `index`, or at the end if the list is now shorter), for Undo.
+ * If the ingredient is already back on the list, nothing changes.
+ */
+export function restorePantryItem(pantry: PantryItem[], removed: PantryItem, index: number): PantryItem[] {
+  if (pantry.some((item) => sameName(item, removed.name))) return pantry;
+  return [...pantry.slice(0, index), removed, ...pantry.slice(index)];
+}
+
 /** The amount sheet's −5 / −1 / +1 / +5 buttons: adds the step, stopping at 0. */
 export function stepDraftAmount(amount: number, step: number): number {
   return Math.max(0, cleanAmount(amount + step));
