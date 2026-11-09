@@ -78,7 +78,7 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.title}>Recipes</Text>
+        <Text style={styles.title}>All Recipes</Text>
       </View>
 
       <View style={[styles.field, searchFocused && styles.fieldFocused]}>
@@ -90,7 +90,7 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
           onBlur={() => setSearchFocused(false)}
           onChangeText={setSearchText}
           onFocus={() => setSearchFocused(true)}
-          placeholder="Search recipes…"
+          placeholder="Search all recipes…"
           placeholderTextColor={colors.textMuted}
           returnKeyType="search"
           style={styles.input}
