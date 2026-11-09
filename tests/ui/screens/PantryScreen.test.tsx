@@ -476,6 +476,60 @@ describe('PantryScreen', () => {
     });
   });
 
+  describe('the clear button', () => {
+    const clearButton = () => screen.queryByRole('button', { name: 'Clear ingredient' });
+
+    it('is hidden while the field is empty', async () => {
+      await setup();
+      expect(clearButton()).toBeNull();
+    });
+
+    it('shows once something is typed', async () => {
+      await setup();
+      await typeText('to');
+      expect(clearButton()).toBeTruthy();
+    });
+
+    it('empties the field', async () => {
+      await setup();
+      await typeText('to');
+      await fireEvent.press(clearButton()!);
+      expect(field().props.value).toBe('');
+    });
+
+    it('hides itself after clearing', async () => {
+      await setup();
+      await typeText('to');
+      await fireEvent.press(clearButton()!);
+      expect(clearButton()).toBeNull();
+    });
+
+    it('hides the suggestions', async () => {
+      await setup({ suggestIngredients: jest.fn().mockResolvedValue([suggestion('tofu')]) });
+      await typeText('to');
+      await fireEvent.press(clearButton()!);
+      expect(suggestionButtons()).toEqual([]);
+    });
+
+    it('hides a problem notice', async () => {
+      await setup({ suggestIngredients: jest.fn().mockRejectedValue(new Error('database busy')) });
+      await typeText('to');
+      await fireEvent.press(clearButton()!);
+      expect(shownText()).not.toContain("Couldn't load suggestions");
+    });
+
+    it('ignores suggestions that arrive after clearing', async () => {
+      const forTo = deferred<{ ingredient: string; matchedAlias: string | null }[]>();
+      await setup({ suggestIngredients: jest.fn().mockReturnValueOnce(forTo.promise) });
+      await typeText('to');
+      await fireEvent.press(clearButton()!);
+
+      await act(async () => forTo.resolve([suggestion('tofu')]));
+
+      expect(suggestionButtons()).toEqual([]);
+    });
+  });
+
   // Android clips a view to its parent's edges here (react-native-screens' Screen clips its children), so a
   // dropdown hanging out of the text field's area is never drawn. It floats from the screen itself instead.
   describe('where the dropdown floats', () => {

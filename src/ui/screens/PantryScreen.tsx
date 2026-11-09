@@ -34,6 +34,7 @@ import { pantryKindOf, type PantryCatalog } from '../../domain/pantryCatalog';
 import { pantryUnitChoices, type UnitChoice } from '../../domain/unitConversions';
 import { AmountSheet } from '../components/AmountSheet';
 import { BottomSheet } from '../components/BottomSheet';
+import { ClearFieldButton } from '../components/ClearFieldButton';
 import { Icon } from '../components/Icon';
 import { PantryItemRow } from '../components/PantryItemRow';
 import { PressableScale } from '../components/PressableScale';
@@ -327,6 +328,7 @@ export function PantryScreen({
             submitBehavior="submit"
             value={text}
           />
+          {text ? <ClearFieldButton label="Clear ingredient" onPress={() => changeText('')} /> : null}
         </View>
       </View>
 

@@ -92,6 +92,48 @@ describe('RecipesScreen', () => {
         expect(recipeCardNames()).toEqual(['Apple Pie', 'Potato Soup']);
       });
 
+      describe('the clear button', () => {
+        it('is hidden while the search box is empty', async () => {
+          await setup();
+          expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull();
+        });
+
+        it('shows once something is typed', async () => {
+          await setup();
+          await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'p');
+          expect(screen.getByRole('button', { name: 'Clear search' })).toBeTruthy();
+        });
+
+        it('empties the search box', async () => {
+          await setup();
+          await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'potato');
+          await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
+          expect(screen.getByLabelText('Search recipes').props.value).toBe('');
+        });
+
+        it('hides itself after clearing', async () => {
+          await setup();
+          await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'potato');
+          await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
+          expect(screen.queryByRole('button', { name: 'Clear search' })).toBeNull();
+        });
+
+        it('brings back the full list', async () => {
+          await setup({
+            listAllRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'Apple Pie'), makeSummary(2, 'Potato Soup')]),
+            searchRecipes: jest.fn().mockResolvedValue([makeSummary(2, 'Potato Soup')]),
+          });
+          jest.useFakeTimers();
+          await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'potato');
+          await act(async () => {
+            jest.advanceTimersByTime(250);
+          });
+
+          await fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
+          expect(recipeCardNames()).toEqual(['Apple Pie', 'Potato Soup']);
+        });
+      });
+
       it('shows a search-specific empty state when there are no matches', async () => {
         await setup({ listAllRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'Apple Pie')]) });
         jest.useFakeTimers();
