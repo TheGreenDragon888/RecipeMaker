@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import type { RecipeSummary } from '../../domain/recipe';
+import { ClearFieldButton } from '../components/ClearFieldButton';
 import { Icon } from '../components/Icon';
 import { RecipeCard } from '../components/RecipeCard';
 import { StateMessage } from '../components/StateMessage';
@@ -96,6 +97,7 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
           style={styles.input}
           value={searchText}
         />
+        {searchText ? <ClearFieldButton label="Clear search" onPress={() => setSearchText('')} /> : null}
       </View>
 
       {load.status === 'loading' ? (
