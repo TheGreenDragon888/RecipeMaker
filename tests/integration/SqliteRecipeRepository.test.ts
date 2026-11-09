@@ -138,6 +138,16 @@ describe('SqliteRecipeRepository', () => {
     });
   });
 
+  describe('listRecipeIdsByTag', () => {
+    it('returns the recipes with the Meal Prep tag, ignoring tag case', async () => {
+      expect(await repo.listRecipeIdsByTag('meal prep')).toHaveLength(291);
+    });
+
+    it('returns no recipe ids for an unknown tag', async () => {
+      expect(await repo.listRecipeIdsByTag('Not A Tag')).toEqual([]);
+    });
+  });
+
   describe('resolveIngredientNames', () => {
     it('maps aliases to canonical names and keeps unknown names unchanged', async () => {
       expect(await repo.resolveIngredientNames(['eggs', 'parmesan', 'dragonfruit'])).toEqual([

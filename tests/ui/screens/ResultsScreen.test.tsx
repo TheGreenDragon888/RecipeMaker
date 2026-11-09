@@ -1,5 +1,6 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Keyboard } from 'react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import type { PantryMatch } from '../../../src/services/findRecipesFromPantry';
 import { ResultsScreen } from '../../../src/ui/screens/ResultsScreen';
@@ -44,10 +45,130 @@ const backToPantryButtons = () => screen.getAllByRole('button', { name: 'Back to
 const headerBackButton = () => backToPantryButtons().find((button) => shownIcons(button).includes('chevronLeft'))!;
 
 describe('ResultsScreen', () => {
+  describe('keyboard dismissal', () => {
+    it('dismisses the number pad when filters are applied', async () => {
+      const dismiss = jest.spyOn(Keyboard, 'dismiss');
+      await setup({ findRecipesFromPantry: jest.fn().mockResolvedValue([makeMatch(1, 'Quick')]) });
+      await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+      await fireEvent(screen.getByLabelText('Maximum active time in minutes'), 'focus');
+      await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+
+      expect(dismiss).toHaveBeenCalled();
+      dismiss.mockRestore();
+    });
+
+    it('dismisses the number pad when filters are cleared', async () => {
+      const dismiss = jest.spyOn(Keyboard, 'dismiss');
+      await setup();
+      await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+      await fireEvent(screen.getByLabelText('Maximum active time in minutes'), 'focus');
+      await fireEvent.press(screen.getByRole('button', { name: 'Clear filters' }));
+
+      expect(dismiss).toHaveBeenCalled();
+      dismiss.mockRestore();
+    });
+
+    it('dismisses the number pad when the user taps the page outside the filter fields', async () => {
+      const dismiss = jest.spyOn(Keyboard, 'dismiss');
+      await setup();
+      await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+      await fireEvent(screen.getByLabelText('Maximum active time in minutes'), 'focus');
+      dismiss.mockClear();
+      await fireEvent.press(screen.getByTestId('results-screen'));
+
+      expect(dismiss).toHaveBeenCalled();
+      dismiss.mockRestore();
+    });
+  });
+
   describe('searching', () => {
     it('searches with the pantry list', async () => {
       const { findRecipesFromPantry } = await setup({ pantry: ['tomato', 'egg'] });
       expect(findRecipesFromPantry).toHaveBeenCalledWith(['tomato', 'egg']);
+    });
+
+    describe('filters', () => {
+      it('applies a serving range and the Meal Prep tag to pantry results', async () => {
+        const findRecipesFromPantry = jest
+          .fn()
+          .mockResolvedValueOnce([makeMatch(1, 'Regular')])
+          .mockResolvedValueOnce([makeMatch(2, 'Meal Prep')]);
+        await setup({ findRecipesFromPantry });
+
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        await fireEvent.changeText(screen.getByLabelText('Minimum servings'), '2');
+        await fireEvent.changeText(screen.getByLabelText('Maximum servings'), '4');
+        await fireEvent.press(screen.getByRole('button', { name: 'Meal Prep only' }));
+        await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+
+        expect(findRecipesFromPantry).toHaveBeenLastCalledWith(['tomato', 'egg'], {
+          servingRange: { min: 2, max: 4 },
+          mealPrepOnly: true,
+        });
+        expect(recipeCardNames()).toEqual(['Meal Prep']);
+      });
+
+      it('applies the maximum active cooking time', async () => {
+        const findRecipesFromPantry = jest
+          .fn()
+          .mockResolvedValueOnce([makeMatch(1, 'Regular')])
+          .mockResolvedValueOnce([makeMatch(2, 'Quick')]);
+        await setup({ findRecipesFromPantry });
+
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        await fireEvent.changeText(screen.getByLabelText('Maximum active time in minutes'), '30');
+        await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+
+        expect(findRecipesFromPantry).toHaveBeenLastCalledWith(['tomato', 'egg'], {
+          maxActiveMinutes: 30,
+        });
+        expect(recipeCardNames()).toEqual(['Quick']);
+      });
+
+      it('clears applied filters and reloads the full pantry results', async () => {
+        const findRecipesFromPantry = jest
+          .fn()
+          .mockResolvedValueOnce([makeMatch(3, 'Initial pantry results')])
+          .mockResolvedValueOnce([makeMatch(1, 'Filtered')])
+          .mockResolvedValueOnce([makeMatch(2, 'All pantry results')]);
+        await setup({ findRecipesFromPantry });
+
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        await fireEvent.changeText(screen.getByLabelText('Minimum servings'), '2');
+        await fireEvent.changeText(screen.getByLabelText('Maximum servings'), '4');
+        await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+        await waitFor(() =>
+          expect(findRecipesFromPantry).toHaveBeenLastCalledWith(['tomato', 'egg'], {
+            servingRange: { min: 2, max: 4 },
+          }),
+        );
+        await waitFor(() => expect(recipeCardNames()).toEqual(['Filtered']));
+        await fireEvent.press(screen.getByRole('button', { name: 'Clear filters' }));
+
+        expect(findRecipesFromPantry).toHaveBeenLastCalledWith(['tomato', 'egg']);
+        await waitFor(() => expect(recipeCardNames()).toEqual(['All pantry results']));
+      });
+
+      it('does not apply an invalid serving range', async () => {
+        const { findRecipesFromPantry } = await setup();
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        await fireEvent.changeText(screen.getByLabelText('Minimum servings'), '5');
+        await fireEvent.changeText(screen.getByLabelText('Maximum servings'), '3');
+        await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+
+        expect(findRecipesFromPantry).toHaveBeenCalledTimes(1);
+        expect(shownText()).toContain('Maximum servings must be at least the minimum.');
+      });
+
+      it('explains when active filters leave no matching recipes', async () => {
+        const findRecipesFromPantry = jest.fn().mockResolvedValueOnce([makeMatch(1, 'Initial')]).mockResolvedValueOnce([]);
+        await setup({ findRecipesFromPantry });
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        await fireEvent.press(screen.getByRole('button', { name: 'Meal Prep only' }));
+        await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+
+        await waitFor(() => expect(shownText()).toContain('No recipes match your pantry and filters.'));
+      });
     });
 
     it('shows a loading indicator while recipes load', async () => {

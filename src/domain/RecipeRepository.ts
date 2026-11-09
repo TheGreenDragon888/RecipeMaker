@@ -24,6 +24,8 @@ export interface RecipeRepository {
   /** The canonical name for an ingredient name or alias (ignoring case), or null when there is no such ingredient. */
   findIngredient(name: string): Promise<string | null>;
   findByDuplicateGroup(group: string): Promise<RecipeSummary[]>;
+  /** Recipe ids carrying the supplied tag. */
+  listRecipeIdsByTag(tag: string): Promise<number[]>;
   /** How the pantry tracks every canonical ingredient (the ingredients table), in no particular order. */
   listPantryTracking(): Promise<PantryTracking[]>;
 }

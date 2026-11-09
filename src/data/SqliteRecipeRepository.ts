@@ -78,6 +78,9 @@ SELECT COALESCE(
 export const FIND_BY_DUPLICATE_GROUP_SQL = `
 SELECT ${SUMMARY_COLUMNS} FROM recipes AS r WHERE r.duplicate_group = $group ORDER BY r.recipe_id;`;
 
+export const LIST_RECIPE_IDS_BY_TAG_SQL = `
+SELECT recipe_id FROM recipe_tags WHERE tag = $tag ORDER BY recipe_id;`;
+
 export const LIST_PANTRY_TRACKING_SQL = `SELECT ingredient, tracking, default_unit FROM ingredients;`;
 
 /** Makes %, _ and \ match literally inside a LIKE pattern that uses ESCAPE '\'. */
@@ -144,6 +147,11 @@ export class SqliteRecipeRepository implements RecipeRepository {
   async findByDuplicateGroup(group: string) {
     const rows = await this.db.getAllAsync<RecipeSummaryRow>(FIND_BY_DUPLICATE_GROUP_SQL, { $group: group });
     return rows.map(toRecipeSummary);
+  }
+
+  async listRecipeIdsByTag(tag: string) {
+    const rows = await this.db.getAllAsync<{ recipe_id: number }>(LIST_RECIPE_IDS_BY_TAG_SQL, { $tag: tag });
+    return rows.map((row) => row.recipe_id);
   }
 
   async listPantryTracking() {

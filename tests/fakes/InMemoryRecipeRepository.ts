@@ -58,6 +58,7 @@ export class InMemoryRecipeRepository implements RecipeRepository {
     recipes: FakeRecipe[] = [],
     aliases: Record<string, string> = {},
     private readonly tracking: PantryTracking[] = [],
+    private readonly recipeTags: Record<string, number[]> = {},
   ) {
     this.recipes = recipes.map(({ ingredients, ...r }) => makeRecipe(r));
     for (const { id, ingredients = [] } of recipes) {
@@ -150,6 +151,10 @@ export class InMemoryRecipeRepository implements RecipeRepository {
 
   async findByDuplicateGroup(group: string) {
     return this.recipes.filter((r) => r.duplicateGroup === group).map(toSummary);
+  }
+
+  async listRecipeIdsByTag(tag: string) {
+    return this.recipeTags[tag.toLowerCase()] ?? [];
   }
 
   async listPantryTracking() {

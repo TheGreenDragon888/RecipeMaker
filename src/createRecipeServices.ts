@@ -5,7 +5,7 @@ import type { RecipeRepository } from './domain/RecipeRepository';
 import { checkRecipeAgainstPantry } from './services/checkRecipeAgainstPantry';
 import { filterRecipes, type RecipeFilter } from './services/filterRecipes';
 import { findIngredient } from './services/findIngredient';
-import { findRecipesFromPantry } from './services/findRecipesFromPantry';
+import { findRecipesFromPantry, type PantryRecipeFilters } from './services/findRecipesFromPantry';
 import { getPantryCatalog } from './services/getPantryCatalog';
 import { getRecipeDetail } from './services/getRecipeDetail';
 import { getSimilarRecipes } from './services/getSimilarRecipes';
@@ -22,7 +22,8 @@ export function createRecipeServices(repo: RecipeRepository, pantryRepo: PantryR
   return {
     searchRecipesByIngredient: (raw: string) => searchRecipesByIngredient(repo, raw),
     searchRecipes: (raw: string) => searchRecipes(repo, raw),
-    findRecipesFromPantry: (pantryItems: string[]) => findRecipesFromPantry(repo, pantryItems),
+    findRecipesFromPantry: (pantryItems: string[], filters?: PantryRecipeFilters) =>
+      findRecipesFromPantry(repo, pantryItems, filters),
     filterRecipes: (filter: RecipeFilter) => filterRecipes(repo, filter),
     getRecipeDetail: (recipeId: number) => getRecipeDetail(repo, recipeId),
     getSimilarRecipes: (recipeId: number) => getSimilarRecipes(repo, recipeId),

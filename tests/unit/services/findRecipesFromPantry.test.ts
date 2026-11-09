@@ -115,4 +115,72 @@ describe('findRecipesFromPantry', () => {
     const repo = new InMemoryRecipeRepository(recipes);
     expect(await findRecipesFromPantry(repo, ['egg'])).toHaveLength(20);
   });
+
+  it('keeps recipes whose serving ranges overlap the selected range, including either boundary', async () => {
+    const repo = new InMemoryRecipeRepository([
+      { id: 1, name: 'Overlaps at lower end', servingsMin: 1, servingsMax: 3, ingredients: [{ ingredient: 'egg' }] },
+      { id: 2, name: 'Overlaps at upper end', servingsMin: 4, servingsMax: 6, ingredients: [{ ingredient: 'egg' }] },
+      { id: 3, name: 'Below range', servingsMin: 1, servingsMax: 2, ingredients: [{ ingredient: 'egg' }] },
+      { id: 4, name: 'Above range', servingsMin: 5, servingsMax: 6, ingredients: [{ ingredient: 'egg' }] },
+    ]);
+
+    expect(names(await findRecipesFromPantry(repo, ['egg'], { servingRange: { min: 2, max: 4 } }))).toEqual([
+      'Below range',
+      'Overlaps at lower end',
+      'Overlaps at upper end',
+    ]);
+  });
+
+  it('keeps recipes at or below the maximum active cooking time', async () => {
+    const repo = new InMemoryRecipeRepository([
+      { id: 1, name: 'Under limit', activeTimeMinutes: 14, ingredients: [{ ingredient: 'egg' }] },
+      { id: 2, name: 'At limit', activeTimeMinutes: 15, ingredients: [{ ingredient: 'egg' }] },
+      { id: 3, name: 'Over limit', activeTimeMinutes: 16, ingredients: [{ ingredient: 'egg' }] },
+    ]);
+
+    expect(names(await findRecipesFromPantry(repo, ['egg'], { maxActiveMinutes: 15 }))).toEqual([
+      'At limit',
+      'Under limit',
+    ]);
+  });
+
+  it('can require the Meal Prep tag without changing pantry match counts', async () => {
+    const repo = new InMemoryRecipeRepository(
+      [
+        { id: 1, name: 'Regular', ingredients: [{ ingredient: 'egg' }, { ingredient: 'milk' }] },
+        { id: 2, name: 'Meal Prep', ingredients: [{ ingredient: 'egg' }, { ingredient: 'milk' }, { ingredient: 'flour' }] },
+      ],
+      {},
+      [],
+      { 'meal prep': [2] },
+    );
+
+    expect(await findRecipesFromPantry(repo, ['egg', 'milk'], { mealPrepOnly: true })).toEqual([
+      expect.objectContaining({
+        recipe: expect.objectContaining({ name: 'Meal Prep' }),
+        neededCount: 3,
+        haveCount: 2,
+        missingCount: 1,
+      }),
+    ]);
+  });
+
+  it('applies filters before the 20-recipe result limit', async () => {
+    const recipes: FakeRecipe[] = Array.from({ length: 21 }, (_, index) => ({
+      id: index + 1,
+      name: `Recipe ${index + 1}`,
+      ingredients: [{ ingredient: 'egg' }],
+    }));
+    const repo = new InMemoryRecipeRepository(recipes, {}, [], { 'meal prep': [21] });
+
+    expect(names(await findRecipesFromPantry(repo, ['egg'], { mealPrepOnly: true }))).toEqual(['Recipe 21']);
+  });
+
+  it('rejects invalid serving filter ranges', async () => {
+    const repo = new InMemoryRecipeRepository([{ id: 1, ingredients: [{ ingredient: 'egg' }] }]);
+
+    await expect(
+      findRecipesFromPantry(repo, ['egg'], { servingRange: { min: 4, max: 2 } }),
+    ).rejects.toThrow('The serving range must be positive whole numbers with minimum at most maximum.');
+  });
 });

@@ -9,6 +9,7 @@ const repo = new InMemoryRecipeRepository(
   ],
   { beef: 'ground beef' },
   [{ ingredient: 'ground beef', tracking: 'count', defaultUnit: 'lb' }],
+  { 'meal prep': [1] },
 );
 const pantryRepo = new InMemoryPantryRepository({
   items: [{ name: 'beef', quantity: 2, unit: 'lb' }],
@@ -28,6 +29,17 @@ describe('createRecipeServices', () => {
 
   it('wires pantry matching to the repository', async () => {
     expect(await services.findRecipesFromPantry(['beef'])).toHaveLength(2);
+  });
+
+  it('passes pantry result filters through to the matching service', async () => {
+    expect(
+      names(
+        (await services.findRecipesFromPantry(['beef'], {
+          servingRange: { min: 4, max: 4 },
+          mealPrepOnly: true,
+        })).map((match) => match.recipe),
+      ),
+    ).toEqual(['Joes A']);
   });
 
   it('wires filtering to the repository', async () => {
