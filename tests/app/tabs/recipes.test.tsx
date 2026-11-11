@@ -62,4 +62,17 @@ describe('recipes route', () => {
     await act(async () => screenProps().onOpenRecipe(42));
     expect(router.push).toHaveBeenCalledWith({ pathname: '/recipe/[id]', params: { id: '42' } });
   });
+
+  // The tabs redraw this route on every switch; a new function each time would make the list redraw its cards too.
+  it('hands the screen the same onOpenRecipe when it redraws', async () => {
+    const { rerender } = await renderRoute();
+    const first = screenProps().onOpenRecipe;
+    await rerender(
+      <RecipeServicesProvider start={() => Promise.resolve(services)}>
+        <RecipesRoute />
+      </RecipeServicesProvider>,
+    );
+    expect(jest.mocked(RecipesScreen).mock.calls.length).toBeGreaterThan(1);
+    expect(screenProps().onOpenRecipe).toBe(first);
+  });
 });

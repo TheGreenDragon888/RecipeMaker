@@ -126,6 +126,12 @@ export function recipeCardNames(): string[] {
   return recipeCards().map((card) => shownText(card)[0]);
 }
 
+/** How far ahead a FlatList builds rows: the window settings it passes down to its scroll view. */
+export function listWindow() {
+  const { windowSize, initialNumToRender, maxToRenderPerBatch } = shownOfType('RCTScrollView')[0].props;
+  return { windowSize, initialNumToRender, maxToRenderPerBatch };
+}
+
 /** The scrolling list's content style (a ScrollView or FlatList's contentContainerStyle). */
 export function listContentStyle() {
   return StyleSheet.flatten(shownOfType('RCTScrollView')[0].props.contentContainerStyle) ?? {};

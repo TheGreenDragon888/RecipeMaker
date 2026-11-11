@@ -4,7 +4,7 @@ import type { RecipeServices } from '../../../src/createRecipeServices';
 import type { RecipeSummary } from '../../../src/domain/recipe';
 import { RecipesScreen } from '../../../src/ui/screens/RecipesScreen';
 import { dock } from '../../../src/ui/theme';
-import { isLoading, listContentStyle, recipeCardNames, recipeCards, shownText } from '../../support/screen';
+import { isLoading, listContentStyle, listWindow, recipeCardNames, recipeCards, shownText } from '../../support/screen';
 
 function makeSummary(id: number, name: string): RecipeSummary {
   return { id, name, totalTimeMinutes: 30, activeTimeMinutes: 15, servingsMin: 4, servingsMax: 4 };
@@ -186,6 +186,27 @@ describe('RecipesScreen', () => {
     it('leaves room for a dock lifted by a home indicator', async () => {
       await setup({ listAllRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'Chili')]), bottomClearance: 110 });
       expect(listContentStyle().paddingBottom).toBeGreaterThanOrEqual(110);
+    });
+
+    // Every card the list has built redraws when the tab opens. The default window built about 99 of them and made
+    // switching to this tab lag (measured on the experiment/tab-lag branch), so the list builds fewer at a time.
+    describe('builds only the cards near the screen', () => {
+      const allRecipes = Array.from({ length: 594 }, (_, i) => makeSummary(i + 1, `Recipe ${i + 1}`));
+
+      it('builds at most 8 cards before the list has measured itself', async () => {
+        await setup({ listAllRecipes: jest.fn().mockResolvedValue(allRecipes) });
+        expect(recipeCards().length).toBeLessThanOrEqual(8);
+      });
+
+      it('keeps about two screens of cards beyond the visible ones', async () => {
+        await setup({ listAllRecipes: jest.fn().mockResolvedValue(allRecipes) });
+        expect(listWindow().windowSize).toBe(5);
+      });
+
+      it('adds at most 8 cards at a time while scrolling', async () => {
+        await setup({ listAllRecipes: jest.fn().mockResolvedValue(allRecipes) });
+        expect(listWindow().maxToRenderPerBatch).toBe(8);
+      });
     });
   });
 

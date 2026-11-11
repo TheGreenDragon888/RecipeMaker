@@ -1,6 +1,6 @@
 // PRESENTATION LAYER: browse all recipes or search by title and ingredient, without a pantry.
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, type ListRenderItem, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import type { RecipeSummary } from '../../domain/recipe';
 import { ClearFieldButton } from '../components/ClearFieldButton';
@@ -10,6 +10,12 @@ import { StateMessage } from '../components/StateMessage';
 import { colors, dock, fonts, fontSize, radii, spacing } from '../theme';
 
 const SEARCH_DEBOUNCE_MS = 250;
+/**
+ * How many cards the list builds around the screen. Every built card redraws when the tab opens, and FlatList's
+ * default (10 screens ahead, about 99 cards) made switching to this tab lag; 5 keeps about 2 screens ahead.
+ */
+const LIST_WINDOW = { initialNumToRender: 8, maxToRenderPerBatch: 8, windowSize: 5 };
+const recipeKey = (recipe: RecipeSummary) => String(recipe.id);
 type Props = {
   services: RecipeServices;
   onOpenRecipe: (recipeId: number) => void;
@@ -68,6 +74,14 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
     };
   }, [load.status, searchText, services]);
 
+  // The list redraws every card when these change, so they stay the same objects across the screen's redraws
+  // (the tab redraws this screen each time it opens).
+  const renderItem = useCallback<ListRenderItem<RecipeSummary>>(
+    ({ item }) => <RecipeCard recipe={item} onPress={() => onOpenRecipe(item.id)} />,
+    [onOpenRecipe],
+  );
+  const listContentStyle = useMemo(() => [styles.listContent, { paddingBottom: bottomClearance }], [bottomClearance]);
+
   const searching = Boolean(searchText.trim());
   const visibleRecipes =
     searching && searchLoad.status === 'done'
@@ -117,10 +131,11 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
       ) : (
         <FlatList
           style={styles.list}
-          contentContainerStyle={[styles.listContent, { paddingBottom: bottomClearance }]}
+          contentContainerStyle={listContentStyle}
           data={visibleRecipes}
-          keyExtractor={(recipe) => String(recipe.id)}
-          renderItem={({ item }) => <RecipeCard recipe={item} onPress={() => onOpenRecipe(item.id)} />}
+          {...LIST_WINDOW}
+          keyExtractor={recipeKey}
+          renderItem={renderItem}
         />
       )}
     </View>
