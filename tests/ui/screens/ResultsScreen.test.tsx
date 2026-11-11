@@ -4,7 +4,8 @@ import { Keyboard } from 'react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import type { PantryMatch } from '../../../src/services/findRecipesFromPantry';
 import { ResultsScreen } from '../../../src/ui/screens/ResultsScreen';
-import { isLoading, recipeCardNames, recipeCards, shownIcons, shownText } from '../../support/screen';
+import { isLoading, recipeCardNames, recipeCards, shownIcons, shownOfType, shownText, styleOf } from '../../support/screen';
+import { colors } from '../../../src/ui/theme';
 
 function makeMatch(id: number, name: string): PantryMatch {
   return {
@@ -79,6 +80,17 @@ describe('ResultsScreen', () => {
       expect(dismiss).toHaveBeenCalled();
       dismiss.mockRestore();
     });
+
+    it('minimizes the filter panel when the user taps outside it', async () => {
+      await setup();
+      await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+      expect(shownText()).toContain('People Recipe Serves');
+
+      await fireEvent.press(screen.getByTestId('results-screen'));
+
+      expect(shownText()).not.toContain('People Recipe Serves');
+      expect(screen.getByRole('button', { name: 'Filters' }).props.accessibilityState).toEqual({ expanded: false });
+    });
   });
 
   describe('searching', () => {
@@ -88,6 +100,29 @@ describe('ResultsScreen', () => {
     });
 
     describe('filters', () => {
+      it('minimizes the filter panel when the user scrolls down the recipe list', async () => {
+        await setup({ findRecipesFromPantry: jest.fn().mockResolvedValue([makeMatch(1, 'Quick')]) });
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        expect(shownText()).toContain('People Recipe Serves');
+
+        await fireEvent.scroll(shownOfType('RCTScrollView')[0], {
+          nativeEvent: { contentOffset: { x: 0, y: 40 }, contentSize: { height: 1000, width: 400 }, layoutMeasurement: { height: 600, width: 400 } },
+        });
+
+        expect(shownText()).not.toContain('People Recipe Serves');
+        expect(screen.getByRole('button', { name: 'Filters' }).props.accessibilityState).toEqual({ expanded: false });
+      });
+
+      it('shows clear descriptions for serving range and Meal Prep filters', async () => {
+        await setup();
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+
+        expect(shownText()).toContain('People Recipe Serves');
+        expect(shownText()).not.toContain('Serving range');
+        expect(shownText()).not.toContain('Include recipes whose serving range overlaps yours.');
+        expect(shownText()).toContain('Recipes that serve 4+ and keep well when made ahead.');
+      });
+
       it('applies a serving range and the Meal Prep tag to pantry results', async () => {
         const findRecipesFromPantry = jest
           .fn()
@@ -123,6 +158,16 @@ describe('ResultsScreen', () => {
           maxActiveMinutes: 30,
         });
         expect(recipeCardNames()).toEqual(['Quick']);
+      });
+
+      it('highlights the filter button when filters are applied', async () => {
+        await setup();
+        const filtersButton = () => screen.getByRole('button', { name: 'Filters' });
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        await fireEvent.changeText(screen.getByLabelText('Maximum active time in minutes'), '30');
+        await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+
+        expect(styleOf(filtersButton()).backgroundColor).toBe(colors.accentTint);
       });
 
       it('clears applied filters and reloads the full pantry results', async () => {
