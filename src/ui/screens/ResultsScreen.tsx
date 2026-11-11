@@ -103,7 +103,13 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props)
   );
 
   return (
-    <TouchableWithoutFeedback accessible={false} onPress={() => Keyboard.dismiss()}>
+    <TouchableWithoutFeedback
+      accessible={false}
+      onPress={() => {
+        Keyboard.dismiss();
+        setFiltersOpen(false);
+      }}
+    >
       <View style={styles.screen} testID="results-screen">
       <View style={styles.header}>
         <BackButton label="Back to pantry" onPress={onBack} />
@@ -118,7 +124,7 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props)
             Keyboard.dismiss();
             setFiltersOpen((open) => !open);
           }}
-          style={({ pressed }) => [styles.filterToggle, pressed && styles.controlPressed]}
+          style={({ pressed }) => [styles.filterToggle, filtersActive && styles.filterToggleActive, pressed && styles.controlPressed]}
         >
           <Text style={styles.filterToggleText}>{filtersActive ? 'Filters · Active' : 'Filters'}</Text>
         </PressableScale>
@@ -126,7 +132,7 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props)
 
       {filtersOpen ? (
         <View style={styles.filterPanel}>
-          <Text style={styles.filterHeading}>Serving range</Text>
+          <Text style={styles.filterHeading}>People Recipe Serves</Text>
           <View style={styles.servingFields}>
             <TextInput
               accessibilityLabel="Minimum servings"
@@ -148,7 +154,6 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props)
               value={maximumServings}
             />
           </View>
-          <Text style={styles.filterHint}>Include recipes whose serving range overlaps yours.</Text>
           <Text style={styles.filterHeading}>Maximum active time (minutes)</Text>
           <TextInput
             accessibilityLabel="Maximum active time in minutes"
@@ -173,6 +178,7 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props)
           >
             <Text style={[styles.mealPrepText, mealPrepOnly && styles.mealPrepSelectedText]}>Meal Prep only</Text>
           </PressableScale>
+          <Text style={styles.filterDescription}>Recipes that serve 4+ and keep well when made ahead.</Text>
           {filterError ? <Text accessibilityRole="alert" style={styles.filterError}>{filterError}</Text> : null}
           <View style={styles.filterActions}>
             <PressableScale
@@ -209,7 +215,14 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props)
           action={{ label: 'Back to pantry', onPress: onBack }}
         />
       ) : (
-        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          onScroll={(event) => {
+            if (filtersOpen && event.nativeEvent.contentOffset.y > 8) setFiltersOpen(false);
+          }}
+          scrollEventThrottle={16}
+        >
           {search.matches.map((match) => (
             <RecipeCard
               key={match.recipe.id}
@@ -246,6 +259,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   filterToggleText: { fontFamily: fonts.semibold, fontSize: fontSize.body, color: colors.text },
+  filterToggleActive: { borderColor: colors.accent, backgroundColor: colors.accentTint },
   filterPanel: {
     marginHorizontal: spacing.screen,
     marginBottom: spacing.sm,
@@ -272,7 +286,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   rangeSeparator: { fontFamily: fonts.regular, fontSize: fontSize.body, color: colors.textSecondary },
-  filterHint: { fontFamily: fonts.regular, fontSize: fontSize.caption, color: colors.textSecondary },
+  filterDescription: { fontFamily: fonts.regular, fontSize: fontSize.caption, color: colors.textSecondary },
   mealPrepToggle: {
     alignSelf: 'flex-start',
     paddingVertical: spacing.sm,
