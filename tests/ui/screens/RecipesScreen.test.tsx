@@ -43,9 +43,9 @@ describe('RecipesScreen', () => {
   });
 
   describe('the list', () => {
-    it('has the title "Recipes"', async () => {
+    it('has the title "All Recipes"', async () => {
       await setup();
-      expect(shownText()).toContain('Recipes');
+      expect(shownText()).toContain('All Recipes');
     });
 
     describe('search', () => {
@@ -54,7 +54,7 @@ describe('RecipesScreen', () => {
       it('shows a search field matching the pantry field prompt', async () => {
         await setup();
         expect(screen.getByLabelText('Search recipes')).toBeTruthy();
-        expect(screen.getByPlaceholderText('Search recipes…')).toBeTruthy();
+        expect(screen.getByPlaceholderText('Search all recipes…')).toBeTruthy();
       });
 
       it('searches after typing and displays the matching recipes', async () => {
