@@ -39,7 +39,8 @@ type IngredientFactor = { to: string; factor: number; exact?: true };
 
 /**
  * Factors that depend on the ingredient (pieces, densities, package sizes), keyed by canonical name in lower case,
- * then by the recipe's unit. Approximate unless marked exact. Values and sources were reviewed by the student.
+ * then by the recipe's unit. Approximate unless marked exact. Original factors were reviewed by the student;
+ * version 4 adds the documented import assumptions below, preserving all original factors.
  */
 // Sources: "recipe" = an equivalence stated in a recipes.db line; FDC = USDA FoodData Central household
 // measures; BC = Betty Crocker's yields chart; AFME = Amazing Food Made Easy produce converters.
@@ -53,10 +54,12 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
     cup: { to: 'each', factor: 0.125 }, // shredded; a medium head gives about 8 cups (AFME)
     tbsp: { to: 'each', factor: 0.125 / 16 }, // the cup factor / 16
     head: { to: 'each', factor: 1, exact: true }, // "each" is one head
+    lb: { to: 'each', factor: 0.4 }, // Import report assumption: nlg estimate
   },
   carrot: {
     cup: { to: 'each', factor: 2 }, // recipe: "2 medium carrots ... (about 1 cup)"; BC
     lb: { to: 'each', factor: 6 }, // recipe: "1/2 lb. carrots (about 3)"
+    bunch: { to: 'each', factor: 6 }, // Import report assumption: nlg estimate
   },
   celery: {
     cup: { to: 'stalk', factor: 2 }, // recipe: "2 celery ribs (finely diced, 1 cup, 105g)"
@@ -71,6 +74,7 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
   garlic: {
     tbsp: { to: 'clove', factor: 3 }, // minced; a medium clove gives about 1 tsp (AFME)
     tsp: { to: 'clove', factor: 1 }, // the tbsp factor / 3
+    head: { to: 'clove', factor: 10 }, // Import report assumption: ~10 cloves per head
   },
   ginger: {
     tbsp: { to: 'inch', factor: 1 }, // grated; common rule "1 inch ≈ 1 tbsp" (no authoritative source)
@@ -99,6 +103,8 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
     cup: { to: 'each', factor: 1 }, // chopped medium onion
     tbsp: { to: 'each', factor: 1 / 16 }, // the cup factor / 16
     oz: { to: 'each', factor: 0.258 }, // FDC: 1 medium = 110 g
+    slice: { to: 'each', factor: 0.2 }, // Import report assumption: nlg estimate
+    tsp: { to: 'each', factor: 0.020833333333333332 }, // Derived from this ingredient's existing factor through same-kind units.
   },
   'white onion': {
     cup: { to: 'each', factor: 1 }, // chopped medium onion, as onion
@@ -112,18 +118,33 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
   tomato: {
     cup: { to: 'each', factor: 4 / 3 }, // chopped; a medium tomato gives about 3/4 cup
     slice: { to: 'each', factor: 0.16 }, // FDC: 1 slice (1/4 in) = 20 g, 1 medium = 123 g
+    lb: { to: 'each', factor: 3 }, // Import report assumption: approx. 3 medium tomatoes per lb
   },
-  'plum tomato': { lb: { to: 'each', factor: 7.3 } }, // FDC: 1 plum tomato = 62 g
+  'plum tomato': {
+    lb: { to: 'each', factor: 7.3 },
+    cup: { to: 'each', factor: 2 }, // Import report assumption: nlg estimate
+  }, // FDC: 1 plum tomato = 62 g
   apple: { cup: { to: 'each', factor: 0.69 } }, // FDC 171688: 1 cup chopped = 125 g, 1 medium = 182 g
   'dill pickle': { cup: { to: 'each', factor: 2.2 } }, // FDC: 1 cup chopped = 143 g, 1 medium = 65 g
-  'butternut squash': { lb: { to: 'each', factor: 0.5 } }, // recipe: "1 medium butternut squash (about 2 pounds)"
+  'butternut squash': {
+    lb: { to: 'each', factor: 0.5 },
+    cup: { to: 'each', factor: 0.25 }, // Import report assumption: nlg estimate
+  }, // recipe: "1 medium butternut squash (about 2 pounds)"
   'delicata squash': { inch: { to: 'each', factor: 0.125 } }, // a delicata is about 8 in long (no authoritative source)
   'sweet potato': {
     lb: { to: 'each', factor: 2 }, // recipe: "1 medium sweet potato ... (8 ounces)"
     oz: { to: 'each', factor: 1 / 8 }, // the same 8 oz sweet potato
+    cup: { to: 'each', factor: 0.6 }, // Import report assumption: nlg estimate
   },
-  'yellow squash': { cup: { to: 'each', factor: 0.575 } }, // FDC 2709807: 1 cup = 115 g, 1 squash = 200 g
-  zucchini: { cup: { to: 'each', factor: 0.63 } }, // cubed; a medium zucchini of 196 g gives about 1.6 cups (FDC)
+  'yellow squash': {
+    cup: { to: 'each', factor: 0.575 },
+    lb: { to: 'each', factor: 2.5 }, // Import report assumption: approx: 1 medium yellow squash ~ 0.4 lb
+  }, // FDC 2709807: 1 cup = 115 g, 1 squash = 200 g
+  zucchini: {
+    cup: { to: 'each', factor: 0.63 },
+    lb: { to: 'each', factor: 2.5 }, // Import report assumption: approx: medium zucchini about 6-7 oz; ~2.5 per lb
+    oz: { to: 'each', factor: 0.15625 }, // Import report assumes 2.5 medium zucchini/lb; 16 oz/lb.
+  }, // cubed; a medium zucchini of 196 g gives about 1.6 cups (FDC)
   'baby potato': {
     lb: { to: 'each', factor: 14 }, // baby potatoes of about 1-1.3 oz
     bag: { to: 'each', factor: 21 }, // recipe: "24 oz bag baby potatoes", at the lb factor
@@ -132,8 +153,14 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
     lb: { to: 'each', factor: 10 / 3 }, // recipe: "1-1/2 pounds red potatoes (about 5 medium)"
     oz: { to: 'each', factor: 10 / 3 / 16 }, // the lb factor / 16
   },
-  'russet potato': { lb: { to: 'each', factor: 2 } }, // recipe: "1 pound potatoes (about 2 medium)"; FDC 1 medium = 213 g
-  'yukon gold potato': { lb: { to: 'each', factor: 2.1 } }, // FDC: 1 medium potato = 213 g
+  'russet potato': {
+    lb: { to: 'each', factor: 2 },
+    cup: { to: 'each', factor: 0.67 }, // Import report assumption: approx: 1 medium potato ~ 1.5 cups sliced
+  }, // recipe: "1 pound potatoes (about 2 medium)"; FDC 1 medium = 213 g
+  'yukon gold potato': {
+    lb: { to: 'each', factor: 2.1 },
+    oz: { to: 'each', factor: 0.13125 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // FDC: 1 medium potato = 213 g
 
   // Produce counted by weight (sold in labelled packages)
   mushroom: {
@@ -151,15 +178,26 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
     head: { to: 'lb', factor: 1 }, // a crown is about 1 lb (FDC: 1 stalk = 151 g; crowns sell at 12-16 oz)
   },
   'green bean': { cup: { to: 'lb', factor: 0.22 } }, // FDC: 1 cup 1/2-in pieces = 100 g
-  kale: { each: { to: 'cup', factor: 1 } }, // a large leaf is about 40 g; recipe: "1/2 lb chopped fresh kale (about 6 cups)"
-  lettuce: { each: { to: 'cup', factor: 0.5 } }, // a leaf, torn; FDC: romaine leaf 28 g / 1 cup 47 g, iceberg leaf 8 g / 1 cup 72 g
+  kale: {
+    each: { to: 'cup', factor: 1 },
+    bunch: { to: 'cup', factor: 8 }, // Import report assumption: nlg estimate
+    lb: { to: 'cup', factor: 24 }, // Import report assumes 1.5 cups/oz; 16 oz/lb.
+    oz: { to: 'cup', factor: 1.5 }, // Import report assumption: 1 oz chopped kale is about 1.5 cups.
+  }, // a large leaf is about 40 g; recipe: "1/2 lb chopped fresh kale (about 6 cups)"
+  lettuce: {
+    each: { to: 'cup', factor: 0.5 },
+    head: { to: 'cup', factor: 6 }, // Import report assumption: nlg estimate
+  }, // a leaf, torn; FDC: romaine leaf 28 g / 1 cup 47 g, iceberg leaf 8 g / 1 cup 72 g
   'kalamata olive': {
     cup: { to: 'oz', factor: 4.76 }, // FDC 2710090 (olives): 1 cup = 135 g
     each: { to: 'oz', factor: 0.176 }, // FDC 2710090: 1 olive = 5 g
     jar: { to: 'oz', factor: 6, exact: true }, // recipe: "1 6oz. jar" (drained weight on the label)
   },
   arugula: { oz: { to: 'cup', factor: 1.4 } }, // loose leaves; FDC: 1/2 cup = 10 g
-  spinach: { oz: { to: 'cup', factor: 0.95 } }, // loose raw leaves; 1 cup = 30 g (FDC)
+  spinach: {
+    oz: { to: 'cup', factor: 0.95 },
+    bunch: { to: 'cup', factor: 10 }, // Import report assumption: nlg estimate
+  }, // loose raw leaves; 1 cup = 30 g (FDC)
 
   // Meat and fish
   bacon: {
@@ -171,21 +209,33 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
     oz: { to: 'each', factor: 0.25 }, // the same 4 oz thigh
   },
   chicken: { oz: { to: 'cup', factor: 0.2 } }, // cooked, diced; FDC: 1 cup = 140 g
-  'pork chop': { oz: { to: 'each', factor: 1 / 5.5 } }, // recipe: "1 (5 to 6-ounce) boneless pork chop"
-  'salmon fillet': { oz: { to: 'each', factor: 0.2 } }, // recipe: "10 salmon fillets (5 ounces each)"
+  'pork chop': {
+    oz: { to: 'each', factor: 1 / 5.5 },
+    lb: { to: 'each', factor: 2.909090909090909 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // recipe: "1 (5 to 6-ounce) boneless pork chop"
+  'salmon fillet': {
+    oz: { to: 'each', factor: 0.2 },
+    lb: { to: 'each', factor: 3.2 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // recipe: "10 salmon fillets (5 ounces each)"
   salami: { slice: { to: 'oz', factor: 0.35 } }, // FDC: 1 slice = 10 g (thin-cut slices are smaller)
   ham: {
     oz: { to: 'cup', factor: 0.2 }, // diced; FDC: 1 cup = 140 g; recipe: "½ cup cooked cubed ham (2.5 oz)"
     lb: { to: 'cup', factor: 3.2 }, // the oz factor × 16
     slice: { to: 'cup', factor: 0.2 }, // recipe: "1 slice deli ham (about 1 ounce)", at the oz factor
   },
-  'deli turkey': { cup: { to: 'oz', factor: 4.9 } }, // chopped; FDC (turkey, diced): 1 cup = 140 g
+  'deli turkey': {
+    cup: { to: 'oz', factor: 4.9 },
+    slice: { to: 'oz', factor: 1 }, // Import report assumption: approx. 1 oz per slice
+  }, // chopped; FDC (turkey, diced): 1 cup = 140 g
   'breakfast sausage': {
     link: { to: 'oz', factor: 0.9 }, // a precooked breakfast link of about 25 g (label)
     cup: { to: 'oz', factor: 3.9 }, // cooked crumbles: about 2.6 oz per 2/3 cup (label)
   },
   'chicken sausage': { link: { to: 'oz', factor: 3 } }, // recipe: "4 fully-cooked chicken sausage links (about 12 oz.)"
-  'smoked sausage': { oz: { to: 'package', factor: 1 / 14 } }, // recipe: "1 package (14 ounces) smoked sausage"
+  'smoked sausage': {
+    oz: { to: 'package', factor: 1 / 14 },
+    lb: { to: 'package', factor: 1.1428571428571428 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // recipe: "1 package (14 ounces) smoked sausage"
   'chicken breast': {
     lb: { to: 'each', factor: 16 / 6 }, // recipe: "4- (6-ounce) boneless chicken breasts"
     oz: { to: 'each', factor: 1 / 6 }, // a 6 oz breast
@@ -200,28 +250,43 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
   shrimp: { each: { to: 'lb', factor: 0.04 } }, // jumbo, about 25 per lb (recipe: "Jumbo 21/25")
 
   // Cheese
-  'american cheese': { oz: { to: 'slice', factor: 1.5 } }, // wrapped singles of about 19 g
+  'american cheese': {
+    oz: { to: 'slice', factor: 1.5 },
+    cup: { to: 'slice', factor: 6 }, // Existing 1.5 slices/oz and the import report assumption of 4 oz shredded/cup.
+    lb: { to: 'slice', factor: 24 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // wrapped singles of about 19 g
   cheese: {
     slice: { to: 'oz', factor: 0.67 }, // a deli slice of about 19 g
     cup: { to: 'oz', factor: 4 }, // shredded; FDC (cheddar): 1 cup = 113 g
   },
-  'monterey jack cheese': { oz: { to: 'cup', factor: 0.25 } }, // shredded; FDC: 1 cup = 113 g
+  'monterey jack cheese': {
+    oz: { to: 'cup', factor: 0.25 },
+    lb: { to: 'cup', factor: 4 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // shredded; FDC: 1 cup = 113 g
   'pepper jack cheese': { cup: { to: 'oz', factor: 4 } }, // shredded; FDC (Monterey Jack): 1 cup = 113 g
   'swiss cheese': {
     cup: { to: 'oz', factor: 3.8 }, // shredded; FDC: 1 cup = 108 g
     slice: { to: 'oz', factor: 0.67 }, // a deli slice of about 19 g, as cheese
+    tbsp: { to: 'oz', factor: 0.2375 }, // Derived from this ingredient's existing factor through same-kind units.
   },
   'mozzarella cheese': {
     oz: { to: 'cup', factor: 0.25 }, // recipe: "4 oz. shredded mozzarella (about 1 cup, or 100 g)"
     slice: { to: 'cup', factor: 0.19 }, // a 3/4 oz slice, at the oz factor
+    lb: { to: 'cup', factor: 4 }, // Derived from this ingredient's existing factor through same-kind units.
   },
   'provolone cheese': {
     oz: { to: 'slice', factor: 4 / 3 }, // a deli slice of about 3/4 oz (21 g)
     cup: { to: 'slice', factor: 16 / 3 }, // shredded, 4 oz a cup, at the oz factor
   },
   'parmesan cheese': { oz: { to: 'cup', factor: 0.35 } }, // shredded; FDC: 1 tbsp = 5 g, so 1 cup = 80 g
-  'cream cheese': { tbsp: { to: 'oz', factor: 0.51 } }, // FDC: 1 tbsp = 14.5 g
-  'ricotta cheese': { oz: { to: 'cup', factor: 0.115 } }, // FDC: 1 cup = 246 g
+  'cream cheese': {
+    tbsp: { to: 'oz', factor: 0.51 },
+    cup: { to: 'oz', factor: 8.16 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // FDC: 1 tbsp = 14.5 g
+  'ricotta cheese': {
+    oz: { to: 'cup', factor: 0.115 },
+    lb: { to: 'cup', factor: 1.84 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // FDC: 1 cup = 246 g
   'cottage cheese': { oz: { to: 'cup', factor: 0.125 } }, // FDC: 1 cup = 226 g
   'sour cream': {
     oz: { to: 'cup', factor: 0.123 }, // FDC: 1 cup = 230 g
@@ -230,6 +295,7 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
   'cheddar cheese': {
     oz: { to: 'cup', factor: 0.25 }, // recipe: "2 oz. cheddar, shredded (about ½ cup)"
     slice: { to: 'cup', factor: 0.19 }, // a 3/4 oz slice, at the oz factor
+    lb: { to: 'cup', factor: 4 }, // Derived from this ingredient's existing factor through same-kind units.
   },
   'feta cheese': {
     cup: { to: 'oz', factor: 5.3 }, // crumbled: 1 cup = 150 g
@@ -258,7 +324,10 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
     container: { to: 'each', factor: 1, exact: true }, // "each" is one ball or tube
     lb: { to: 'each', factor: 1 }, // store dough balls are usually 1 lb
   },
-  cracker: { each: { to: 'sleeve', factor: 1 / 32 } }, // Ritz-style, 32 a sleeve
+  cracker: {
+    each: { to: 'sleeve', factor: 1 / 32 },
+    cup: { to: 'sleeve', factor: 0.75 }, // USDA food-code manual: 24 butter crackers/cup crushed; existing sleeve holds 32.
+  }, // Ritz-style, 32 a sleeve
   'mini pretzel': { each: { to: 'cup', factor: 0.0375 } }, // FDC 2708248: 1 mini = 1.5 g, 1 cup = 40 g
   'sourdough pretzel': { cup: { to: 'each', factor: 3 } }, // chopped pieces: 1 oz = 1 pretzel, about 1/3 cup
   'tortilla chip': {
@@ -284,12 +353,19 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
     oz: { to: 'cup', factor: 1.8 / 16 }, // the lb factor / 16
     package: { to: 'cup', factor: (10 * 1.8) / 16 }, // recipe: "1 (10 oz) package", at the lb factor
   },
-  'frozen peas': { oz: { to: 'cup', factor: 0.21 } }, // FDC: 1 cup = 134 g
+  'frozen peas': {
+    oz: { to: 'cup', factor: 0.21 },
+    lb: { to: 'cup', factor: 3.36 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // FDC: 1 cup = 134 g
   'frozen stir-fry vegetables': {
     oz: { to: 'cup', factor: 1 / 3 }, // label: 1 cup = 85 g
     package: { to: 'cup', factor: 16 / 3 }, // recipe: "1 package (16 ounces)", at the oz factor
+    lb: { to: 'cup', factor: 5.333333333333333 }, // Derived from this ingredient's existing factor through same-kind units.
   },
-  'coleslaw mix': { cup: { to: 'bag', factor: 1 / 7 } }, // a 14 oz bag; label: 1 1/2 cups = 85 g
+  'coleslaw mix': {
+    cup: { to: 'bag', factor: 1 / 7 },
+    oz: { to: 'bag', factor: 0.07142857142857142 }, // Existing cup factor and import recipe 1375 use a 14 oz bag.
+  }, // a 14 oz bag; label: 1 1/2 cups = 85 g
 
   // Cans, jars and cubes
   'canned tuna': {
@@ -304,6 +380,7 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
   corn: {
     can: { to: 'cup', factor: 1.5 }, // a 15.25 oz can, drained
     oz: { to: 'cup', factor: 0.17 }, // FDC (canned, drained): 1 cup = 165 g
+    each: { to: 'cup', factor: 0.75 }, // Import report assumption: approx. 1 ear yields about 3/4 cup kernels
   },
   'marinara sauce': {
     jar: { to: 'cup', factor: 3 }, // recipe: "1 (26 ounce) jar"
@@ -334,16 +411,35 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
     jar: { to: 'can', factor: 1 }, // recipe: "1 jar diced tomatoes" gives no size; taken as one can's worth
   },
   'canned diced tomatoes with green chiles': { oz: { to: 'can', factor: 0.1 } }, // recipe: "1 can (10 ounces)"
-  'canned diced green chiles': { oz: { to: 'can', factor: 0.25 } }, // recipe: "two 4-oz cans"
-  'canned stewed tomatoes': { oz: { to: 'can', factor: 1 / 14.5 } }, // recipe: "4 cans (14-1/2 ounces each)"
+  'canned diced green chiles': {
+    oz: { to: 'can', factor: 0.25 },
+    tbsp: { to: 'can', factor: 0.03 }, // Import report assumption: nlg estimate
+  }, // recipe: "two 4-oz cans"
+  'canned stewed tomatoes': {
+    oz: { to: 'can', factor: 1 / 14.5 },
+    cup: { to: 'can', factor: 0.5714285714285714 }, // Import recipe 1655: a 14.5 oz can is 1.75 cups.
+  }, // recipe: "4 cans (14-1/2 ounces each)"
   'canned whole tomatoes': { oz: { to: 'can', factor: 1 / 28 } }, // recipe: "1 (28 oz) can whole tomatoes"
-  'canned mushrooms': { oz: { to: 'can', factor: 0.25 } }, // a 4 oz can (label); recipe: "1 can (4 ounces) mushroom stems"
+  'canned mushrooms': {
+    oz: { to: 'can', factor: 0.25 },
+    jar: { to: 'can', factor: 1 }, // Import report assumption: approx: a 4.5 oz jar equals a 4 oz can
+  }, // a 4 oz can (label); recipe: "1 can (4 ounces) mushroom stems"
   'condensed cream of mushroom soup': { oz: { to: 'can', factor: 1 / 10.5 } }, // recipe: "1 (10.5 ounce) can"
-  'condensed tomato soup': { oz: { to: 'can', factor: 1 / 10.75 } }, // recipe: "1 can tomato soup (10.75 oz)"
+  'condensed tomato soup': {
+    oz: { to: 'can', factor: 1 / 10.75 },
+    cup: { to: 'can', factor: 0.8 }, // Import report assumption: approx: 10.75 oz can condenses to about 1.25 cups; 1 cup of undiluted soup is about 0.8 can; using 0.8
+  }, // recipe: "1 can tomato soup (10.75 oz)"
   'artichoke hearts': { oz: { to: 'can', factor: 1 / 14 } }, // recipe: "1 can (14 ounces) ... artichoke hearts"
   'refrigerated biscuit dough': { oz: { to: 'can', factor: 1 / 16.3 } }, // recipe: "16.3 ounces refrigerated biscuits (1 can)"
-  'roasted red pepper': { jar: { to: 'oz', factor: 12 } }, // recipe: "1/2 of a 12 oz jar roasted red peppers"
-  'black olive': { cup: { to: 'can', factor: 0.79 } }, // a 6 oz can; FDC (olives): 1 cup = 135 g
+  'roasted red pepper': {
+    jar: { to: 'oz', factor: 12 },
+    cup: { to: 'oz', factor: 6 }, // Import report assumption: nlg estimate
+  }, // recipe: "1/2 of a 12 oz jar roasted red peppers"
+  'black olive': {
+    cup: { to: 'can', factor: 0.79 },
+    oz: { to: 'can', factor: 0.16666666666666666 }, // Existing cup factor uses a 6 oz pantry can; keep that pantry size.
+    tbsp: { to: 'can', factor: 0.049375 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // a 6 oz can; FDC (olives): 1 cup = 135 g
   sauerkraut: { oz: { to: 'cup', factor: 0.2 } }, // FDC (canned): 1 cup = 142 g
   hummus: { oz: { to: 'cup', factor: 0.115 } }, // FDC: 1 cup = 246 g
   'enchilada sauce': {
@@ -367,26 +463,38 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
     oz: { to: 'can', factor: 1 / 15 }, // recipe: "1 15 oz. can chickpeas"
     cup: { to: 'can', factor: 2 / 3 }, // as black bean: about 1 1/2 cups drained a can (label)
   },
-  'cannellini bean': { cup: { to: 'can', factor: 2 / 3 } }, // as black bean: about 1 1/2 cups drained a can (label)
+  'cannellini bean': {
+    cup: { to: 'can', factor: 2 / 3 },
+    oz: { to: 'can', factor: 0.067 }, // Import report assumption: 15 oz can
+  }, // as black bean: about 1 1/2 cups drained a can (label)
   'white bean': {
     oz: { to: 'can', factor: 1 / 15 }, // recipe: "1 (15 oz) can cannellini beans"
     cup: { to: 'can', factor: 2 / 3 }, // as black bean: about 1 1/2 cups drained a can (label)
   },
-  'pinto bean': { oz: { to: 'can', factor: 1 / 15 } }, // recipe: "1 (15 oz.) can pinto beans"
+  'pinto bean': {
+    oz: { to: 'can', factor: 1 / 15 },
+    cup: { to: 'can', factor: 2 }, // Import report assumption: nlg estimate
+  }, // recipe: "1 (15 oz.) can pinto beans"
 
   // Liquids measured in ounces (fluid ounces: 8 to a cup), cans of broth, juice from fruit
   'beef broth': {
     oz: { to: 'cup', factor: 1 / 8 }, // fluid ounces; broth weighs about the same as water
     can: { to: 'cup', factor: 1.8 }, // a 14.5 oz can (label: about 2 servings of 1 cup)
   },
-  'chicken broth': { can: { to: 'cup', factor: 1.8 } }, // a 14.5 oz can, as beef broth
+  'chicken broth': {
+    can: { to: 'cup', factor: 1.8 },
+    oz: { to: 'cup', factor: 0.125 }, // Import report assumption: 8 fl oz per cup (approx.)
+  }, // a 14.5 oz can, as beef broth
   'vegetable broth': {
     oz: { to: 'cup', factor: 1 / 8 }, // recipe: "1 carton (32 ounces)", which is 4 cups
     can: { to: 'cup', factor: 1.8 }, // a 14.5 oz can, as beef broth
   },
   'white wine': { oz: { to: 'cup', factor: 1 / 8 } }, // fluid ounces
   'tomato juice': { oz: { to: 'cup', factor: 1 / 8 } }, // fluid ounces; recipe: "1 bottle (46 ounces) V8 juice"
-  'buffalo wing sauce': { cup: { to: 'bottle', factor: 2 / 3 } }, // a 12 fl oz bottle is 1 1/2 cups (label)
+  'buffalo wing sauce': {
+    cup: { to: 'bottle', factor: 2 / 3 },
+    tbsp: { to: 'bottle', factor: 0.041666666666666664 }, // Derived from this ingredient's existing factor through same-kind units.
+  }, // a 12 fl oz bottle is 1 1/2 cups (label)
   'lemon juice': { each: { to: 'tbsp', factor: 3 } }, // FDC: the juice of 1 lemon = 48 g, about 3 tbsp
   'lime juice': { each: { to: 'tbsp', factor: 2 } }, // a medium lime gives about 2 tbsp (common kitchen yield)
   'egg white': { cup: { to: 'each', factor: 7.4 } }, // FDC: 1 large white = 33 g, 1 cup = 243 g
@@ -400,6 +508,192 @@ const INGREDIENT_FACTORS: Record<string, Record<string, IngredientFactor>> = {
   'cherry tomato': {
     each: { to: 'cup', factor: 0.1 }, // halved; about 17 g each
     lb: { to: 'cup', factor: 3.04 }, // FDC: 1 cup = 149 g
+  },
+
+  // Data version 4: import assumptions; sizes and densities remain approximate.
+  'colby jack cheese': {
+    cup: { to: 'slice', factor: 4 }, // Import report: 4 oz shredded/cup and a 1 oz slice; consistent with its oz factor.
+    oz: { to: 'slice', factor: 1 }, // Import report assumption: Typical US package label (approx.); deli slice ≈ 1 oz
+  },
+  'italian meatball': {
+    each: { to: 'oz', factor: 0.75 }, // Import report assumption: nlg estimate
+  },
+  spam: {
+    oz: { to: 'can', factor: 0.083 }, // Import report assumption: nlg estimate
+  },
+  'apricot preserves': {
+    oz: { to: 'cup', factor: 0.1 }, // Import report assumption: nlg estimate
+  },
+  asparagus: {
+    bunch: { to: 'stalk', factor: 20 }, // Import report assumption: nlg estimate
+    cup: { to: 'stalk', factor: 8 }, // Import report assumption: nlg estimate
+    lb: { to: 'stalk', factor: 16 }, // Import report assumption: approx. 16 spears per lb
+  },
+  'baked beans': {
+    cup: { to: 'can', factor: 0.55 }, // Import report assumption: approx: 16 oz can about 1.8 cups
+    oz: { to: 'can', factor: 0.0625 }, // Import report assumption: 16 oz can
+  },
+  'beef bouillon': {
+    cube: { to: 'tsp', factor: 1 }, // Import report assumption: approx. 1 cube is about 1 tsp granules
+  },
+  'black-eyed pea': {
+    oz: { to: 'can', factor: 0.065 }, // Import report assumption: nlg estimate
+  },
+  'bone-in chicken pieces': {
+    each: { to: 'lb', factor: 1 }, // Import report assumption: approx. 1 lb per large bone-in breast
+  },
+  'butter bean': {
+    oz: { to: 'can', factor: 0.0625 }, // Import report assumption: nlg estimate
+  },
+  'canned chicken gravy': {
+    oz: { to: 'can', factor: 0.095 }, // Import report assumption: approx. 10.5 oz per can
+  },
+  'canned green beans': {
+    oz: { to: 'can', factor: 0.0625 }, // Import report assumption: nlg estimate
+  },
+  'canned lima beans': {
+    cup: { to: 'can', factor: 0.55 }, // Import report assumption: approx: 16 oz can about 1.8 cups
+  },
+  'canned mixed vegetables': {
+    oz: { to: 'can', factor: 0.0625 }, // Import report assumption: US can label (approx.); standard 16 oz can
+  },
+  'canned pineapple': {
+    cup: { to: 'can', factor: 0.25 }, // Import report assumption: approx. 1 can (20 oz) about 4 cups chunks
+    oz: { to: 'can', factor: 0.05 }, // Import report assumption: 20 oz can
+    slice: { to: 'can', factor: 0.12 }, // Import report assumption: approx: 20 oz can holds about 8 slices
+  },
+  'canned whole green chiles': {
+    each: { to: 'oz', factor: 1 }, // Import report assumption: nlg estimate
+  },
+  cauliflower: {
+    cup: { to: 'each', factor: 0.17 }, // Import report assumption: USDA FoodData Central: 1 cup raw florets ≈ 100 g; a medium head ≈ 575 g (approximate)
+    head: { to: 'each', factor: 1, exact: true }, // One head is one each.
+  },
+  'chicken tender': {
+    lb: { to: 'each', factor: 8 }, // Import report assumption: nlg estimate
+  },
+  'chicken wing': {
+    lb: { to: 'each', factor: 8 }, // Import report assumption: nlg estimate
+  },
+  'chipotle peppers in adobo': {
+    each: { to: 'can', factor: 0.1 }, // Import report assumption: approx: a 7-oz can holds about 8-10 chiles
+    tsp: { to: 'can', factor: 0.03 }, // Import report assumption: nlg estimate
+  },
+  'condensed beef consomme': {
+    oz: { to: 'can', factor: 0.095 }, // Import report assumption: nlg estimate
+  },
+  'condensed cheddar cheese soup': {
+    oz: { to: 'can', factor: 0.09 }, // Import report assumption: nlg estimate
+  },
+  'corn chips': {
+    cup: { to: 'bag', factor: 0.07 }, // Import report assumption: approx: 1 cup crushed corn chips ~ 1 oz; 14 oz bag
+  },
+  'cranberry sauce': {
+    oz: { to: 'cup', factor: 0.125 }, // Import report assumption: nlg estimate
+  },
+  'crushed pineapple': {
+    oz: { to: 'can', factor: 0.125 }, // Import report assumption: approx. 8 oz can
+  },
+  'evaporated milk': {
+    oz: { to: 'cup', factor: 0.125 }, // Import report assumption: nlg estimate
+  },
+  'frozen corn': {
+    lb: { to: 'cup', factor: 3.2 }, // Import report assumes 5 oz/cup; 16 oz/lb.
+    oz: { to: 'cup', factor: 0.2 }, // Import report assumption: 5 oz/cup.
+  },
+  'frozen french fries': {
+    lb: { to: 'cup', factor: 3.2 }, // Import report assumes 5 oz/cup; 16 oz/lb.
+    oz: { to: 'cup', factor: 0.2 }, // Import report assumption: 5 oz/cup.
+  },
+  'frozen green bean': {
+    oz: { to: 'cup', factor: 0.22 }, // Import report assumption: USDA FoodData Central: 1 cup frozen cut green beans ≈ 4.5 oz (approximate)
+  },
+  'grape tomato': {
+    oz: { to: 'cup', factor: 0.19 }, // Import report assumption: USDA FoodData Central: 1 cup whole grape tomatoes ≈ 150 g ≈ 5.3 oz
+  },
+  'great northern bean': {
+    oz: { to: 'can', factor: 0.065 }, // Import report assumption: nlg estimate
+  },
+  'ham steak': {
+    each: { to: 'lb', factor: 0.75 }, // Import report assumption: Common grocery sizing (approx.); one ham steak ≈ 12 oz
+  },
+  hominy: {
+    oz: { to: 'can', factor: 0.035 }, // Import report assumption: nlg estimate
+  },
+  'hot dog': {
+    package: { to: 'each', factor: 8 }, // Import report assumption: nlg estimate
+  },
+  'lasagna noodle': {
+    oz: { to: 'each', factor: 1 }, // Import report assumption: nlg estimate
+  },
+  leek: {
+    cup: { to: 'each', factor: 0.7 }, // Import report assumption: nlg estimate
+  },
+  lemon: {
+    slice: { to: 'each', factor: 0.125 }, // Import report assumption: 8 slices per lemon
+  },
+  lentil: {
+    lb: { to: 'cup', factor: 2.25 }, // Import report assumption: approx. 1 lb dry lentils is about 2 1/4 cups
+    oz: { to: 'cup', factor: 0.140625 }, // Import report dry-lentil assumption: 2.25 cups/lb, divided by 16.
+  },
+  lime: {
+    slice: { to: 'each', factor: 0.125 }, // Import report assumption: nlg estimate
+  },
+  'mandarin oranges': {
+    oz: { to: 'cup', factor: 0.125 }, // Import report assumption: nlg estimate
+  },
+  'orange juice': {
+    each: { to: 'cup', factor: 0.33 }, // Import report assumption: approx. juice of 1 orange is about 1/3 cup
+  },
+  peach: {
+    cup: { to: 'each', factor: 1.5 }, // Import report assumption: nlg estimate
+  },
+  'pork and beans': {
+    oz: { to: 'can', factor: 0.0625 }, // Import report assumption: nlg estimate
+  },
+  'processed cheese': {
+    cup: { to: 'lb', factor: 0.25 }, // Import report assumption: nlg estimate
+  },
+  'ready-to-serve rice': {
+    cup: { to: 'package', factor: 0.5 }, // Import report assumption: nlg estimate
+  },
+  'roast beef': {
+    cup: { to: 'oz', factor: 5 }, // Import report assumption: approx: 1 cup cubed cooked meat ~ 5 oz
+  },
+  rotini: {
+    oz: { to: 'cup', factor: 0.375 }, // Import recipe 1185: 2 1/4 cups (6 ounces) uncooked rotini.
+  },
+  'round buttery crackers': {
+    cup: { to: 'each', factor: 24 }, // USDA food-code manual: crushed butter crackers 72 g/cup, 3 g/cracker (ars.usda.gov/ARSUserFiles/80400530/pdf/8586/csfii85_4days_codebook.pdf).
+    package: { to: 'each', factor: 32 }, // Import recipe 1168 calls this a sleeve; existing cracker factor assumes 32 per sleeve.
+  },
+  shallot: {
+    cup: { to: 'each', factor: 4 }, // Import report assumption: nlg estimate
+  },
+  'small pasta': {
+    cup: { to: 'oz', factor: 2 }, // Import report assumption: approx. 1 cup cooked small pasta is about 2 oz dry
+  },
+  'snow peas': {
+    oz: { to: 'cup', factor: 0.33 }, // Import report assumption: approx. 3 oz per cup
+  },
+  spaghetti: {
+    cup: { to: 'lb', factor: 0.2 }, // Import report assumption: nlg estimate
+  },
+  'split pea': {
+    cup: { to: 'lb', factor: 0.45 }, // Import report assumption: nlg estimate
+  },
+  'stuffing mix': {
+    cup: { to: 'oz', factor: 3 }, // Import report assumption: nlg estimate
+    package: { to: 'oz', factor: 6 }, // Import report assumption: nlg estimate
+  },
+  'taco sauce': {
+    cup: { to: 'oz', factor: 8 }, // Import report assumption: 8 fl oz per cup (approx.)
+  },
+  'turkey cutlet': {
+    oz: { to: 'each', factor: 0.25 }, // Import report assumption: approx. 4 oz per cutlet
+  },
+  'whole chicken': {
+    lb: { to: 'each', factor: 0.25 }, // Import report assumption: nlg estimate
   },
 };
 

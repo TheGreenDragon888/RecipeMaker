@@ -16,47 +16,63 @@ describe('bundled recipes.db contents', () => {
   const raw = openRawRecipesDb();
   const count = (sql: string) => (raw.prepare(sql).get() as { c: number }).c;
 
-  it('has 594 recipes', () => expect(count('SELECT COUNT(*) AS c FROM recipes')).toBe(594));
-  it('has 5902 ingredient rows', () => expect(count('SELECT COUNT(*) AS c FROM recipe_ingredients')).toBe(5902));
-  // Version 3 (the college-recipe import) added 464 recipes and their ingredients and aliases.
-  it('has 468 distinct ingredients', () =>
-    expect(count('SELECT COUNT(DISTINCT ingredient) AS c FROM recipe_ingredients')).toBe(468));
-  it('has 1099 aliases', () => expect(count('SELECT COUNT(*) AS c FROM ingredient_aliases')).toBe(1099));
-  it('is data version 3', () => expect(raw.prepare('PRAGMA user_version').get()).toEqual({ user_version: 3 }));
+  it('has 2867 recipes', () => expect(count('SELECT COUNT(*) AS c FROM recipes')).toBe(2867));
+  it('has 24477 ingredient rows', () => expect(count('SELECT COUNT(*) AS c FROM recipe_ingredients')).toBe(24477));
+  // Version 4 adds another 2,273 recipes and 125 ingredients to the version-3 bundle.
+  it('has 593 distinct ingredients', () =>
+    expect(count('SELECT COUNT(DISTINCT ingredient) AS c FROM recipe_ingredients')).toBe(593));
+  it('has 1224 aliases', () => expect(count('SELECT COUNT(*) AS c FROM ingredient_aliases')).toBe(1224));
+  it('is data version 4', () => expect(raw.prepare('PRAGMA user_version').get()).toEqual({ user_version: 4 }));
   it('has no foreign key violations', () => expect(raw.prepare('PRAGMA foreign_key_check').all()).toEqual([]));
 });
 
 describe('acceptance checks', () => {
-  it('searching "Chick Peas" finds 10 recipes ordered by total time', async () => {
+  it('searching "Chick Peas" finds 25 recipes ordered by total time', async () => {
     expect(names(await searchRecipesByIngredient(repo, 'Chick Peas'))).toEqual([
       'Scallion Herb Chickpea Salad',
+      'Chickpea Tacos',
       'Greek Style Sausage & Chick Peas',
       'Sriracha Chickpea Salad Wraps',
+      'Chicken Curry with Chickpeas and Tomatoes',
+      'Indian Rice Curry with Chickpeas',
       'Vegetarian Chili for One',
+      'Curried Chickpeas',
       'Curried Chickpeas with Spinach',
+      'Pasta with Spinach, Chickpeas, and Bacon',
+      'Savory Bean Pasta',
       '1-Pot Chickpea Shakshuka',
+      'Chickpeas and Macaroni',
       'Pasta e Ceci',
       'Beef and Tomato Rice Bowl',
+      'Coconut Curry Chickpeas',
+      'Easy Chorizo Soup',
+      'Spicy Chicken Stew',
+      'Spinach Egg Pie (Eggah bi Sabaneh)',
+      'Three Bean Stew with Vegetables',
+      'Chana Saag Curry',
+      'Chickpea Tomato Soup with Rosemary',
+      'Lisa\'s Co-Op Kale Soup',
       'Spanish Chickpeas and Rice',
       'Easy Homemade Falafel',
     ]);
   });
 
-  it('searching "scallions" finds 85 recipes', async () => {
-    expect(await searchRecipesByIngredient(repo, 'scallions')).toHaveLength(85);
+  it('searching "scallions" finds 214 recipes', async () => {
+    expect(await searchRecipesByIngredient(repo, 'scallions')).toHaveLength(214);
   });
 
-  it('searching "noodle" falls back to the 14 partial matches', async () => {
-    expect(names(await searchRecipesByIngredient(repo, 'noodle'))).toEqual([
+  it('searching "noodle" falls back to partial matches across both imports', async () => {
+    const matches = await searchRecipesByIngredient(repo, 'noodle');
+    expect(matches).toHaveLength(137);
+    // Retain the exact historical subset as coverage alongside the expanded result count.
+    expect(names(matches.filter((recipe) => recipe.id <= 632))).toEqual([
       'Beef Stroganoff',
       'Beef Teriyaki Noodles',
       'Chicken Noodle Casserole',
       'Crockpot Chicken Noodle Soup',
-      'Easy Tuna Casserole',
-      "Grandma's Tomato Soup",
+      'Easy Tuna Casserole',      'Grandma\'s Tomato Soup',
       'Hearty Beef Noodle Soup',
-      'Lo Mein for One',
-      "Poor Man's Casserole",
+      'Lo Mein for One',      'Poor Man\'s Casserole',
       'Quick and Easy Goulash',
       'Skillet Lasagna',
       'Slow-Cooker Chicken Stroganoff',
@@ -70,8 +86,8 @@ describe('acceptance checks', () => {
     expect(names(matches.slice(0, 2).map((m) => m.recipe))).toContain('Pasta Carbonara for One');
   });
 
-  it('filtering to 15 active minutes for 4 people finds 65 recipes', async () => {
-    expect(await filterRecipes(repo, { maxActiveMinutes: 15, people: 4 })).toHaveLength(65);
+  it('filtering to 15 active minutes for 4 people finds 546 recipes', async () => {
+    expect(await filterRecipes(repo, { maxActiveMinutes: 15, people: 4 })).toHaveLength(546);
   });
 
   it('autocompleting "par" suggests names starting with it, then names containing it, then aliases containing it', async () => {
@@ -79,6 +95,7 @@ describe('acceptance checks', () => {
       { ingredient: 'Parmesan cheese', matchedAlias: null },
       { ingredient: 'parsley', matchedAlias: null },
       { ingredient: 'asparagus', matchedAlias: null },
+      { ingredient: 'dried parsley', matchedAlias: null },
       { ingredient: 'brown gravy', matchedAlias: 'prepared brown gravy' },
       { ingredient: 'everything bagel seasoning', matchedAlias: 'prepared everything bagel topping' },
       { ingredient: 'Italian meatball', matchedAlias: 'prepared italian meatballs' },

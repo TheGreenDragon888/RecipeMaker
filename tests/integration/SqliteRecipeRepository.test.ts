@@ -85,20 +85,35 @@ describe('SqliteRecipeRepository', () => {
     it('finds recipes by exact canonical name, ordered by total time', async () => {
       expect(names(await repo.findByIngredient('chickpea'))).toEqual([
         'Scallion Herb Chickpea Salad',
+        'Chickpea Tacos',
         'Greek Style Sausage & Chick Peas',
         'Sriracha Chickpea Salad Wraps',
+        'Chicken Curry with Chickpeas and Tomatoes',
+        'Indian Rice Curry with Chickpeas',
         'Vegetarian Chili for One',
+        'Curried Chickpeas',
         'Curried Chickpeas with Spinach',
+        'Pasta with Spinach, Chickpeas, and Bacon',
+        'Savory Bean Pasta',
         '1-Pot Chickpea Shakshuka',
+        'Chickpeas and Macaroni',
         'Pasta e Ceci',
         'Beef and Tomato Rice Bowl',
+        'Coconut Curry Chickpeas',
+        'Easy Chorizo Soup',
+        'Spicy Chicken Stew',
+        'Spinach Egg Pie (Eggah bi Sabaneh)',
+        'Three Bean Stew with Vegetables',
+        'Chana Saag Curry',
+        'Chickpea Tomato Soup with Rosemary',
+        'Lisa\'s Co-Op Kale Soup',
         'Spanish Chickpeas and Rice',
         'Easy Homemade Falafel',
       ]);
     });
 
     it('resolves an alias to its canonical name', async () => {
-      expect(await repo.findByIngredient('scallions')).toHaveLength(85);
+      expect(await repo.findByIngredient('scallions')).toHaveLength(214);
     });
 
     it('returns nothing when there is no exact match', async () => {
@@ -108,16 +123,16 @@ describe('SqliteRecipeRepository', () => {
 
   describe('findByIngredientContaining', () => {
     it('matches part of an ingredient name, ordered by recipe name', async () => {
-      expect(names(await repo.findByIngredientContaining('noodle'))).toEqual([
+      const matches = await repo.findByIngredientContaining('noodle');
+      expect(matches).toHaveLength(137);
+      expect(names(matches.filter((recipe) => recipe.id <= 632))).toEqual([
         'Beef Stroganoff',
         'Beef Teriyaki Noodles',
         'Chicken Noodle Casserole',
         'Crockpot Chicken Noodle Soup',
-        'Easy Tuna Casserole',
-        "Grandma's Tomato Soup",
+        'Easy Tuna Casserole',        'Grandma\'s Tomato Soup',
         'Hearty Beef Noodle Soup',
-        'Lo Mein for One',
-        "Poor Man's Casserole",
+        'Lo Mein for One',        'Poor Man\'s Casserole',
         'Quick and Easy Goulash',
         'Skillet Lasagna',
         'Slow-Cooker Chicken Stroganoff',
@@ -140,7 +155,7 @@ describe('SqliteRecipeRepository', () => {
 
   describe('listRecipeIdsByTag', () => {
     it('returns the recipes with the Meal Prep tag, ignoring tag case', async () => {
-      expect(await repo.listRecipeIdsByTag('meal prep')).toHaveLength(291);
+      expect(await repo.listRecipeIdsByTag('meal prep')).toHaveLength(1618);
     });
 
     it('returns no recipe ids for an unknown tag', async () => {
@@ -209,12 +224,12 @@ describe('SqliteRecipeRepository', () => {
 
   describe('listRecipeSummaries and listIngredientUsage', () => {
     it('lists every recipe', async () => {
-      expect(await repo.listRecipeSummaries()).toHaveLength(594);
+      expect(await repo.listRecipeSummaries()).toHaveLength(2867);
     });
 
     it('lists every ingredient line with its optional flag as a boolean', async () => {
       const usage = await repo.listIngredientUsage();
-      expect(usage).toHaveLength(5902);
+      expect(usage).toHaveLength(24477);
       expect(usage).toContainEqual({ recipeId: 1, ingredient: 'cilantro', isOptional: true });
     });
   });

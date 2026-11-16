@@ -34,7 +34,7 @@ describe('recipe tags', () => {
   });
 
   it('tags 232 imported recipes', () => {
-    expect(ids('SELECT recipe_id FROM recipe_tags WHERE recipe_id > 131')).toHaveLength(232);
+    expect(ids('SELECT recipe_id FROM recipe_tags WHERE recipe_id > 131 AND recipe_id <= 632')).toHaveLength(232);
   });
 });
 
@@ -55,7 +55,7 @@ describe('duplicate groups', () => {
   });
 
   it('keeps the 464 other imported recipes', () => {
-    expect(ids('SELECT recipe_id FROM recipes WHERE recipe_id > 131')).toHaveLength(464);
+    expect(ids('SELECT recipe_id FROM recipes WHERE recipe_id > 131 AND recipe_id <= 632')).toHaveLength(464);
   });
 });
 

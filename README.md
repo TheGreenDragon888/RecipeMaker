@@ -8,7 +8,7 @@
 
 RecipeMaker is a mobile app for Android and iOS, built with React Native and Expo and run through Expo Go. You enter the ingredients you already have, and the app finds recipes you can make with them. Results are ranked by how few extra ingredients you would need to buy, and you can narrow them with filters such as hands-on cooking time and number of people.
 
-The app ships with a bundled, read-only recipe database (130 recipes, 269 distinct ingredients, and 698 ingredient aliases), so it works fully offline. Aliases let searches match the way people actually type: for example, "Chick Peas" finds recipes that list "chickpeas".
+The app ships with a bundled, read-only recipe database (2,867 recipes, 593 distinct ingredients, and 1,224 ingredient aliases), so it works fully offline. Aliases let searches match the way people actually type: for example, "Chick Peas" finds recipes that list "chickpeas".
 
 ## Architecture
 
@@ -39,6 +39,14 @@ RecipeMaker uses a **three-tier architecture**. Dependencies point downward only
 | Composition root | `src/main.ts`, `src/createRecipeServices.ts` | Opens the database at startup and wires the repository into the services the UI uses |
 
 **Data storage:** recipes live in `assets/data/recipes.db`, an SQLite database bundled with the app and opened on the device with `expo-sqlite`. Only the data layer touches the database. The UI only ever sees the `RecipeServices` object.
+
+The bundle is data version 4: **2,867 recipes**, 24,477 ingredient lines, 593 pantry ingredients, and 1,618 Meal Prep tags. The November 16, 2026 import adds all 2,273 supplied recipes (IDs 633–2905), including dish variants with shared titles, as requested. Existing records and `user.db` are preserved. The app replaces its recipe database from the bundle on launch, so no device migration is needed.
+
+`assets/data/migrations/004-college-recipes.sql` reproduces the import from a **copy of version 3**. It requires version 3 and runs once in a transaction; callers must stop on an error and explicitly roll back or discard the copy. The bundled database already includes this migration.
+
+The import adds 117 ingredient conversion factors in `src/domain/unitConversions.ts`. Existing factors take priority over conflicting import suggestions. New factors use existing conversions, recipe-line equivalences, and documented estimates from the supplied report; package sizes and densities remain approximate. Rotini uses recipe 1185's own cup/ounce equivalence. Crushed butter crackers use the [USDA food-code manual](https://www.ars.usda.gov/ARSUserFiles/80400530/pdf/8586/csfii85_4days_codebook.pdf) (72 g per cup, 3 g per cracker); sleeves retain the existing 32-cracker assumption. These estimates support pantry comparisons, not exact measurements for every brand or preparation.
+
+Source-data issues to review: recipe 1310 files canned lentils under `lentil`, and recipe 1435 files cleaned pinto beans under the canned pantry entry `pinto bean`. Their supplied mappings are retained in this import. The pantry-unit rule calls for separate ingredients for different products; a later data correction should distinguish these forms. Passing conversion-coverage tests does not validate every source ingredient mapping.
 
 **Testing:** the project is developed test-first with Jest (`jest-expo` preset).
 - `tests/unit/`: business rules tested against an in-memory fake repository

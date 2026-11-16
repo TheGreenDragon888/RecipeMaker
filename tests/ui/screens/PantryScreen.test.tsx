@@ -911,7 +911,7 @@ describe('PantryScreen', () => {
     });
 
     describe('amount sheet', () => {
-      const UNITS_CATALOG: PantryCatalog = { ...CATALOG, units: { flour: 'cup', 'canned mixed vegetables': 'can' } };
+      const UNITS_CATALOG: PantryCatalog = { ...CATALOG, units: { flour: 'cup', 'canned clams': 'can' } };
       const withUnits = (props: { bottomClearance?: number } = {}) =>
         setup({ getPantryCatalog: jest.fn().mockResolvedValue(UNITS_CATALOG), ...props });
       const editFlour = () => press('Edit amount and unit for flour');
@@ -1014,8 +1014,8 @@ describe('PantryScreen', () => {
       it('offers only the amount for an ingredient with one unit', async () => {
         await withUnits();
         await flush();
-        await addIngredient('canned mixed vegetables');
-        await press('Edit amount for canned mixed vegetables');
+        await addIngredient('canned clams');
+        await press('Edit amount for canned clams');
         expect(screen.queryAllByRole('radio')).toEqual([]);
       });
 

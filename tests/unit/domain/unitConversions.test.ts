@@ -210,7 +210,11 @@ describe('pantryUnitChoices', () => {
   });
 
   it('offers only the pantry unit when nothing converts', () => {
-    expect(units('canned mixed vegetables', 'can')).toEqual(['can']);
+    expect(units('canned clams', 'can')).toEqual(['can']);
+  });
+
+  it('offers weights for the import conversion of canned mixed vegetables', () => {
+    expect(units('canned mixed vegetables', 'can')).toEqual(['can', 'oz', 'lb', 'g', 'kg']);
   });
 
   it('marks the pantry unit itself as exact', () => {
