@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, render, screen } from '@testing-library/react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import type { RecipeServices } from '../../src/createRecipeServices';
 import { RecipeServicesProvider } from '../../src/ui/RecipeServicesContext';
 import { ResultsScreen } from '../../src/ui/screens/ResultsScreen';
@@ -10,6 +10,7 @@ import { lastProps } from '../support/recordProps';
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), dismissTo: jest.fn() },
   useLocalSearchParams: jest.fn(),
+  useFocusEffect: jest.fn(),
 }));
 jest.mock('../../src/ui/screens/ResultsScreen', () => {
   const { recordProps } = jest.requireActual('../support/recordProps');
@@ -18,7 +19,8 @@ jest.mock('../../src/ui/screens/ResultsScreen', () => {
 });
 
 const findRecipesFromPantry = jest.fn().mockResolvedValue([]);
-const services = { findRecipesFromPantry } as unknown as RecipeServices;
+const listBookmarkIds = jest.fn().mockResolvedValue([]);
+const services = { findRecipesFromPantry, listBookmarkIds } as unknown as RecipeServices;
 
 const routeElement = () => (
   <RecipeServicesProvider start={() => Promise.resolve(services)}>
@@ -62,6 +64,14 @@ describe('results route', () => {
     await renderRoute({ pantry: '["tomato"]' });
     await act(async () => screenProps().onOpenRecipe(42));
     expect(router.push).toHaveBeenCalledWith({ pathname: '/recipe/[id]', params: { id: '42' } });
+  });
+
+  it('tells the screen when it comes back into view', async () => {
+    await renderRoute({ pantry: '["tomato"]' });
+    const focus = () => act(async () => jest.mocked(useFocusEffect).mock.lastCall![0]());
+    await focus();
+    await focus();
+    expect(screenProps().refreshKey).toBe(1);
   });
 
   it('returns to the pantry route when the screen goes back', async () => {

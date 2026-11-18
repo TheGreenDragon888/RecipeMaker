@@ -1,12 +1,14 @@
 import React, { useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { pantryFromParam, recipeHref } from '../src/ui/navigation/routeParams';
+import { useFocusRefreshKey } from '../src/ui/navigation/useFocusRefreshKey';
 import { useRecipeServices } from '../src/ui/RecipeServicesContext';
 import { ResultsScreen } from '../src/ui/screens/ResultsScreen';
 
 export default function ResultsRoute() {
   const services = useRecipeServices();
   const { pantry: param } = useLocalSearchParams();
+  const refreshKey = useFocusRefreshKey();
   // Parse once per param value: a new list on every render would make the screen search again.
   const pantry = useMemo(() => pantryFromParam(param), [param]);
   return (
@@ -16,6 +18,7 @@ export default function ResultsRoute() {
       onOpenRecipe={(recipeId) => router.push(recipeHref(recipeId))}
       // dismissTo goes back down the stack to Pantry, or replaces this screen if Pantry isn't there.
       onBack={() => router.dismissTo('/')}
+      refreshKey={refreshKey}
     />
   );
 }

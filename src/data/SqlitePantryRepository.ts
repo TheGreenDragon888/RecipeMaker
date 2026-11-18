@@ -4,6 +4,7 @@ import type { PantryItem } from '../domain/pantry';
 import type { PantryRepository } from '../domain/PantryRepository';
 import type { SavedPantry } from '../domain/savedPantry';
 import type { WritableSqlDatabase } from './SqlDatabase';
+import type { UserDatabaseQueue } from './UserDatabaseQueue';
 
 const LOAD_ITEMS_SQL = 'SELECT ingredient, quantity, unit, shown_unit FROM pantry_items ORDER BY position';
 const LOAD_SEASONINGS_SQL = 'SELECT ingredient FROM seasonings_on ORDER BY position';
@@ -19,32 +20,11 @@ function toPantryItem(row: PantryItemRow): PantryItem {
   return row.shown_unit === null ? item : { ...item, shownUnit: row.shown_unit };
 }
 
-/**
- * user.db through one connection. Loads and saves run one at a time, in the order they were asked for: two
- * transactions on one connection would otherwise overlap (expo-sqlite's withTransactionAsync isn't exclusive),
- * and the last save asked for must be the one that's kept.
- */
 export class SqlitePantryRepository implements PantryRepository {
-  private opened: Promise<WritableSqlDatabase> | null = null;
-  /** The last load or save asked for; the next one waits for it to finish, whether it worked or not. */
-  private queue: Promise<unknown> = Promise.resolve();
-
-  /** `open` opens and migrates user.db. It is called the first time the pantry is loaded or saved, and only once. */
-  constructor(private readonly open: () => Promise<WritableSqlDatabase>) {}
-
-  private database(): Promise<WritableSqlDatabase> {
-    this.opened ??= this.open();
-    return this.opened;
-  }
-
-  private inTurn<T>(task: (db: WritableSqlDatabase) => Promise<T>): Promise<T> {
-    const run = this.queue.then(async () => task(await this.database()));
-    this.queue = run.catch(() => undefined);
-    return run;
-  }
+  constructor(private readonly queue: UserDatabaseQueue) {}
 
   load(): Promise<SavedPantry> {
-    return this.inTurn(async (db) => {
+    return this.queue.inTurn(async (db) => {
       const items = await db.getAllAsync<PantryItemRow>(LOAD_ITEMS_SQL, {});
       const seasonings = await db.getAllAsync<{ ingredient: string }>(LOAD_SEASONINGS_SQL, {});
       return { items: items.map(toPantryItem), seasoningsOn: seasonings.map((row) => row.ingredient) };
@@ -52,7 +32,7 @@ export class SqlitePantryRepository implements PantryRepository {
   }
 
   save(pantry: SavedPantry): Promise<void> {
-    return this.inTurn((db) => this.write(db, pantry));
+    return this.queue.inTurn((db) => this.write(db, pantry));
   }
 
   private async write(db: WritableSqlDatabase, pantry: SavedPantry): Promise<void> {

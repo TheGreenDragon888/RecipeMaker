@@ -17,6 +17,12 @@ const MIGRATIONS: readonly string[] = [
      ingredient  TEXT    PRIMARY KEY COLLATE NOCASE,
      position    INTEGER NOT NULL
    );`,
+  // 2: saved recipes. AUTOINCREMENT never hands out a number twice, so a later bookmark always sorts as newer and
+  // Undo can put a removed one back in its old place.
+  `CREATE TABLE bookmarks (
+     saved_order  INTEGER PRIMARY KEY AUTOINCREMENT,
+     recipe_id    INTEGER NOT NULL UNIQUE  -- a recipe in recipes.db
+   );`,
 ];
 
 /** The user_version a fully migrated user.db has. */

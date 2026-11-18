@@ -1,13 +1,17 @@
-// PRESENTATION LAYER: browse all recipes or search by title and ingredient, without a pantry.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, type ListRenderItem, StyleSheet, Text, TextInput, View } from 'react-native';
+// PRESENTATION LAYER: browse all recipes or search by title and ingredient. Each card shows how ready the recipe is
+// to cook from the saved pantry, once the list has built it, and can be bookmarked from here.
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, type ListRenderItem, StyleSheet, Text, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import type { RecipeSummary } from '../../domain/recipe';
-import { ClearFieldButton } from '../components/ClearFieldButton';
-import { Icon } from '../components/Icon';
+import type { RecipeReadiness } from '../../domain/recipeReadiness';
+import { NoticeBar } from '../components/NoticeBar';
 import { RecipeCard } from '../components/RecipeCard';
+import { SearchField } from '../components/SearchField';
 import { StateMessage } from '../components/StateMessage';
-import { colors, dock, fonts, fontSize, radii, spacing } from '../theme';
+import { colors, dock, fonts, fontSize, spacing } from '../theme';
+import { useRecipeBookmarks } from '../useRecipeBookmarks';
+import { useRecipeReadiness, type RecipeReadinessState } from '../useRecipeReadiness';
 
 const SEARCH_DEBOUNCE_MS = 250;
 /**
@@ -21,18 +25,48 @@ type Props = {
   onOpenRecipe: (recipeId: number) => void;
   /** Room to leave at the bottom for the tab bar (platform/dockLayout's dockClearance). Defaults to the board's. */
   bottomClearance?: number;
+  /** Changes when the screen comes back into view, so bookmarks and pantry changes made elsewhere show here. */
+  refreshKey?: number;
 };
 
-type Load = { status: 'loading' } | { status: 'failed' } | { status: 'done'; recipes: RecipeSummary[] };
+type Load ={ status: 'loading' } | { status: 'failed' } | { status: 'done'; recipes: RecipeSummary[] };
 type SearchLoad =
   | { status: 'idle' | 'loading' | 'failed' }
   | { status: 'done'; recipes: RecipeSummary[] };
 
-export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.clearance }: Props) {
+type RowProps = {
+  recipe: RecipeSummary;
+  saved: boolean | null;
+  readiness: RecipeReadiness | null;
+  watchReadiness: RecipeReadinessState['watch'];
+  onOpenRecipe: (recipeId: number) => void;
+  onToggleBookmark: (recipeId: number) => void;
+};
+
+/**
+ * One card in the list. Memoized with stable props, so only the row whose bookmark or readiness changed redraws. The
+ * list builds rows only near the screen, so asking from here checks just those recipes.
+ */
+const RecipeRow = memo(function RecipeRow({
+  recipe,
+  saved,
+  readiness,
+  watchReadiness,
+  onOpenRecipe,
+  onToggleBookmark,
+}: RowProps) {
+  useEffect(() => watchReadiness([recipe.id]), [watchReadiness, recipe.id]);
+  const open = useCallback(() => onOpenRecipe(recipe.id), [onOpenRecipe, recipe.id]);
+  const toggle = useCallback(() => onToggleBookmark(recipe.id), [onToggleBookmark, recipe.id]);
+  return <RecipeCard recipe={recipe} readiness={readiness} onPress={open} bookmark={{ saved, onToggle: toggle }} />;
+});
+
+export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.clearance, refreshKey = 0 }: Props) {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [searchText, setSearchText] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
   const [searchLoad, setSearchLoad] = useState<SearchLoad>({ status: 'idle' });
+  const { savedIds, toggle, saveFailed } = useRecipeBookmarks(services, refreshKey);
+  const { readiness, state: readinessState, watch: watchReadiness } = useRecipeReadiness(services, refreshKey);
 
   useEffect(() => {
     // A reply that arrives after the screen is gone must not update it.
@@ -77,8 +111,17 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
   // The list redraws every card when these change, so they stay the same objects across the screen's redraws
   // (the tab redraws this screen each time it opens).
   const renderItem = useCallback<ListRenderItem<RecipeSummary>>(
-    ({ item }) => <RecipeCard recipe={item} onPress={() => onOpenRecipe(item.id)} />,
-    [onOpenRecipe],
+    ({ item }) => (
+      <RecipeRow
+        recipe={item}
+        saved={savedIds ? savedIds.has(item.id) : null}
+        readiness={readiness.get(item.id) ?? null}
+        watchReadiness={watchReadiness}
+        onOpenRecipe={onOpenRecipe}
+        onToggleBookmark={toggle}
+      />
+    ),
+    [onOpenRecipe, readiness, savedIds, toggle, watchReadiness],
   );
   const listContentStyle = useMemo(() => [styles.listContent, { paddingBottom: bottomClearance }], [bottomClearance]);
 
@@ -96,23 +139,15 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
         <Text style={styles.title}>All Recipes</Text>
       </View>
 
-      <View style={[styles.field, searchFocused && styles.fieldFocused]}>
-        <Icon name="search" size={18} color={colors.textMuted} />
-        <TextInput
-          accessibilityLabel="Search recipes"
-          autoCapitalize="none"
-          autoCorrect={false}
-          onBlur={() => setSearchFocused(false)}
-          onChangeText={setSearchText}
-          onFocus={() => setSearchFocused(true)}
-          placeholder="Search all recipes…"
-          placeholderTextColor={colors.textMuted}
-          returnKeyType="search"
-          style={styles.input}
-          value={searchText}
-        />
-        {searchText ? <ClearFieldButton label="Clear search" onPress={() => setSearchText('')} /> : null}
-      </View>
+      <SearchField
+        label="Search recipes"
+        placeholder="Search all recipes…"
+        clearLabel="Clear search"
+        value={searchText}
+        onChangeText={setSearchText}
+      />
+
+      {readinessState === 'failed' ? <Text style={styles.pantryProblem}>Couldn't check your pantry.</Text> : null}
 
       {load.status === 'loading' ? (
         <View style={styles.loading}>
@@ -138,6 +173,8 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
           renderItem={renderItem}
         />
       )}
+
+      {saveFailed ? <NoticeBar message="Couldn't update your bookmark." bottom={bottomClearance} /> : null}
     </View>
   );
 }
@@ -146,28 +183,12 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: { paddingTop: spacing.screenTop, paddingHorizontal: spacing.screen, paddingBottom: spacing.xxs },
   title: { fontFamily: fonts.heading, fontSize: fontSize.screenTitle, color: colors.text },
-  field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minHeight: 44,
-    marginTop: spacing.lg,
-    marginBottom: spacing.xs,
+  pantryProblem: {
+    marginTop: spacing.sm,
     marginHorizontal: spacing.screen,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-  },
-  fieldFocused: { borderWidth: 1.5, borderColor: colors.accent },
-  input: {
-    flex: 1,
     fontFamily: fonts.regular,
-    fontSize: fontSize.input,
-    color: colors.text,
-    paddingVertical: 10,
-    paddingHorizontal: 0,
+    fontSize: fontSize.caption,
+    color: colors.accent,
   },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { flex: 1 },

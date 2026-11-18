@@ -53,6 +53,23 @@ describe('DockItem', () => {
     });
   });
 
+  describe('with fillWhenSelected, as the Bookmarks tab has on the board', () => {
+    it('fills its icon as the current tab', async () => {
+      await render(<DockItem label="Bookmarks" icon="bookmark" isFocused fillWhenSelected />);
+      expect(iconDrawing('bookmark').props.fill).toBe(colors.accent);
+    });
+
+    it('leaves its icon an outline as another tab', async () => {
+      await render(<DockItem label="Bookmarks" icon="bookmark" fillWhenSelected />);
+      expect(iconDrawing('bookmark').props.fill).toBe('none');
+    });
+  });
+
+  it('leaves a current tab\'s icon an outline without fillWhenSelected', async () => {
+    await render(<DockItem label="Pantry" icon="pantry" isFocused />);
+    expect(iconDrawing('pantry').props.fill).toBe('none');
+  });
+
   describe('as another tab', () => {
     it('is not marked selected', async () => {
       await render(<DockItem label="Recipes" icon="recipes" />);

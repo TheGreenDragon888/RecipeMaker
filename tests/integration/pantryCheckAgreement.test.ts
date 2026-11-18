@@ -6,6 +6,7 @@ import type { PantryItem } from '../../src/domain/pantry';
 import type { PantryCheck } from '../../src/domain/pantryCheck';
 import { STAPLES } from '../../src/domain/staples';
 import { checkRecipeAgainstPantry } from '../../src/services/checkRecipeAgainstPantry';
+import { checkRecipesReadiness } from '../../src/services/checkRecipesReadiness';
 import { findRecipesFromPantry } from '../../src/services/findRecipesFromPantry';
 import { InMemoryPantryRepository } from '../fakes/InMemoryPantryRepository';
 import { openRecipesDbForTest } from '../support/nodeSqliteDatabase';
@@ -73,5 +74,17 @@ describe.each(PANTRIES)('pantry checks for $name', ({ items, seasoningsOn, cover
       });
     }
     expect([...seen]).toEqual(expect.arrayContaining(covers));
+  });
+
+  it("gives Bookmarks' readiness the same counts as Results, for every recipe it lists", async () => {
+    const matches = await findRecipesFromPantry(repo, [...items.map((i) => i.name), ...seasoningsOn]);
+    const readiness = await checkRecipesReadiness(repo, pantryRepo, matches.map((match) => match.recipe.id));
+    expect(
+      matches.map(({ recipe }) => ({
+        recipe: recipe.name,
+        have: readiness!.get(recipe.id)!.onHandCount,
+        needed: readiness!.get(recipe.id)!.neededCount,
+      })),
+    ).toEqual(matches.map(({ recipe, haveCount, neededCount }) => ({ recipe: recipe.name, have: haveCount, needed: neededCount })));
   });
 });

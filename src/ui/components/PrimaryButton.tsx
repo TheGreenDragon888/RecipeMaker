@@ -1,6 +1,6 @@
 // PRESENTATION LAYER: the full-width accent button ("Find recipes with 8 ingredients" plus an arrow, "Return to Pantry").
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 import { PressableScale } from './PressableScale';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
 import { Icon } from './Icon';
@@ -11,12 +11,15 @@ type Props = {
   disabled?: boolean;
   /** Adds the mockup's trailing arrow icon. Screen readers hear only the label. */
   showArrow?: boolean;
+  /** Layout toward the parent, such as sharing a row with another button. */
+  wrapperStyle?: StyleProp<ViewStyle>;
 };
 
-export function PrimaryButton({ label, onPress, disabled = false, showArrow = false }: Props) {
+export function PrimaryButton({ label, onPress, disabled = false, showArrow = false, wrapperStyle }: Props) {
   return (
     <PressableScale
       size="button"
+      wrapperStyle={wrapperStyle}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}

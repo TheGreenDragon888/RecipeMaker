@@ -62,16 +62,17 @@ jest.mock('react-native-safe-area-context', () => ({
 beforeEach(() => jest.mocked(currentDockSurface).mockReturnValue('androidBlur'));
 
 const tabs = () => screen.getAllByRole('tab');
-const bookmarks = () => screen.getByRole('tab', { name: 'Bookmarks, coming soon' });
+const bookmarks = () => screen.getByRole('tab', { name: 'Bookmarks' });
 const blurTarget = () => screen.getByTestId('blur-target');
 const dock = () => screen.container.queryAll((node) => node.props.accessibilityRole === 'tablist')[0];
 
 describe('tabs layout (the floating dock)', () => {
-  it('has a Pantry tab at "/" and a Recipes tab at "/recipes"', async () => {
+  it('has a Pantry tab at "/", a Recipes tab at "/recipes" and a Bookmarks tab at "/bookmarks"', async () => {
     await render(<TabsLayout />);
     expect(screen.getAllByTestId('tab-trigger').map((t) => [t.props.tabName, t.props.href])).toEqual([
       ['index', '/'],
       ['recipes', '/recipes'],
+      ['bookmarks', '/bookmarks'],
     ]);
   });
 
@@ -83,7 +84,7 @@ describe('tabs layout (the floating dock)', () => {
     const triggers = React.Children.toArray(dockElement.props.children).filter(
       (child) => React.isValidElement(child) && child.type === TabTrigger,
     );
-    expect(triggers).toHaveLength(2);
+    expect(triggers).toHaveLength(3);
   });
 
   it('shows Pantry, Recipes and Bookmarks in the dock, in that order', async () => {
@@ -91,14 +92,18 @@ describe('tabs layout (the floating dock)', () => {
     expect(tabs().map((tab) => shownText(tab).join(''))).toEqual(['Pantry', 'Recipes', 'Bookmarks']);
   });
 
-  it('shows Bookmarks as disabled', async () => {
+  it('lets Bookmarks be opened', async () => {
     await render(<TabsLayout />);
-    expect(bookmarks()).toBeDisabled();
+    expect(bookmarks()).toBeEnabled();
   });
 
-  it('tells screen readers Bookmarks is coming soon', async () => {
+  it('fills the Bookmarks icon while its tab is open, as on the board', async () => {
     await render(<TabsLayout />);
-    expect(bookmarks()).toHaveAccessibleName('Bookmarks, coming soon');
+    const dockElement = tabListChild.current as React.ReactElement<{ children: React.ReactNode }>;
+    const trigger = React.Children.toArray(dockElement.props.children).at(-1) as React.ReactElement<{
+      children: React.ReactElement<{ fillWhenSelected?: boolean }>;
+    }>;
+    expect(trigger.props.children.props.fillWhenSelected).toBe(true);
   });
 
   it('draws the dock with the surface for this device', async () => {

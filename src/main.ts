@@ -3,11 +3,18 @@
 import { createRecipeServices, type RecipeServices } from './createRecipeServices';
 import { openRecipeDatabase } from './data/openRecipeDatabase';
 import { openUserDatabase } from './data/openUserDatabase';
+import { SqliteBookmarkRepository } from './data/SqliteBookmarkRepository';
 import { SqlitePantryRepository } from './data/SqlitePantryRepository';
 import { SqliteRecipeRepository } from './data/SqliteRecipeRepository';
+import { UserDatabaseQueue } from './data/UserDatabaseQueue';
 
 export async function startRecipeServices(): Promise<RecipeServices> {
   const db = await openRecipeDatabase();
-  // user.db opens the first time the pantry loads, so a problem with it never stops the recipes from opening.
-  return createRecipeServices(new SqliteRecipeRepository(db), new SqlitePantryRepository(openUserDatabase));
+  // user.db opens the first time it is needed, so a problem with it never stops the recipes from opening.
+  const userDatabase = new UserDatabaseQueue(openUserDatabase);
+  return createRecipeServices(
+    new SqliteRecipeRepository(db),
+    new SqlitePantryRepository(userDatabase),
+    new SqliteBookmarkRepository(userDatabase),
+  );
 }

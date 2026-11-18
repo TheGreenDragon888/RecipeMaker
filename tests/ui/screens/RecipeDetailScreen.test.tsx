@@ -4,12 +4,13 @@ import type { RecipeServices } from '../../../src/createRecipeServices';
 import { RecipeNotFoundError } from '../../../src/domain/errors';
 import type { PantryCheck } from '../../../src/domain/pantryCheck';
 import type { RecipeIngredient, RecipeSummary } from '../../../src/domain/recipe';
+import type { RecipeReadiness } from '../../../src/domain/recipeReadiness';
 import type { RecipeDetail } from '../../../src/services/getRecipeDetail';
 import { formatIngredientLine } from '../../../src/ui/format/ingredientLine';
 import { RecipeDetailScreen } from '../../../src/ui/screens/RecipeDetailScreen';
 import { makeIngredient, makeRecipe } from '../../fakes/InMemoryRecipeRepository';
 import { colors } from '../../../src/ui/theme';
-import { isLoading, recipeCardNames, recipeCards, shownIcons, shownText, styleOf } from '../../support/screen';
+import { isLoading, layoutBoxOf, recipeCardNames, recipeCards, shownIcons, shownText, styleOf } from '../../support/screen';
 
 const sloppyJoes = makeRecipe({
   id: 7,
@@ -51,14 +52,30 @@ async function setup({
   getSimilarRecipes = jest.fn().mockResolvedValue([]),
   checkRecipeAgainstPantry = jest.fn().mockResolvedValue(null),
   openLink = jest.fn().mockResolvedValue(undefined),
+  listBookmarkIds = jest.fn().mockResolvedValue([]),
+  addBookmark = jest.fn().mockResolvedValue(undefined),
+  removeBookmark = jest.fn().mockResolvedValue(undefined),
+  checkRecipesReadiness = jest.fn().mockResolvedValue(null),
 }: {
   recipeId?: number | null;
   getRecipeDetail?: jest.Mock;
   getSimilarRecipes?: jest.Mock;
   checkRecipeAgainstPantry?: jest.Mock;
   openLink?: jest.Mock;
+  listBookmarkIds?: jest.Mock;
+  addBookmark?: jest.Mock;
+  removeBookmark?: jest.Mock;
+  checkRecipesReadiness?: jest.Mock;
 } = {}) {
-  const services = { getRecipeDetail, getSimilarRecipes, checkRecipeAgainstPantry } as unknown as RecipeServices;
+  const services = {
+    getRecipeDetail,
+    getSimilarRecipes,
+    checkRecipeAgainstPantry,
+    listBookmarkIds,
+    addBookmark,
+    removeBookmark,
+    checkRecipesReadiness,
+  } as unknown as RecipeServices;
   const onOpenRecipe = jest.fn();
   const onBack = jest.fn();
   const onReturnToPantry = jest.fn();
@@ -75,8 +92,105 @@ async function setup({
   await render(detailFor(recipeId));
   /** Re-renders the screen for a different recipe id. */
   const showRecipe = (id: number) => screen.rerender(detailFor(id));
-  return { getRecipeDetail, getSimilarRecipes, checkRecipeAgainstPantry, openLink, onOpenRecipe, onBack, onReturnToPantry, showRecipe };
+  return {
+    getRecipeDetail,
+    getSimilarRecipes,
+    checkRecipeAgainstPantry,
+    openLink,
+    addBookmark,
+    removeBookmark,
+    onOpenRecipe,
+    onBack,
+    onReturnToPantry,
+    showRecipe,
+  };
 }
+
+describe('RecipeDetailScreen bookmark button', () => {
+  const save = () => screen.getByRole('button', { name: 'Save Sloppy Joes' });
+
+  it('saves the recipe when its bookmark button is tapped', async () => {
+    const { addBookmark } = await setup();
+    await fireEvent.press(save());
+    expect(addBookmark).toHaveBeenCalledWith(7);
+  });
+
+  it('shows the recipe as saved after the tap', async () => {
+    await setup();
+    await fireEvent.press(save());
+    expect(screen.getByRole('button', { name: 'Remove Sloppy Joes from bookmarks' })).toBeOnTheScreen();
+  });
+
+  it('removes a saved recipe', async () => {
+    const { removeBookmark } = await setup({ listBookmarkIds: jest.fn().mockResolvedValue([7]) });
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove Sloppy Joes from bookmarks' }));
+    expect(removeBookmark).toHaveBeenCalledWith(7);
+  });
+
+  it('sits beside Return to Pantry', async () => {
+    await setup();
+    expect(layoutBoxOf(save()).parent).toBe(layoutBoxOf(screen.getByRole('button', { name: 'Return to Pantry' })).parent);
+  });
+
+  it('is not offered until the recipe has loaded', async () => {
+    await setup({ getRecipeDetail: jest.fn(() => new Promise(() => {})) });
+    expect(screen.queryByRole('button', { name: /^Save / })).toBeNull();
+  });
+
+  it('is not offered when the saved recipes cannot load', async () => {
+    await setup({ listBookmarkIds: jest.fn().mockRejectedValue(new Error('corrupt')) });
+    expect(screen.queryByRole('button', { name: 'Save Sloppy Joes' })).toBeNull();
+  });
+
+  it('says so when the bookmark cannot be saved', async () => {
+    await setup({ addBookmark: jest.fn().mockRejectedValue(new Error('full')) });
+    await fireEvent.press(save());
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't update your bookmark.");
+  });
+
+  it('leaves the similar recipes without bookmark buttons', async () => {
+    await setup({ getSimilarRecipes: jest.fn().mockResolvedValue([otherSloppyJoes]) });
+    expect(screen.queryByRole('button', { name: "Save Sloppy Joe's" })).toBeNull();
+  });
+});
+
+describe('RecipeDetailScreen similar recipe readiness', () => {
+  const ready: RecipeReadiness = { status: 'ready', onHandCount: 4, neededCount: 4, toBuy: [], swaps: [] };
+  const similar = () => jest.fn().mockResolvedValue([otherSloppyJoes]);
+  const settle = () => act(async () => {});
+
+  it("shows a similar recipe's status", async () => {
+    await setup({ getSimilarRecipes: similar(), checkRecipesReadiness: jest.fn().mockResolvedValue(new Map([[8, ready]])) });
+    await settle();
+    expect(shownText()).toEqual(expect.arrayContaining(['Ready to cook', '4/4 ingredients on hand']));
+  });
+
+  it('checks only the similar recipes', async () => {
+    const checkRecipesReadiness = jest.fn().mockResolvedValue(new Map([[8, ready]]));
+    await setup({ getSimilarRecipes: similar(), checkRecipesReadiness });
+    await settle();
+    expect(checkRecipesReadiness.mock.calls).toEqual([[[8]]]);
+  });
+
+  it('checks nothing when there are no similar recipes', async () => {
+    const checkRecipesReadiness = jest.fn().mockResolvedValue(new Map());
+    await setup({ checkRecipesReadiness });
+    await settle();
+    expect(checkRecipesReadiness).not.toHaveBeenCalled();
+  });
+
+  it('shows a plain card when the pantry cannot be checked', async () => {
+    await setup({ getSimilarRecipes: similar(), checkRecipesReadiness: jest.fn().mockRejectedValue(new Error('corrupt')) });
+    await settle();
+    expect(recipeCardNames()).toContain("Sloppy Joe's");
+  });
+
+  it('adds no message when the pantry cannot be checked', async () => {
+    await setup({ getSimilarRecipes: similar(), checkRecipesReadiness: jest.fn().mockRejectedValue(new Error('corrupt')) });
+    await settle();
+    expect(shownText()).not.toContain("Couldn't check your pantry.");
+  });
+});
 
 /** A promise the test resolves or rejects later, to control when a service reply arrives. */
 function deferred<T>() {
