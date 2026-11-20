@@ -21,7 +21,7 @@ export type RecipeServices = ReturnType<typeof createRecipeServices>;
 export function createRecipeServices(repo: RecipeRepository, pantryRepo: PantryRepository) {
   return {
     searchRecipesByIngredient: (raw: string) => searchRecipesByIngredient(repo, raw),
-    searchRecipes: (raw: string) => searchRecipes(repo, raw),
+    searchRecipes: (raw: string, filter?: RecipeFilter) => searchRecipes(repo, raw, filter),
     findRecipesFromPantry: (pantryItems: string[], filters?: PantryRecipeFilters) =>
       findRecipesFromPantry(repo, pantryItems, filters),
     filterRecipes: (filter: RecipeFilter) => filterRecipes(repo, filter),

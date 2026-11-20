@@ -39,4 +39,13 @@ describe('searchRecipes', () => {
 
     expect(await searchRecipes(repo, '   ')).toEqual([]);
   });
+
+  it('applies recipe filters to search results', async () => {
+    const repo = new InMemoryRecipeRepository([
+      { id: 1, name: 'Quick Potato Soup', activeTimeMinutes: 20, ingredients: [{ ingredient: 'potato' }] },
+      { id: 2, name: 'Slow Potato Soup', activeTimeMinutes: 45, ingredients: [{ ingredient: 'potato' }] },
+    ]);
+
+    expect(names(await searchRecipes(repo, 'potato', { maxActiveMinutes: 30 }))).toEqual(['Quick Potato Soup']);
+  });
 });

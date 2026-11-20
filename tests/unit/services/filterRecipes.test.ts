@@ -32,4 +32,38 @@ describe('filterRecipes', () => {
     ]);
     expect(names(await filterRecipes(repo, { maxActiveMinutes: 60, people: 1 }))).toEqual(['C', 'A', 'B']);
   });
+
+  it('keeps recipes whose serving ranges overlap the selected range', async () => {
+    const repo = new InMemoryRecipeRepository([
+      { id: 1, name: 'Too Small', servingsMin: 1, servingsMax: 2, activeTimeMinutes: 10 },
+      { id: 2, name: 'Overlaps Minimum', servingsMin: 2, servingsMax: 4, activeTimeMinutes: 20 },
+      { id: 3, name: 'Inside Range', servingsMin: 3, servingsMax: 5, activeTimeMinutes: 30 },
+      { id: 4, name: 'Too Large', servingsMin: 6, servingsMax: 8, activeTimeMinutes: 40 },
+    ]);
+
+    expect(names(await filterRecipes(repo, { servingRange: { min: 3, max: 5 } }))).toEqual([
+      'Overlaps Minimum',
+      'Inside Range',
+    ]);
+  });
+
+  it('keeps only recipes tagged Meal Prep when requested', async () => {
+    const repo = new InMemoryRecipeRepository(
+      [
+        { id: 1, name: 'Regular', activeTimeMinutes: 10 },
+        { id: 2, name: 'Meal Prep', activeTimeMinutes: 20 },
+      ],
+      {},
+      [],
+      { 'meal prep': [2] },
+    );
+
+    expect(names(await filterRecipes(repo, { mealPrepOnly: true }))).toEqual(['Meal Prep']);
+  });
+
+  it('rejects an invalid serving range', async () => {
+    const repo = new InMemoryRecipeRepository([]);
+
+    await expect(filterRecipes(repo, { servingRange: { min: 5, max: 3 } })).rejects.toThrow(RangeError);
+  });
 });

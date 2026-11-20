@@ -1,10 +1,10 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import type { RecipeSummary } from '../../../src/domain/recipe';
 import { RecipesScreen } from '../../../src/ui/screens/RecipesScreen';
-import { dock } from '../../../src/ui/theme';
-import { isLoading, listContentStyle, listWindow, recipeCardNames, recipeCards, shownText } from '../../support/screen';
+import { colors, dock } from '../../../src/ui/theme';
+import { isLoading, listContentStyle, listWindow, recipeCardNames, recipeCards, shownText, styleOf } from '../../support/screen';
 
 function makeSummary(id: number, name: string): RecipeSummary {
   return { id, name, totalTimeMinutes: 30, activeTimeMinutes: 15, servingsMin: 4, servingsMax: 4 };
@@ -14,12 +14,18 @@ function makeSummary(id: number, name: string): RecipeSummary {
 async function setup({
   listAllRecipes = jest.fn().mockResolvedValue([]),
   searchRecipes = jest.fn().mockResolvedValue([]),
+  filterRecipes = jest.fn().mockResolvedValue([]),
   bottomClearance,
-}: { listAllRecipes?: jest.Mock; searchRecipes?: jest.Mock; bottomClearance?: number } = {}) {
-  const services = { listAllRecipes, searchRecipes } as unknown as RecipeServices;
+}: {
+  listAllRecipes?: jest.Mock;
+  searchRecipes?: jest.Mock;
+  filterRecipes?: jest.Mock;
+  bottomClearance?: number;
+} = {}) {
+  const services = { listAllRecipes, searchRecipes, filterRecipes } as unknown as RecipeServices;
   const onOpenRecipe = jest.fn();
   await render(<RecipesScreen services={services} onOpenRecipe={onOpenRecipe} bottomClearance={bottomClearance} />);
-  return { listAllRecipes, searchRecipes, onOpenRecipe };
+  return { listAllRecipes, searchRecipes, filterRecipes, onOpenRecipe };
 }
 
 const never = () => new Promise<never>(() => {});
@@ -155,6 +161,81 @@ describe('RecipesScreen', () => {
         });
 
         expect(shownText()).toContain("Couldn't search recipes.");
+      });
+    });
+
+    describe('filters', () => {
+      it('shows the Results screen filter controls', async () => {
+        await setup();
+
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+
+        expect(shownText()).toContain('People Recipe Serves');
+        expect(screen.getByLabelText('Minimum servings')).toBeTruthy();
+        expect(screen.getByLabelText('Maximum servings')).toBeTruthy();
+        expect(screen.getByLabelText('Maximum active time in minutes')).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Meal Prep only' })).toBeTruthy();
+      });
+
+      it('applies the Results screen filters to all recipes', async () => {
+        const filterRecipes = jest.fn().mockResolvedValue([makeSummary(2, 'Meal Prep')]);
+        const { filterRecipes: service } = await setup({
+          listAllRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'Regular')]),
+          filterRecipes,
+        });
+
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        await fireEvent.changeText(screen.getByLabelText('Minimum servings'), '2');
+        await fireEvent.changeText(screen.getByLabelText('Maximum servings'), '4');
+        await fireEvent.changeText(screen.getByLabelText('Maximum active time in minutes'), '30');
+        await fireEvent.press(screen.getByRole('button', { name: 'Meal Prep only' }));
+        await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+
+        expect(service).toHaveBeenLastCalledWith({
+          servingRange: { min: 2, max: 4 },
+          maxActiveMinutes: 30,
+          mealPrepOnly: true,
+        });
+        await waitFor(() => expect(recipeCardNames()).toEqual(['Meal Prep']));
+      });
+
+      it('highlights the filter button when filters are applied', async () => {
+        await setup({ filterRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'Quick')]) });
+
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        await fireEvent.changeText(screen.getByLabelText('Maximum active time in minutes'), '30');
+        await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+
+        expect(styleOf(screen.getByRole('button', { name: 'Filters' })).backgroundColor).toBe(colors.accentTint);
+      });
+
+      it('does not apply an invalid serving range', async () => {
+        const { filterRecipes } = await setup();
+
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        await fireEvent.changeText(screen.getByLabelText('Minimum servings'), '5');
+        await fireEvent.changeText(screen.getByLabelText('Maximum servings'), '3');
+        await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+
+        expect(filterRecipes).not.toHaveBeenCalled();
+        expect(shownText()).toContain('Maximum servings must be at least the minimum.');
+      });
+
+      it('clears applied filters and restores the full list', async () => {
+        const filterRecipes = jest.fn().mockResolvedValue([makeSummary(2, 'Filtered')]);
+        await setup({
+          listAllRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'All Recipes')]),
+          filterRecipes,
+        });
+
+        await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+        await fireEvent.changeText(screen.getByLabelText('Maximum active time in minutes'), '30');
+        await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
+        await waitFor(() => expect(recipeCardNames()).toEqual(['Filtered']));
+
+        await fireEvent.press(screen.getByRole('button', { name: 'Clear filters' }));
+
+        expect(recipeCardNames()).toEqual(['All Recipes']);
       });
     });
 
