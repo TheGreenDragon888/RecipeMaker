@@ -1,5 +1,5 @@
-// PRESENTATION LAYER: browse, search, and filter all recipes, without a pantry.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+﻿// PRESENTATION LAYER: browse, search, and filter all recipes, without a pantry.
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -15,13 +15,17 @@ import {
 } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import type { RecipeSummary } from '../../domain/recipe';
+import type { RecipeReadiness } from '../../domain/recipeReadiness';
 import type { RecipeFilter } from '../../services/filterRecipes';
 import { ClearFieldButton } from '../components/ClearFieldButton';
 import { Icon } from '../components/Icon';
 import { PressableScale } from '../components/PressableScale';
+import { NoticeBar } from '../components/NoticeBar';
 import { RecipeCard } from '../components/RecipeCard';
 import { StateMessage } from '../components/StateMessage';
 import { colors, dock, fonts, fontSize, radii, spacing } from '../theme';
+import { useRecipeBookmarks } from '../useRecipeBookmarks';
+import { useRecipeReadiness, type RecipeReadinessState } from '../useRecipeReadiness';
 
 const SEARCH_DEBOUNCE_MS = 250;
 /**
@@ -35,6 +39,8 @@ type Props = {
   onOpenRecipe: (recipeId: number) => void;
   /** Room to leave at the bottom for the tab bar (platform/dockLayout's dockClearance). Defaults to the board's. */
   bottomClearance?: number;
+  /** Changes when the screen comes back into view, so bookmarks and pantry changes made elsewhere show here. */
+  refreshKey?: number;
 };
 
 type Load = { status: 'loading' } | { status: 'failed' } | { status: 'done'; recipes: RecipeSummary[] };
@@ -45,7 +51,35 @@ type FilterLoad =
   | { status: 'idle' | 'loading' | 'failed' }
   | { status: 'done'; recipes: RecipeSummary[] };
 
-export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.clearance }: Props) {
+type RowProps = {
+  recipe: RecipeSummary;
+  saved: boolean | null;
+  readiness: RecipeReadiness | null;
+  watchReadiness: RecipeReadinessState['watch'];
+  onOpenRecipe: (recipeId: number) => void;
+  onToggleBookmark: (recipeId: number) => void;
+};
+
+const RecipeRow = memo(function RecipeRow({
+  recipe,
+  saved,
+  readiness,
+  watchReadiness,
+  onOpenRecipe,
+  onToggleBookmark,
+}: RowProps) {
+  useEffect(() => watchReadiness([recipe.id]), [watchReadiness, recipe.id]);
+  const open = useCallback(() => onOpenRecipe(recipe.id), [onOpenRecipe, recipe.id]);
+  const toggle = useCallback(() => onToggleBookmark(recipe.id), [onToggleBookmark, recipe.id]);
+  return <RecipeCard recipe={recipe} readiness={readiness} onPress={open} bookmark={{ saved, onToggle: toggle }} />;
+});
+
+export function RecipesScreen({
+  services,
+  onOpenRecipe,
+  bottomClearance = dock.clearance,
+  refreshKey = 0,
+}: Props) {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [searchText, setSearchText] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
@@ -58,6 +92,8 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
   const [appliedFilters, setAppliedFilters] = useState<RecipeFilter>();
   const [filterError, setFilterError] = useState<string | null>(null);
   const [filterLoad, setFilterLoad] = useState<FilterLoad>({ status: 'idle' });
+  const { savedIds, toggle, saveFailed } = useRecipeBookmarks(services, refreshKey);
+  const { readiness, state: readinessState, watch: watchReadiness } = useRecipeReadiness(services, refreshKey);
 
   useEffect(() => {
     // A reply that arrives after the screen is gone must not update it.
@@ -168,8 +204,17 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
   // The list redraws every card when these change, so they stay the same objects across the screen's redraws
   // (the tab redraws this screen each time it opens).
   const renderItem = useCallback<ListRenderItem<RecipeSummary>>(
-    ({ item }) => <RecipeCard recipe={item} onPress={() => onOpenRecipe(item.id)} />,
-    [onOpenRecipe],
+    ({ item }) => (
+      <RecipeRow
+        recipe={item}
+        saved={savedIds ? savedIds.has(item.id) : null}
+        readiness={readiness.get(item.id) ?? null}
+        watchReadiness={watchReadiness}
+        onOpenRecipe={onOpenRecipe}
+        onToggleBookmark={toggle}
+      />
+    ),
+    [onOpenRecipe, readiness, savedIds, toggle, watchReadiness],
   );
   const listContentStyle = useMemo(() => [styles.listContent, { paddingBottom: bottomClearance }], [bottomClearance]);
   const handleListScroll = useCallback(
@@ -306,6 +351,8 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
           {searchText ? <ClearFieldButton label="Clear search" onPress={() => setSearchText('')} /> : null}
         </View>
 
+        {readinessState === 'failed' ? <Text style={styles.pantryProblem}>Couldn't check your pantry.</Text> : null}
+
         {load.status === 'loading' ? (
           <View style={styles.loading}>
             <ActivityIndicator accessibilityLabel="Loading recipes" color={colors.accent} />
@@ -337,6 +384,7 @@ export function RecipesScreen({ services, onOpenRecipe, bottomClearance = dock.c
             renderItem={renderItem}
           />
         )}
+        {saveFailed ? <NoticeBar message="Couldn't update your bookmark." bottom={bottomClearance} /> : null}
       </View>
     </TouchableWithoutFeedback>
   );
@@ -346,6 +394,13 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: { paddingTop: spacing.screenTop, paddingHorizontal: spacing.screen, paddingBottom: spacing.xxs },
   title: { fontFamily: fonts.heading, fontSize: fontSize.screenTitle, color: colors.text },
+  pantryProblem: {
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.screen,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.caption,
+    color: colors.accent,
+  },
   filterToggle: {
     alignSelf: 'flex-start',
     marginTop: spacing.md,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Platform } from 'react-native';
 import { act, render } from '@testing-library/react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import { RecipeServicesProvider } from '../../../src/ui/RecipeServicesContext';
 import { RecipesScreen } from '../../../src/ui/screens/RecipesScreen';
@@ -9,7 +9,7 @@ import RecipesRoute from '../../../app/(tabs)/recipes';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { lastProps } from '../../support/recordProps';
 
-jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('expo-router', () => ({ router: { push: jest.fn() }, useFocusEffect: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: jest.fn() }));
 jest.mock('../../../src/ui/screens/RecipesScreen', () => {
   const { recordProps } = jest.requireActual('../../support/recordProps');
@@ -17,7 +17,10 @@ jest.mock('../../../src/ui/screens/RecipesScreen', () => {
   return { RecipesScreen: recordProps(actual.RecipesScreen) };
 });
 
-const services = { listAllRecipes: jest.fn().mockResolvedValue([]) } as unknown as RecipeServices;
+const services = {
+  listAllRecipes: jest.fn().mockResolvedValue([]),
+  listBookmarkIds: jest.fn().mockResolvedValue([]),
+} as unknown as RecipeServices;
 
 const renderRoute = () =>
   render(
@@ -61,6 +64,14 @@ describe('recipes route', () => {
     await renderRoute();
     await act(async () => screenProps().onOpenRecipe(42));
     expect(router.push).toHaveBeenCalledWith({ pathname: '/recipe/[id]', params: { id: '42' } });
+  });
+
+  it('tells the screen when the tab comes back into view', async () => {
+    await renderRoute();
+    const focus = () => act(async () => jest.mocked(useFocusEffect).mock.lastCall![0]());
+    await focus();
+    await focus();
+    expect(screenProps().refreshKey).toBe(1);
   });
 
   // The tabs redraw this route on every switch; a new function each time would make the list redraw its cards too.

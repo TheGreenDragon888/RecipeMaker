@@ -117,15 +117,17 @@ type Props = {
   color: string;
   /** In the 24×24 grid; the board uses 1.75 for most icons and 2 for arrows and buttons. */
   strokeWidth?: number;
+  /** Fills the shape with `color` as well as outlining it. */
+  filled?: boolean;
 };
 
-export function Icon({ name, size, color, strokeWidth = 1.75 }: Props) {
+export function Icon({ name, size, color, strokeWidth = 1.75, filled = false }: Props) {
   return (
     <Svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? color : 'none'}
       stroke={color}
       strokeWidth={strokeWidth}
       strokeLinecap="round"

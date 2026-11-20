@@ -1,4 +1,5 @@
 import { createRecipeServices } from '../../src/createRecipeServices';
+import { InMemoryBookmarkRepository } from '../fakes/InMemoryBookmarkRepository';
 import { InMemoryPantryRepository } from '../fakes/InMemoryPantryRepository';
 import { InMemoryRecipeRepository } from '../fakes/InMemoryRecipeRepository';
 
@@ -15,7 +16,8 @@ const pantryRepo = new InMemoryPantryRepository({
   items: [{ name: 'beef', quantity: 2, unit: 'lb' }],
   seasoningsOn: [],
 });
-const services = createRecipeServices(repo, pantryRepo);
+const bookmarkRepo = new InMemoryBookmarkRepository([{ recipeId: 1, savedOrder: 1 }]);
+const services = createRecipeServices(repo, pantryRepo, bookmarkRepo);
 const names = (rs: { name: string }[]) => rs.map((r) => r.name);
 
 describe('createRecipeServices', () => {
@@ -87,5 +89,39 @@ describe('createRecipeServices', () => {
   it('wires pantry saving to the pantry repository', async () => {
     await services.savePantry([], ['paprika']);
     expect(pantryRepo.saved).toEqual({ items: [], seasoningsOn: ['paprika'] });
+  });
+
+  describe('bookmarks', () => {
+    beforeEach(() => {
+      bookmarkRepo.bookmarks = [{ recipeId: 1, savedOrder: 1 }];
+    });
+
+    it('wires the saved recipe list to the bookmark and recipe repositories', async () => {
+      expect(names((await services.listBookmarks()).map(({ recipe }) => recipe))).toEqual(['Joes A']);
+    });
+
+    it('wires the saved ids to the bookmark repository', async () => {
+      expect(await services.listBookmarkIds()).toEqual([1]);
+    });
+
+    it('wires saving a recipe to the bookmark repository', async () => {
+      await services.addBookmark(2);
+      expect(await services.listBookmarkIds()).toEqual([1, 2]);
+    });
+
+    it('wires removing a recipe to the bookmark repository', async () => {
+      await services.removeBookmark(1);
+      expect(await services.listBookmarkIds()).toEqual([]);
+    });
+
+    it('wires restoring a recipe to the bookmark repository', async () => {
+      await services.restoreBookmark({ recipeId: 2, savedOrder: 7 });
+      expect(bookmarkRepo.bookmarks).toContainEqual({ recipeId: 2, savedOrder: 7 });
+    });
+
+    it('wires readiness to the pantry and recipe repositories', async () => {
+      await services.savePantry([{ name: 'ground beef', quantity: 2, unit: 'lb' }], []);
+      expect((await services.checkRecipesReadiness([1]))?.get(1)?.status).toBe('ready');
+    });
   });
 });

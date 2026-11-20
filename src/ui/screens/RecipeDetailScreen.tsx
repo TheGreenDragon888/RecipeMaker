@@ -1,7 +1,7 @@
 // PRESENTATION LAYER: one recipe — times, servings, ingredients (each checked against the saved pantry, with a
-// legend), steps, its source and similar recipes. The mockup's banner is drawn as a tinted placeholder with an
-// icon, since there are no photos. Its status pill and Save button are left out: no data or service rule backs
-// them yet.
+// legend), steps, its source and similar recipes, with the board's bookmark button in the footer. The mockup's
+// banner is drawn as a tinted placeholder with an icon, since there are no photos. Its status pill is left out: no
+// data or service rule backs it yet.
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
@@ -11,8 +11,10 @@ import type { PantryCheck } from '../../domain/pantryCheck';
 import type { RecipeSummary } from '../../domain/recipe';
 import type { RecipeDetail } from '../../services/getRecipeDetail';
 import { BackButton } from '../components/BackButton';
+import { BookmarkButton } from '../components/BookmarkButton';
 import { Icon } from '../components/Icon';
 import { IngredientRow } from '../components/IngredientRow';
+import { NoticeBar } from '../components/NoticeBar';
 import { PantryCheckLegend } from '../components/PantryCheckLegend';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { RecipeCard } from '../components/RecipeCard';
@@ -29,6 +31,11 @@ import {
   groupIngredientsByComponent,
 } from '../format/recipeInfo';
 import { colors, fonts, fontSize, spacing } from '../theme';
+import { useRecipeBookmarks } from '../useRecipeBookmarks';
+import { useRecipeReadiness } from '../useRecipeReadiness';
+
+/** Keeps the notice bar just above the footer's buttons. */
+const NOTICE_ABOVE_FOOTER = 92;
 
 type Props = {
   services: RecipeServices;
@@ -39,6 +46,8 @@ type Props = {
   onReturnToPantry: () => void;
   /** Opens the recipe's original page in the browser; tests pass a fake. */
   openLink?: (url: string) => Promise<unknown>;
+  /** Changes when the screen comes back into view, so bookmarks and pantry changes made elsewhere show here. */
+  refreshKey?: number;
 };
 
 type Load = { status: 'loading' } | { status: 'notFound' } | { status: 'failed' } | { status: 'done'; detail: RecipeDetail };
@@ -50,9 +59,13 @@ export function RecipeDetailScreen({
   onBack,
   onReturnToPantry,
   openLink = (url) => Linking.openURL(url),
+  refreshKey = 0,
 }: Props) {
+  const { savedIds, toggle, saveFailed } = useRecipeBookmarks(services, refreshKey);
   const [load, setLoad] = useState<Load>(recipeId === null ? { status: 'notFound' } : { status: 'loading' });
   const [similar, setSimilar] = useState<RecipeSummary[]>([]);
+  // How ready the similar recipes are is extra too: without it their cards are just plain.
+  const { readiness: similarReadiness, watch: watchReadiness } = useRecipeReadiness(services, refreshKey);
   /** Each line's check against the saved pantry; null while loading, with no pantry, or when the check failed. */
   const [checks, setChecks] = useState<Map<number, PantryCheck> | null>(null);
   const [linkFailed, setLinkFailed] = useState(false);
@@ -92,6 +105,8 @@ export function RecipeDetailScreen({
       current = false;
     };
   }, [services, recipeId]);
+
+  useEffect(() => watchReadiness(similar.map(({ id }) => id)), [similar, watchReadiness]);
 
   async function openSource(url: string) {
     setLinkFailed(false);
@@ -169,7 +184,12 @@ export function RecipeDetailScreen({
               <Text style={styles.sectionTitle}>Similar recipes</Text>
               <View style={styles.similarList}>
                 {similar.map((other) => (
-                  <RecipeCard key={other.id} recipe={other} onPress={() => onOpenRecipe(other.id)} />
+                  <RecipeCard
+                    key={other.id}
+                    recipe={other}
+                    readiness={similarReadiness.get(other.id) ?? null}
+                    onPress={() => onOpenRecipe(other.id)}
+                  />
                 ))}
               </View>
             </View>
@@ -197,8 +217,18 @@ export function RecipeDetailScreen({
       )}
 
       <View style={styles.footer}>
-        <PrimaryButton label="Return to Pantry" onPress={onReturnToPantry} />
+        {load.status === 'done' && savedIds ? (
+          <BookmarkButton
+            variant="footer"
+            recipeName={load.detail.recipe.name}
+            saved={savedIds.has(load.detail.recipe.id)}
+            onPress={() => toggle(load.detail.recipe.id)}
+          />
+        ) : null}
+        <PrimaryButton label="Return to Pantry" onPress={onReturnToPantry} wrapperStyle={styles.footerMain} />
       </View>
+
+      {saveFailed ? <NoticeBar message="Couldn't update your bookmark." bottom={NOTICE_ABOVE_FOOTER} /> : null}
     </View>
   );
 }
@@ -241,6 +271,8 @@ const styles = StyleSheet.create({
   linkError: { marginTop: spacing.sm, marginHorizontal: spacing.xs, fontFamily: fonts.regular, fontSize: fontSize.caption, color: colors.accent },
   similarList: { gap: spacing.lg },
   footer: {
+    flexDirection: 'row',
+    gap: 10,
     paddingTop: spacing.lg,
     paddingHorizontal: spacing.screen,
     paddingBottom: spacing.md,
@@ -248,4 +280,5 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     backgroundColor: colors.background,
   },
+  footerMain: { flex: 1 },
 });

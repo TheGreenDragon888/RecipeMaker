@@ -1,5 +1,6 @@
-// PRESENTATION LAYER: "Recipes for You" — pantry-ranked results with serving-range and Meal Prep filters.
-import React, { useEffect, useState } from 'react';
+// PRESENTATION LAYER: "Recipes for You" — pantry-ranked results with serving-range and Meal Prep filters. Each card
+// shows how ready the recipe is to cook, chips narrow the results by that, and cards can be bookmarked from here.
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -11,13 +12,20 @@ import {
   View,
 } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
+import { countByReadinessFilter, matchesReadinessFilter, type ReadinessFilter } from '../../domain/recipeReadiness';
 import type { PantryMatch, PantryRecipeFilters } from '../../services/findRecipesFromPantry';
 import { BackButton } from '../components/BackButton';
+import { NoticeBar } from '../components/NoticeBar';
 import { PressableScale } from '../components/PressableScale';
+import { ReadinessFilterChips } from '../components/ReadinessFilterChips';
 import { RecipeCard } from '../components/RecipeCard';
 import { StateMessage } from '../components/StateMessage';
 import { formatMatchedAgainst } from '../format/pantryInfo';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
+import { useRecipeBookmarks } from '../useRecipeBookmarks';
+import { useRecipeReadiness } from '../useRecipeReadiness';
+
+const NO_MATCHES: PantryMatch[] = [];
 
 type Props = {
   services: RecipeServices;
@@ -25,11 +33,16 @@ type Props = {
   onOpenRecipe: (recipeId: number) => void;
   /** Back to the Pantry screen (the header button and the no-match button). */
   onBack: () => void;
+  /** Changes when the screen comes back into view, so bookmarks and pantry changes made elsewhere show here. */
+  refreshKey?: number;
 };
 
 type Search = { status: 'loading' } | { status: 'failed' } | { status: 'done'; matches: PantryMatch[] };
 
-export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props) {
+export function ResultsScreen({ services, pantry, onOpenRecipe, onBack, refreshKey = 0 }: Props) {
+  const { savedIds, toggle, saveFailed } = useRecipeBookmarks(services, refreshKey);
+  const { readiness, state: readinessState, watch: watchReadiness } = useRecipeReadiness(services, refreshKey);
+  const [readinessFilter, setReadinessFilter] = useState<ReadinessFilter>('all');
   const [search, setSearch] = useState<Search>({ status: 'loading' });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [minimumServings, setMinimumServings] = useState('');
@@ -58,6 +71,18 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props)
       current = false;
     };
   }, [services, pantry, appliedFilters]);
+
+  const matches = search.status === 'done' ? search.matches : NO_MATCHES;
+  useEffect(() => watchReadiness(matches.map(({ recipe }) => recipe.id)), [matches, watchReadiness]);
+
+  // Without a checked pantry there is nothing to filter by, which leaves every recipe showing.
+  const checked = readinessState === 'done' ? readiness : null;
+  const readinessCounts = useMemo(() => countByReadinessFilter(matches, checked), [matches, checked]);
+  const visibleMatches = useMemo(
+    () => matches.filter(({ recipe }) => matchesReadinessFilter(recipe.id, readinessFilter, checked)),
+    [matches, readinessFilter, checked],
+  );
+  const showChips = checked !== null && matches.length > 0;
 
   const applyFilters = () => {
     Keyboard.dismiss();
@@ -203,6 +228,12 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props)
         </View>
       ) : null}
 
+      {readinessState === 'failed' ? <Text style={styles.pantryProblem}>Couldn't check your pantry.</Text> : null}
+
+      {showChips ? (
+        <ReadinessFilterChips selected={readinessFilter} counts={readinessCounts} onSelect={setReadinessFilter} />
+      ) : null}
+
       {search.status === 'loading' ? (
         <View style={styles.loading}>
           <ActivityIndicator accessibilityLabel="Finding recipes" color={colors.accent} />
@@ -214,25 +245,33 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack }: Props)
           message={filtersActive ? 'No recipes match your pantry and filters.' : 'No recipes match your pantry.'}
           action={{ label: 'Back to pantry', onPress: onBack }}
         />
+      ) : visibleMatches.length === 0 ? (
+        <StateMessage message="No recipes match this filter." />
       ) : (
         <ScrollView
           style={styles.list}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, showChips && styles.listContentBelowChips]}
           onScroll={(event) => {
             if (filtersOpen && event.nativeEvent.contentOffset.y > 8) setFiltersOpen(false);
           }}
           scrollEventThrottle={16}
         >
-          {search.matches.map((match) => (
+          {visibleMatches.map((match) => (
             <RecipeCard
               key={match.recipe.id}
               recipe={match.recipe}
+              readiness={readiness.get(match.recipe.id) ?? null}
               onHand={match}
               onPress={() => onOpenRecipe(match.recipe.id)}
+              bookmark={{
+                saved: savedIds ? savedIds.has(match.recipe.id) : null,
+                onToggle: () => toggle(match.recipe.id),
+              }}
             />
           ))}
         </ScrollView>
       )}
+      {saveFailed ? <NoticeBar message="Couldn't update your bookmark." bottom={spacing.xl} /> : null}
       </View>
     </TouchableWithoutFeedback>
   );
@@ -306,7 +345,15 @@ const styles = StyleSheet.create({
   clearButton: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
   clearText: { fontFamily: fonts.semibold, fontSize: fontSize.body, color: colors.textSecondary },
   controlPressed: { opacity: 0.8 },
+  pantryProblem: {
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.screen,
+    fontFamily: fonts.regular,
+    fontSize: fontSize.caption,
+    color: colors.accent,
+  },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { flex: 1 },
   listContent: { gap: spacing.lg, paddingTop: spacing.lg, paddingHorizontal: spacing.screen, paddingBottom: spacing.sm },
+  listContentBelowChips: { paddingTop: spacing.xxs },
 });

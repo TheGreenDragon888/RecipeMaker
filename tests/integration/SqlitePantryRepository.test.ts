@@ -1,4 +1,5 @@
 import { SqlitePantryRepository } from '../../src/data/SqlitePantryRepository';
+import { UserDatabaseQueue } from '../../src/data/UserDatabaseQueue';
 import { migrateUserDatabase } from '../../src/data/userDatabaseMigrations';
 import type { SavedPantry } from '../../src/domain/savedPantry';
 import { openMemoryDatabaseForTest } from '../support/nodeSqliteDatabase';
@@ -10,7 +11,7 @@ function setup() {
     await migrateUserDatabase(db);
     return db;
   });
-  return { repo: new SqlitePantryRepository(open), open };
+  return { repo: new SqlitePantryRepository(new UserDatabaseQueue(open)), open };
 }
 
 const pantry = (items: SavedPantry['items'], seasoningsOn: string[] = []): SavedPantry => ({ items, seasoningsOn });
@@ -92,7 +93,7 @@ describe('SqlitePantryRepository', () => {
   });
 
   describe("when the database can't be opened", () => {
-    const failing = () => new SqlitePantryRepository(() => Promise.reject(new Error('corrupt')));
+    const failing = () => new SqlitePantryRepository(new UserDatabaseQueue(() => Promise.reject(new Error('corrupt'))));
 
     it('fails to load', async () => {
       await expect(failing().load()).rejects.toThrow('corrupt');

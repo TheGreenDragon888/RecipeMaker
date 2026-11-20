@@ -1,7 +1,7 @@
 // Tests app/recipe/[id].tsx (the file name leaves out the brackets, which Jest path patterns treat as special).
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import { RecipeServicesProvider } from '../../../src/ui/RecipeServicesContext';
 import { RecipeDetailScreen } from '../../../src/ui/screens/RecipeDetailScreen';
@@ -11,6 +11,7 @@ import { lastProps } from '../../support/recordProps';
 jest.mock('expo-router', () => ({
   router: { push: jest.fn(), back: jest.fn(), dismissTo: jest.fn() },
   useLocalSearchParams: jest.fn(),
+  useFocusEffect: jest.fn(),
 }));
 jest.mock('../../../src/ui/screens/RecipeDetailScreen', () => {
   const { recordProps } = jest.requireActual('../../support/recordProps');
@@ -22,6 +23,7 @@ const services = {
   getRecipeDetail: jest.fn(() => new Promise(() => {})),
   getSimilarRecipes: jest.fn().mockResolvedValue([]),
   checkRecipeAgainstPantry: jest.fn().mockResolvedValue(null),
+  listBookmarkIds: jest.fn().mockResolvedValue([]),
 } as unknown as RecipeServices;
 
 /** Renders the route as if the URL were /recipe/<id>. */
@@ -64,6 +66,14 @@ describe('recipe route', () => {
     await renderRoute({ id: '42' });
     await act(async () => screenProps().onBack());
     expect(router.back).toHaveBeenCalledTimes(1);
+  });
+
+  it('tells the screen when it comes back into view', async () => {
+    await renderRoute({ id: '42' });
+    const focus = () => act(async () => jest.mocked(useFocusEffect).mock.lastCall![0]());
+    await focus();
+    await focus();
+    expect(screenProps().refreshKey).toBe(1);
   });
 
   it('returns to the pantry route', async () => {

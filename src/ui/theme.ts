@@ -51,6 +51,8 @@ export const colors = {
   accentWash: '#FBF0EA',
   /** The row behind an ingredient there isn't enough of (its circle is amberSoft). */
   amberWash: '#FBF5E4',
+  /** The button on the dark notice bar (surface at 14% opacity). */
+  noticeButton: 'rgba(255,253,249,0.14)',
 } as const;
 
 /** Spacing steps in px, from the mockup's paddings and gaps. */
@@ -160,6 +162,14 @@ export const shadows = {
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
     shadowRadius: 12,
+    elevation: 8,
+  },
+  /** The dark bar that says what just happened ("Removed Chili"). */
+  noticeBar: {
+    shadowColor: colors.text,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 11,
     elevation: 8,
   },
   /** The closed seasoning tray's handle, above "Find recipes". */

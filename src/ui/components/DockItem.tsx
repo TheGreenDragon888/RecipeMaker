@@ -17,9 +17,19 @@ type Props = {
   onPress?: () => void;
   /** What screen readers say instead of the label, e.g. "Bookmarks, coming soon". */
   accessibilityLabel?: string;
+  /** Fills the icon while the tab looks selected, as the board does for Bookmarks. */
+  fillWhenSelected?: boolean;
 };
 
-export function DockItem({ label, icon, isFocused = false, disabled = false, onPress, accessibilityLabel }: Props) {
+export function DockItem({
+  label,
+  icon,
+  isFocused = false,
+  disabled = false,
+  onPress,
+  accessibilityLabel,
+  fillWhenSelected = false,
+}: Props) {
   // Looks selected while the dock's pill is on it, which during a swipe can be before it opens.
   const looksSelected = useReportToDock({ isFocused, disabled, onPress });
   const color = looksSelected ? colors.accent : colors.textSecondary;
@@ -39,7 +49,7 @@ export function DockItem({ label, icon, isFocused = false, disabled = false, onP
         disabled && styles.disabled,
       ]}
     >
-      <Icon name={icon} size={dock.iconSize} color={color} />
+      <Icon name={icon} size={dock.iconSize} color={color} filled={fillWhenSelected && looksSelected} />
       <Text style={[styles.label, { color }, looksSelected && styles.focusedLabel]}>{label}</Text>
     </PressableScale>
   );

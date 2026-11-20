@@ -54,6 +54,16 @@ describe('Icon', () => {
     expect(shownOfType('RNSVGPath').map((path) => path.props.d)).toEqual(['M7 7h11l-3-3', 'M17 17H6l3 3']);
   });
 
+  it('is drawn as an outline by default', async () => {
+    await render(<Icon name="bookmark" size={22} color="#A34A1B" />);
+    expect(drawing().props.fill).toBe('none');
+  });
+
+  it('fills its shape with its color when asked', async () => {
+    await render(<Icon name="bookmark" size={22} color="#A34A1B" filled />);
+    expect(drawing().props.fill).toBe('#A34A1B');
+  });
+
   it('is hidden from screen readers, since the text or label beside it says the same', async () => {
     await render(<Icon name="link" size={22} color="#000" />);
     expect(drawing().props.accessibilityElementsHidden).toBe(true);

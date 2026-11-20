@@ -2,6 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Keyboard } from 'react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
+import type { ReadinessStatus, RecipeReadiness } from '../../../src/domain/recipeReadiness';
 import type { PantryMatch } from '../../../src/services/findRecipesFromPantry';
 import { ResultsScreen } from '../../../src/ui/screens/ResultsScreen';
 import { isLoading, recipeCardNames, recipeCards, shownIcons, shownOfType, shownText, styleOf } from '../../support/screen';
@@ -20,8 +21,25 @@ function makeMatch(id: number, name: string): PantryMatch {
 async function setup({
   pantry = ['tomato', 'egg'],
   findRecipesFromPantry = jest.fn().mockResolvedValue([]),
-}: { pantry?: string[]; findRecipesFromPantry?: jest.Mock } = {}) {
-  const services = { findRecipesFromPantry } as unknown as RecipeServices;
+  listBookmarkIds = jest.fn().mockResolvedValue([]),
+  addBookmark = jest.fn().mockResolvedValue(undefined),
+  removeBookmark = jest.fn().mockResolvedValue(undefined),
+  checkRecipesReadiness = jest.fn().mockResolvedValue(null),
+}: {
+  pantry?: string[];
+  findRecipesFromPantry?: jest.Mock;
+  listBookmarkIds?: jest.Mock;
+  addBookmark?: jest.Mock;
+  removeBookmark?: jest.Mock;
+  checkRecipesReadiness?: jest.Mock;
+} = {}) {
+  const services = {
+    findRecipesFromPantry,
+    listBookmarkIds,
+    addBookmark,
+    removeBookmark,
+    checkRecipesReadiness,
+  } as unknown as RecipeServices;
   const onOpenRecipe = jest.fn();
   const onBack = jest.fn();
   const resultsFor = (items: string[]) => (
@@ -30,7 +48,7 @@ async function setup({
   await render(resultsFor(pantry));
   /** Re-renders the screen with a different pantry list. */
   const showPantry = (items: string[]) => screen.rerender(resultsFor(items));
-  return { findRecipesFromPantry, onOpenRecipe, onBack, showPantry };
+  return { findRecipesFromPantry, addBookmark, removeBookmark, onOpenRecipe, onBack, showPantry };
 }
 
 /** A promise the test resolves or rejects later, to control when a service reply arrives. */
@@ -44,6 +62,156 @@ function deferred<T>() {
 const backToPantryButtons = () => screen.getAllByRole('button', { name: 'Back to pantry' });
 /** The back button at the top of the screen: the "Back to pantry" button with the chevron. */
 const headerBackButton = () => backToPantryButtons().find((button) => shownIcons(button).includes('chevronLeft'))!;
+
+describe('ResultsScreen bookmarks', () => {
+  const findRecipesFromPantry = () => jest.fn().mockResolvedValue([makeMatch(1, 'Chili')]);
+
+  it('offers to save a recipe that is not saved', async () => {
+    await setup({ findRecipesFromPantry: findRecipesFromPantry() });
+    expect(screen.getByRole('button', { name: 'Save Chili' })).toBeOnTheScreen();
+  });
+
+  it('saves the recipe when its button is tapped', async () => {
+    const { addBookmark } = await setup({ findRecipesFromPantry: findRecipesFromPantry() });
+    await fireEvent.press(screen.getByRole('button', { name: 'Save Chili' }));
+    expect(addBookmark).toHaveBeenCalledWith(1);
+  });
+
+  it('removes a saved recipe when its button is tapped', async () => {
+    const { removeBookmark } = await setup({
+      findRecipesFromPantry: findRecipesFromPantry(),
+      listBookmarkIds: jest.fn().mockResolvedValue([1]),
+    });
+    await fireEvent.press(screen.getByRole('button', { name: 'Remove Chili from bookmarks' }));
+    expect(removeBookmark).toHaveBeenCalledWith(1);
+  });
+
+  it('says so when a bookmark cannot be saved', async () => {
+    await setup({ findRecipesFromPantry: findRecipesFromPantry(), addBookmark: jest.fn().mockRejectedValue(new Error('full')) });
+    await fireEvent.press(screen.getByRole('button', { name: 'Save Chili' }));
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't update your bookmark.");
+  });
+});
+
+describe('ResultsScreen readiness', () => {
+  const withStatus = (status: ReadinessStatus): RecipeReadiness => ({
+    status,
+    onHandCount: 2,
+    neededCount: 4,
+    toBuy: status === 'almost' ? [{ ingredient: 'beans', kind: 'missing' }] : [],
+    swaps: status === 'swap' ? [{ ingredient: 'soy sauce', substitute: 'tamari' }] : [],
+  });
+  const matches = [makeMatch(1, 'Chili'), makeMatch(2, 'Stir-Fry'), makeMatch(3, 'Soup'), makeMatch(4, 'Stew')];
+  const statuses = new Map<number, RecipeReadiness>([
+    [1, withStatus('ready')],
+    [2, withStatus('swap')],
+    [3, withStatus('almost')],
+    [4, withStatus('needsMore')],
+  ]);
+  const settle = () => act(async () => {});
+  const setupChecked = async (checkRecipesReadiness = jest.fn().mockResolvedValue(statuses)) => {
+    const shown = await setup({ findRecipesFromPantry: jest.fn().mockResolvedValue(matches), checkRecipesReadiness });
+    await settle();
+    return { ...shown, checkRecipesReadiness };
+  };
+  const chip = (name: string) => screen.getByRole('button', { name });
+  const shownRecipes = () => ['Chili', 'Stir-Fry', 'Soup', 'Stew'].filter((name) => screen.queryByText(name));
+
+  it('checks the recipes it found', async () => {
+    const { checkRecipesReadiness } = await setupChecked();
+    expect(checkRecipesReadiness).toHaveBeenCalledWith([1, 2, 3, 4]);
+  });
+
+  it("shows each recipe's status", async () => {
+    await setupChecked();
+    expect(shownText()).toEqual(expect.arrayContaining(['Ready to cook', 'Swap available', '1-2 items needed']));
+  });
+
+  it('shows what a recipe still needs', async () => {
+    await setupChecked();
+    expect(shownText()).toContain('2/4 · need beans');
+  });
+
+  it('keeps the on-hand count when the pantry cannot be checked', async () => {
+    await setupChecked(jest.fn().mockRejectedValue(new Error('corrupt')));
+    expect(shownText()).toContain('2/4 ingredients on hand');
+  });
+
+  it('says so when the pantry cannot be checked', async () => {
+    await setupChecked(jest.fn().mockRejectedValue(new Error('corrupt')));
+    expect(shownText()).toContain("Couldn't check your pantry.");
+  });
+
+  describe('filter chips', () => {
+    it('counts the recipes under each chip', async () => {
+      await setupChecked();
+      expect([chip('All, 4'), chip('Ready now, 1'), chip('Swap, 1'), chip('Almost there, 1')]).toHaveLength(4);
+    });
+
+    it('starts on All', async () => {
+      await setupChecked();
+      expect(chip('All, 4')).toBeSelected();
+    });
+
+    it('shows every recipe under All', async () => {
+      await setupChecked();
+      expect(shownRecipes()).toEqual(['Chili', 'Stir-Fry', 'Soup', 'Stew']);
+    });
+
+    it('shows only ready recipes under Ready now', async () => {
+      await setupChecked();
+      await fireEvent.press(chip('Ready now, 1'));
+      expect(shownRecipes()).toEqual(['Chili']);
+    });
+
+    it('shows only swap recipes under Swap', async () => {
+      await setupChecked();
+      await fireEvent.press(chip('Swap, 1'));
+      expect(shownRecipes()).toEqual(['Stir-Fry']);
+    });
+
+    it('shows only nearly ready recipes under Almost there', async () => {
+      await setupChecked();
+      await fireEvent.press(chip('Almost there, 1'));
+      expect(shownRecipes()).toEqual(['Soup']);
+    });
+
+    it('goes back to every recipe under All', async () => {
+      await setupChecked();
+      await fireEvent.press(chip('Swap, 1'));
+      await fireEvent.press(chip('All, 4'));
+      expect(shownRecipes()).toHaveLength(4);
+    });
+
+    it('says so when a chip holds no recipes', async () => {
+      await setupChecked(jest.fn().mockResolvedValue(new Map([[1, withStatus('ready')]])));
+      await fireEvent.press(chip('Swap, 0'));
+      expect(shownText()).toContain('No recipes match this filter.');
+    });
+
+    it('keeps the chips showing when a chip holds no recipes', async () => {
+      await setupChecked(jest.fn().mockResolvedValue(new Map([[1, withStatus('ready')]])));
+      await fireEvent.press(chip('Swap, 0'));
+      expect(chip('All, 4')).toBeOnTheScreen();
+    });
+
+    it('hides the chips with no pantry to check against', async () => {
+      await setupChecked(jest.fn().mockResolvedValue(null));
+      expect(screen.queryByRole('button', { name: 'All, 4' })).toBeNull();
+    });
+
+    it('hides the chips when the pantry cannot be checked', async () => {
+      await setupChecked(jest.fn().mockRejectedValue(new Error('corrupt')));
+      expect(screen.queryByRole('button', { name: 'All, 4' })).toBeNull();
+    });
+
+    it('hides the chips when no recipes were found', async () => {
+      await setup({ checkRecipesReadiness: jest.fn().mockResolvedValue(statuses) });
+      await settle();
+      expect(screen.queryByRole('button', { name: 'All, 0' })).toBeNull();
+    });
+  });
+});
 
 describe('ResultsScreen', () => {
   describe('keyboard dismissal', () => {

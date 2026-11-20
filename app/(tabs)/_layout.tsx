@@ -1,4 +1,4 @@
-// PRESENTATION LAYER (layout for "/" and "/recipes"): the tab screens and the board's floating dock under them,
+// PRESENTATION LAYER (layout for "/", "/recipes" and "/bookmarks"): the tab screens and the board's floating dock under them,
 // on iOS and Android alike. The screens sit in a BlurTargetView, which the Android blur reads (elsewhere it is a
 // plain view), and the dock must stay outside it. Results and Recipe detail live outside this folder, so the dock
 // doesn't show on them. While a tab's screen shows a sheet (it says so through DockVisibilityProvider), the dock
@@ -34,8 +34,9 @@ export default function TabsLayout() {
           <TabTrigger name="recipes" href="/recipes" asChild>
             <DockItem label="Recipes" icon="recipes" />
           </TabTrigger>
-          {/* Not built yet: shown so the dock matches the board, but it opens nothing. */}
-          <DockItem label="Bookmarks" icon="bookmark" disabled accessibilityLabel="Bookmarks, coming soon" />
+          <TabTrigger name="bookmarks" href="/bookmarks" asChild>
+            <DockItem label="Bookmarks" icon="bookmark" fillWhenSelected />
+          </TabTrigger>
         </DockBar>
       </TabList>
     </Tabs>
