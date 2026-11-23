@@ -41,6 +41,7 @@ import { PressableScale } from '../components/PressableScale';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SeasoningDrawer } from '../components/SeasoningDrawer';
 import { SuggestionList } from '../components/SuggestionList';
+import { TapAwayToDismiss } from '../components/TapAwayToDismiss';
 import { formatMealTagline } from '../format/mealTagline';
 import {
   formatFindRecipesLabel,
@@ -92,6 +93,12 @@ export function PantryScreen({
   const [dropdownTop, setDropdownTop] = useState<number | undefined>(undefined);
   // Numbers each request so a slow reply for older text can't act on newer text.
   const latestRequest = useRef(0);
+  /**
+   * True from the field losing focus until it is focused again. The dropdown is closed meanwhile, so a suggestion
+   * reply that arrives in that time is dropped. (It isn't done with latestRequest, which would also cancel an
+   * ingredient the Done key was still looking up.)
+   */
+  const fieldBlurred = useRef(false);
   /** Units and the seasoning tray, loaded once. Until it loads (or if it fails), items get no unit and there's no tray. */
   const [catalog, setCatalog] = useState<PantryCatalog>(EMPTY_CATALOG);
   const [catalogFailed, setCatalogFailed] = useState(false);
@@ -177,9 +184,8 @@ export function PantryScreen({
     services.savePantry(pantry, seasoningsOn).catch(() => setNotice(problem('Couldn’t save your pantry.')));
   }, [services, restore, pantry, seasoningsOn]);
 
-  function changeText(value: string) {
-    setText(value);
-    setNotice(null);
+  /** Asks for the suggestions for some text and shows them, unless newer text (or the field losing focus) overtakes the reply. */
+  function lookUpSuggestions(value: string) {
     const request = ++latestRequest.current;
     if (!value.trim()) {
       setSuggestions([]);
@@ -187,7 +193,7 @@ export function PantryScreen({
     }
     services.suggestIngredients(value).then(
       (found) => {
-        if (request === latestRequest.current) setSuggestions(found);
+        if (request === latestRequest.current && !fieldBlurred.current) setSuggestions(found);
       },
       () => {
         if (request !== latestRequest.current) return;
@@ -195,6 +201,26 @@ export function PantryScreen({
         setNotice(problem("Couldn't load suggestions"));
       },
     );
+  }
+
+  function changeText(value: string) {
+    setText(value);
+    setNotice(null);
+    lookUpSuggestions(value);
+  }
+
+  /** The field lost focus (a tap away, the amount sheet closing the keyboard): its dropdown goes, its text stays. */
+  function leaveField() {
+    setFocused(false);
+    fieldBlurred.current = true;
+    setSuggestions([]);
+  }
+
+  /** Back in the field: the suggestions for the text still in it come back (a notice is left as it is). */
+  function enterField() {
+    setFocused(true);
+    fieldBlurred.current = false;
+    if (text.trim()) lookUpSuggestions(text);
   }
 
   /** Adds a picked ingredient: a list item in its unit, a seasoning switched on, or a staple (not added). */
@@ -294,7 +320,7 @@ export function PantryScreen({
   const listBottom = bottomClearance + FIND_BUTTON_SPACE + (hasTray ? TRAY_HANDLE_SPACE : 0);
 
   return (
-    <View style={styles.screen}>
+    <TapAwayToDismiss style={styles.screen}>
       <View style={styles.header}>
         <Text style={styles.title}>My Pantry</Text>
         <Text style={styles.tagline} numberOfLines={1}>
@@ -317,9 +343,9 @@ export function PantryScreen({
             autoCapitalize="none"
             autoCorrect={false}
             editable={!loading}
-            onBlur={() => setFocused(false)}
+            onBlur={leaveField}
             onChangeText={changeText}
-            onFocus={() => setFocused(true)}
+            onFocus={enterField}
             onSubmitEditing={submit}
             placeholder="Add an ingredient…"
             placeholderTextColor={colors.textMuted}
@@ -442,7 +468,7 @@ export function PantryScreen({
           ) : null}
         </View>
       ) : null}
-    </View>
+    </TapAwayToDismiss>
   );
 }
 

@@ -476,6 +476,125 @@ describe('PantryScreen', () => {
     });
   });
 
+  // Only the list closes the keyboard by itself (its scroll view); the header, the strip around the field and the
+  // floating notices are plain Views that take no taps, so the screen-wide wrapper covers them.
+  describe('tapping away from the field', () => {
+    let dismiss: jest.SpyInstance;
+    beforeEach(() => {
+      dismiss = jest.spyOn(Keyboard, 'dismiss');
+    });
+    afterEach(() => {
+      dismiss.mockRestore();
+    });
+
+    it('closes the keyboard when the title is tapped', async () => {
+      await setup();
+      await fireEvent.press(screen.getByText('My Pantry'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the tagline is tapped', async () => {
+      await setup();
+      await fireEvent.press(screen.getByText("what's for dinner?"));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the strip around the field is tapped', async () => {
+      await setup();
+      await fireEvent.press(screen.getByTestId('add-area'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when a notice is tapped', async () => {
+      await setup({ suggestIngredients: jest.fn().mockRejectedValue(new Error('database busy')) });
+      await typeText('to');
+      await fireEvent.press(screen.getByText("Couldn't load suggestions"));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('leaves a tap on a row button to change the amount', async () => {
+      await setup();
+      await addIngredient('tofu');
+      dismiss.mockClear();
+      await press('Increase tofu quantity');
+      expect(pantryQuantities()).toEqual([2]);
+      expect(dismiss).not.toHaveBeenCalled();
+    });
+
+    it('leaves a tap on a suggestion to add it', async () => {
+      await setup({ suggestIngredients: jest.fn().mockResolvedValue([suggestion('tofu')]) });
+      await typeText('to');
+      await press('Add tofu');
+      expect(pantryNames()).toEqual(['tofu']);
+      expect(dismiss).not.toHaveBeenCalled();
+    });
+  });
+
+  // However the field loses focus (a tap away, the amount sheet closing the keyboard, ...), its dropdown goes with it.
+  describe('when the field loses focus', () => {
+    const tofuSuggested = () => jest.fn().mockResolvedValue([suggestion('tofu')]);
+    const blur = () => fireEvent(field(), 'blur');
+    const focus = () => fireEvent(field(), 'focus');
+
+    it('hides the suggestions', async () => {
+      await setup({ suggestIngredients: tofuSuggested() });
+      await typeText('to');
+      await blur();
+      expect(suggestionButtons()).toEqual([]);
+    });
+
+    it('keeps the typed text', async () => {
+      await setup({ suggestIngredients: tofuSuggested() });
+      await typeText('to');
+      await blur();
+      expect(field().props.value).toBe('to');
+    });
+
+    it('shows the suggestions again when the field is focused with the text still in it', async () => {
+      await setup({ suggestIngredients: tofuSuggested() });
+      await typeText('to');
+      await blur();
+      await focus();
+      expect(suggestionButtons()).toEqual(['Add tofu']);
+    });
+
+    it('asks for no suggestions when the field is focused while blank', async () => {
+      const { suggestIngredients } = await setup();
+      await focus();
+      expect(suggestIngredients).not.toHaveBeenCalled();
+    });
+
+    it('ignores suggestions that arrive after it lost focus', async () => {
+      const forTo = deferred<{ ingredient: string; matchedAlias: string | null }[]>();
+      await setup({ suggestIngredients: jest.fn().mockReturnValueOnce(forTo.promise) });
+      await typeText('to');
+      await blur();
+
+      await act(async () => forTo.resolve([suggestion('tofu')]));
+
+      expect(suggestionButtons()).toEqual([]);
+    });
+
+    it('keeps a problem notice, which stays until the user types', async () => {
+      await setup({ suggestIngredients: jest.fn().mockRejectedValue(new Error('database busy')) });
+      await typeText('to');
+      await blur();
+      expect(shownText()).toContain("Couldn't load suggestions");
+    });
+
+    it('still adds the ingredient from a Done key lookup that was already on its way', async () => {
+      const known = deferred<string | null>();
+      await setup({ findIngredient: jest.fn().mockReturnValue(known.promise) });
+      await typeText('tofu');
+      await pressDone();
+      await blur();
+
+      await act(async () => known.resolve('tofu'));
+
+      expect(pantryNames()).toEqual(['tofu']);
+    });
+  });
+
   describe('the clear button', () => {
     const clearButton = () => screen.queryByRole('button', { name: 'Clear ingredient' });
 

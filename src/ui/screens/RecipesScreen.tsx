@@ -10,7 +10,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
@@ -23,6 +22,7 @@ import { PressableScale } from '../components/PressableScale';
 import { NoticeBar } from '../components/NoticeBar';
 import { RecipeCard } from '../components/RecipeCard';
 import { StateMessage } from '../components/StateMessage';
+import { TapAwayToDismiss } from '../components/TapAwayToDismiss';
 import { colors, dock, fonts, fontSize, radii, spacing } from '../theme';
 import { useRecipeBookmarks } from '../useRecipeBookmarks';
 import { useRecipeReadiness, type RecipeReadinessState } from '../useRecipeReadiness';
@@ -235,158 +235,150 @@ export function RecipesScreen({
         : [];
 
   return (
-    <TouchableWithoutFeedback
-      accessible={false}
-      onPress={() => {
-        Keyboard.dismiss();
-        setFiltersOpen(false);
-      }}
-    >
-      <View style={styles.screen} testID="recipes-screen">
-        <View style={styles.header}>
-          <Text style={styles.title}>All Recipes</Text>
+    <TapAwayToDismiss style={styles.screen} testID="recipes-screen" onDismiss={() => setFiltersOpen(false)}>
+      <View style={styles.header}>
+        <Text style={styles.title}>All Recipes</Text>
+        <PressableScale
+          size="small"
+          accessibilityRole="button"
+          accessibilityLabel="Filters"
+          accessibilityState={{ expanded: filtersOpen }}
+          onPress={() => {
+            Keyboard.dismiss();
+            setFiltersOpen((open) => !open);
+          }}
+          style={({ pressed }) => [styles.filterToggle, filtersActive && styles.filterToggleActive, pressed && styles.controlPressed]}
+        >
+          <Text style={styles.filterToggleText}>{filtersActive ? 'Filters · Active' : 'Filters'}</Text>
+        </PressableScale>
+      </View>
+
+      {filtersOpen ? (
+        <View style={styles.filterPanel}>
+          <Text style={styles.filterHeading}>People Recipe Serves</Text>
+          <View style={styles.servingFields}>
+            <TextInput
+              accessibilityLabel="Minimum servings"
+              keyboardType="number-pad"
+              onChangeText={setMinimumServings}
+              placeholder="Min"
+              placeholderTextColor={colors.textMuted}
+              style={styles.servingInput}
+              value={minimumServings}
+            />
+            <Text style={styles.rangeSeparator}>to</Text>
+            <TextInput
+              accessibilityLabel="Maximum servings"
+              keyboardType="number-pad"
+              onChangeText={setMaximumServings}
+              placeholder="Max"
+              placeholderTextColor={colors.textMuted}
+              style={styles.servingInput}
+              value={maximumServings}
+            />
+          </View>
+          <Text style={styles.filterHeading}>Maximum active time (minutes)</Text>
+          <TextInput
+            accessibilityLabel="Maximum active time in minutes"
+            keyboardType="number-pad"
+            onChangeText={setMaximumActiveMinutes}
+            placeholder="No limit"
+            placeholderTextColor={colors.textMuted}
+            style={styles.servingInput}
+            value={maximumActiveMinutes}
+          />
           <PressableScale
             size="small"
             accessibilityRole="button"
-            accessibilityLabel="Filters"
-            accessibilityState={{ expanded: filtersOpen }}
-            onPress={() => {
-              Keyboard.dismiss();
-              setFiltersOpen((open) => !open);
-            }}
-            style={({ pressed }) => [styles.filterToggle, filtersActive && styles.filterToggleActive, pressed && styles.controlPressed]}
+            accessibilityLabel="Meal Prep only"
+            accessibilityState={{ selected: mealPrepOnly }}
+            onPress={() => setMealPrepOnly((selected) => !selected)}
+            style={({ pressed }) => [
+              styles.mealPrepToggle,
+              mealPrepOnly && styles.mealPrepSelected,
+              pressed && styles.controlPressed,
+            ]}
           >
-            <Text style={styles.filterToggleText}>{filtersActive ? 'Filters · Active' : 'Filters'}</Text>
+            <Text style={[styles.mealPrepText, mealPrepOnly && styles.mealPrepSelectedText]}>Meal Prep only</Text>
           </PressableScale>
-        </View>
-
-        {filtersOpen ? (
-          <View style={styles.filterPanel}>
-            <Text style={styles.filterHeading}>People Recipe Serves</Text>
-            <View style={styles.servingFields}>
-              <TextInput
-                accessibilityLabel="Minimum servings"
-                keyboardType="number-pad"
-                onChangeText={setMinimumServings}
-                placeholder="Min"
-                placeholderTextColor={colors.textMuted}
-                style={styles.servingInput}
-                value={minimumServings}
-              />
-              <Text style={styles.rangeSeparator}>to</Text>
-              <TextInput
-                accessibilityLabel="Maximum servings"
-                keyboardType="number-pad"
-                onChangeText={setMaximumServings}
-                placeholder="Max"
-                placeholderTextColor={colors.textMuted}
-                style={styles.servingInput}
-                value={maximumServings}
-              />
-            </View>
-            <Text style={styles.filterHeading}>Maximum active time (minutes)</Text>
-            <TextInput
-              accessibilityLabel="Maximum active time in minutes"
-              keyboardType="number-pad"
-              onChangeText={setMaximumActiveMinutes}
-              placeholder="No limit"
-              placeholderTextColor={colors.textMuted}
-              style={styles.servingInput}
-              value={maximumActiveMinutes}
-            />
+          <Text style={styles.filterDescription}>Recipes that serve 4+ and keep well when made ahead.</Text>
+          {filterError ? <Text accessibilityRole="alert" style={styles.filterError}>{filterError}</Text> : null}
+          <View style={styles.filterActions}>
             <PressableScale
               size="small"
               accessibilityRole="button"
-              accessibilityLabel="Meal Prep only"
-              accessibilityState={{ selected: mealPrepOnly }}
-              onPress={() => setMealPrepOnly((selected) => !selected)}
-              style={({ pressed }) => [
-                styles.mealPrepToggle,
-                mealPrepOnly && styles.mealPrepSelected,
-                pressed && styles.controlPressed,
-              ]}
+              accessibilityLabel="Apply filters"
+              onPress={applyFilters}
+              style={({ pressed }) => [styles.applyButton, pressed && styles.controlPressed]}
             >
-              <Text style={[styles.mealPrepText, mealPrepOnly && styles.mealPrepSelectedText]}>Meal Prep only</Text>
+              <Text style={styles.applyText}>Apply filters</Text>
             </PressableScale>
-            <Text style={styles.filterDescription}>Recipes that serve 4+ and keep well when made ahead.</Text>
-            {filterError ? <Text accessibilityRole="alert" style={styles.filterError}>{filterError}</Text> : null}
-            <View style={styles.filterActions}>
-              <PressableScale
-                size="small"
-                accessibilityRole="button"
-                accessibilityLabel="Apply filters"
-                onPress={applyFilters}
-                style={({ pressed }) => [styles.applyButton, pressed && styles.controlPressed]}
-              >
-                <Text style={styles.applyText}>Apply filters</Text>
-              </PressableScale>
-              <PressableScale
-                size="small"
-                accessibilityRole="button"
-                accessibilityLabel="Clear filters"
-                onPress={clearFilters}
-                style={({ pressed }) => [styles.clearButton, pressed && styles.controlPressed]}
-              >
-                <Text style={styles.clearText}>Clear</Text>
-              </PressableScale>
-            </View>
+            <PressableScale
+              size="small"
+              accessibilityRole="button"
+              accessibilityLabel="Clear filters"
+              onPress={clearFilters}
+              style={({ pressed }) => [styles.clearButton, pressed && styles.controlPressed]}
+            >
+              <Text style={styles.clearText}>Clear</Text>
+            </PressableScale>
           </View>
-        ) : null}
-
-        <View style={[styles.field, searchFocused && styles.fieldFocused]}>
-          <Icon name="search" size={18} color={colors.textMuted} />
-          <TextInput
-            accessibilityLabel="Search recipes"
-            autoCapitalize="none"
-            autoCorrect={false}
-            onBlur={() => setSearchFocused(false)}
-            onChangeText={setSearchText}
-            onFocus={() => setSearchFocused(true)}
-            placeholder="Search all recipes…"
-            placeholderTextColor={colors.textMuted}
-            returnKeyType="search"
-            style={styles.input}
-            value={searchText}
-          />
-          {searchText ? <ClearFieldButton label="Clear search" onPress={() => setSearchText('')} /> : null}
         </View>
+      ) : null}
 
-        {readinessState === 'failed' ? <Text style={styles.pantryProblem}>Couldn't check your pantry.</Text> : null}
-
-        {load.status === 'loading' ? (
-          <View style={styles.loading}>
-            <ActivityIndicator accessibilityLabel="Loading recipes" color={colors.accent} />
-          </View>
-        ) : load.status === 'failed' ? (
-          <StateMessage message="Couldn't load recipes." />
-        ) : searching && searchLoad.status === 'failed' ? (
-          <StateMessage message="Couldn't search recipes." />
-        ) : searching && searchLoad.status !== 'done' ? (
-          <View style={styles.loading}>
-            <ActivityIndicator accessibilityLabel="Searching recipes" color={colors.accent} />
-          </View>
-        ) : filtersActive && !searching && filterLoad.status === 'failed' ? (
-          <StateMessage message="Couldn't load recipes." />
-        ) : filtersActive && !searching && filterLoad.status !== 'done' ? (
-          <View style={styles.loading}>
-            <ActivityIndicator accessibilityLabel="Loading filtered recipes" color={colors.accent} />
-          </View>
-        ) : visibleRecipes.length === 0 ? (
-          <StateMessage message={filtersActive ? 'No recipes match your filters.' : searching ? 'No recipes found.' : 'No recipes yet.'} />
-        ) : (
-          <FlatList
-            style={styles.list}
-            contentContainerStyle={listContentStyle}
-            data={visibleRecipes}
-            {...LIST_WINDOW}
-            keyExtractor={recipeKey}
-            onScroll={handleListScroll}
-            renderItem={renderItem}
-          />
-        )}
-        {saveFailed ? <NoticeBar message="Couldn't update your bookmark." bottom={bottomClearance} /> : null}
+      <View style={[styles.field, searchFocused && styles.fieldFocused]}>
+        <Icon name="search" size={18} color={colors.textMuted} />
+        <TextInput
+          accessibilityLabel="Search recipes"
+          autoCapitalize="none"
+          autoCorrect={false}
+          onBlur={() => setSearchFocused(false)}
+          onChangeText={setSearchText}
+          onFocus={() => setSearchFocused(true)}
+          placeholder="Search all recipes…"
+          placeholderTextColor={colors.textMuted}
+          returnKeyType="search"
+          style={styles.input}
+          value={searchText}
+        />
+        {searchText ? <ClearFieldButton label="Clear search" onPress={() => setSearchText('')} /> : null}
       </View>
-    </TouchableWithoutFeedback>
+
+      {readinessState === 'failed' ? <Text style={styles.pantryProblem}>Couldn't check your pantry.</Text> : null}
+
+      {load.status === 'loading' ? (
+        <View style={styles.loading}>
+          <ActivityIndicator accessibilityLabel="Loading recipes" color={colors.accent} />
+        </View>
+      ) : load.status === 'failed' ? (
+        <StateMessage message="Couldn't load recipes." />
+      ) : searching && searchLoad.status === 'failed' ? (
+        <StateMessage message="Couldn't search recipes." />
+      ) : searching && searchLoad.status !== 'done' ? (
+        <View style={styles.loading}>
+          <ActivityIndicator accessibilityLabel="Searching recipes" color={colors.accent} />
+        </View>
+      ) : filtersActive && !searching && filterLoad.status === 'failed' ? (
+        <StateMessage message="Couldn't load recipes." />
+      ) : filtersActive && !searching && filterLoad.status !== 'done' ? (
+        <View style={styles.loading}>
+          <ActivityIndicator accessibilityLabel="Loading filtered recipes" color={colors.accent} />
+        </View>
+      ) : visibleRecipes.length === 0 ? (
+        <StateMessage message={filtersActive ? 'No recipes match your filters.' : searching ? 'No recipes found.' : 'No recipes yet.'} />
+      ) : (
+        <FlatList
+          style={styles.list}
+          contentContainerStyle={listContentStyle}
+          data={visibleRecipes}
+          {...LIST_WINDOW}
+          keyExtractor={recipeKey}
+          onScroll={handleListScroll}
+          renderItem={renderItem}
+        />
+      )}
+      {saveFailed ? <NoticeBar message="Couldn't update your bookmark." bottom={bottomClearance} /> : null}
+    </TapAwayToDismiss>
   );
 }
 

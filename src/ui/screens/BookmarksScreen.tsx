@@ -19,6 +19,7 @@ import { PressableScale } from '../components/PressableScale';
 import { ReadinessFilterChips } from '../components/ReadinessFilterChips';
 import { SearchField } from '../components/SearchField';
 import { StateMessage } from '../components/StateMessage';
+import { TapAwayToDismiss } from '../components/TapAwayToDismiss';
 import {
   BOOKMARKS_TAGLINE,
   formatBookmarksSummary,
@@ -182,7 +183,7 @@ export function BookmarksScreen({
   );
 
   return (
-    <View style={styles.screen}>
+    <TapAwayToDismiss style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>Bookmarks</Text>
@@ -240,7 +241,7 @@ export function BookmarksScreen({
       ) : failures > 0 ? (
         <NoticeBar message="Couldn't update your bookmark." bottom={bottomClearance} />
       ) : null}
-    </View>
+    </TapAwayToDismiss>
   );
 }
 

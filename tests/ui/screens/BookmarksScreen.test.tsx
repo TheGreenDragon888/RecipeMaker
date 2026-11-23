@@ -5,7 +5,7 @@ import type { SavedRecipe } from '../../../src/domain/bookmarks';
 import type { ReadinessStatus, RecipeReadiness } from '../../../src/domain/recipeReadiness';
 import { BookmarksScreen, UNDO_BOOKMARK_MS } from '../../../src/ui/screens/BookmarksScreen';
 import { BOOKMARK_NOTICE_MS } from '../../../src/ui/useRecipeBookmarks';
-import { StyleSheet } from 'react-native';
+import { Keyboard, StyleSheet } from 'react-native';
 import { isLoading, recipeCards, shownOfType, shownText, styleOf } from '../../support/screen';
 
 const saved = (id: number, name: string): SavedRecipe => ({
@@ -188,6 +188,63 @@ describe('BookmarksScreen', () => {
       await setup();
       await search('pizza');
       expect(shownText()).toEqual(expect.arrayContaining(['Nothing matches', 'Try a different filter or search.']));
+    });
+  });
+
+  // Only the list closes the keyboard by itself (its scroll view); a plain View outside it takes no taps, so every
+  // other part of the screen needs the screen-wide wrapper.
+  describe('tapping away from the search box', () => {
+    let dismiss: jest.SpyInstance;
+    beforeEach(() => {
+      dismiss = jest.spyOn(Keyboard, 'dismiss');
+    });
+    afterEach(() => {
+      dismiss.mockRestore();
+    });
+
+    it('closes the keyboard when the title is tapped', async () => {
+      await setup();
+      await fireEvent.press(screen.getByText('Bookmarks'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the summary line is tapped', async () => {
+      await setup();
+      await fireEvent.press(screen.getByText('4 saved recipes · 1 ready to cook'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the empty message is tapped after a search finds nothing', async () => {
+      await setup();
+      await search('pizza');
+      await fireEvent.press(screen.getByText('Nothing matches'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the screen is tapped while the bookmarks load', async () => {
+      await setup({ listBookmarks: jest.fn(() => new Promise(() => {})) });
+      await fireEvent.press(screen.getByLabelText('Loading bookmarks'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the failure message is tapped', async () => {
+      await setup({ listBookmarks: jest.fn().mockRejectedValue(new Error('corrupt')) });
+      await fireEvent.press(screen.getByText("Couldn't load your bookmarks."));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('leaves a tap on a card to open its recipe', async () => {
+      const { onOpenRecipe } = await setup();
+      await fireEvent.press(recipeCards()[0]);
+      expect(onOpenRecipe).toHaveBeenCalledWith(1);
+      expect(dismiss).not.toHaveBeenCalled();
+    });
+
+    it('leaves a tap on a filter chip to filter', async () => {
+      await setup();
+      await pressChip('Swap, 1');
+      expect(shownTitles()).toEqual(['Chicken Stir-Fry']);
+      expect(dismiss).not.toHaveBeenCalled();
     });
   });
 

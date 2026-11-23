@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
@@ -20,6 +19,7 @@ import { PressableScale } from '../components/PressableScale';
 import { ReadinessFilterChips } from '../components/ReadinessFilterChips';
 import { RecipeCard } from '../components/RecipeCard';
 import { StateMessage } from '../components/StateMessage';
+import { TapAwayToDismiss } from '../components/TapAwayToDismiss';
 import { formatMatchedAgainst } from '../format/pantryInfo';
 import { colors, fonts, fontSize, radii, spacing } from '../theme';
 import { useRecipeBookmarks } from '../useRecipeBookmarks';
@@ -128,14 +128,7 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack, refreshK
   );
 
   return (
-    <TouchableWithoutFeedback
-      accessible={false}
-      onPress={() => {
-        Keyboard.dismiss();
-        setFiltersOpen(false);
-      }}
-    >
-      <View style={styles.screen} testID="results-screen">
+    <TapAwayToDismiss style={styles.screen} testID="results-screen" onDismiss={() => setFiltersOpen(false)}>
       <View style={styles.header}>
         <BackButton label="Back to pantry" onPress={onBack} />
         <Text style={styles.title}>Recipes for You</Text>
@@ -272,8 +265,7 @@ export function ResultsScreen({ services, pantry, onOpenRecipe, onBack, refreshK
         </ScrollView>
       )}
       {saveFailed ? <NoticeBar message="Couldn't update your bookmark." bottom={spacing.xl} /> : null}
-      </View>
-    </TouchableWithoutFeedback>
+    </TapAwayToDismiss>
   );
 }
 
