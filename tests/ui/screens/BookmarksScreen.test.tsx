@@ -6,7 +6,7 @@ import type { ReadinessStatus, RecipeReadiness } from '../../../src/domain/recip
 import { BookmarksScreen, UNDO_BOOKMARK_MS } from '../../../src/ui/screens/BookmarksScreen';
 import { BOOKMARK_NOTICE_MS } from '../../../src/ui/useRecipeBookmarks';
 import { Keyboard, StyleSheet } from 'react-native';
-import { isLoading, recipeCards, shownOfType, shownText, styleOf } from '../../support/screen';
+import { isLoading, recipeCards, shownOfType, shownText, styleOf, touchClaimingAncestors } from '../../support/screen';
 
 const saved = (id: number, name: string): SavedRecipe => ({
   savedOrder: 10 - id,
@@ -245,6 +245,23 @@ describe('BookmarksScreen', () => {
       await pressChip('Swap, 1');
       expect(shownTitles()).toEqual(['Chicken Stir-Fry']);
       expect(dismiss).not.toHaveBeenCalled();
+    });
+  });
+
+  // A view that takes a touch landing on a blank spot (the tap-away wrapper) stops the list under it scrolling from
+  // that spot: iOS's scroll view won't scroll with an ancestor holding the touch, and on Android that view takes the
+  // swipe. So no list may sit inside one; the lists close the keyboard for their own blank spots.
+  describe('scrolling', () => {
+    it('has no view above the list or the filter chips that takes a touch on a blank spot', async () => {
+      await setup();
+      const lists = shownOfType('RCTScrollView');
+      expect(lists.length).toBeGreaterThan(0);
+      expect(lists.map((list) => touchClaimingAncestors(list).length)).toEqual(lists.map(() => 0));
+    });
+
+    it('closes the keyboard from a blank spot in the list by the list itself', async () => {
+      await setup();
+      expect(recipeList().props.keyboardShouldPersistTaps).toBe('handled');
     });
   });
 

@@ -183,39 +183,47 @@ export function BookmarksScreen({
   );
 
   return (
-    <TapAwayToDismiss style={styles.screen}>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>Bookmarks</Text>
-          <Text style={styles.tagline} numberOfLines={1}>
-            {BOOKMARKS_TAGLINE}
-          </Text>
+    // The tap-away wrapper goes around the parts that don't scroll, never around the list or the chips' row: a view
+    // that takes a touch on a blank spot would stop them scrolling from that spot (see TapAwayToDismiss).
+    <View style={styles.screen}>
+      <TapAwayToDismiss fill={false}>
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>Bookmarks</Text>
+            <Text style={styles.tagline} numberOfLines={1}>
+              {BOOKMARKS_TAGLINE}
+            </Text>
+          </View>
+          {load.status === 'done' ? (
+            <Text style={styles.summary}>{formatBookmarksSummary(saved.length, byRecipe ? counts.ready : null)}</Text>
+          ) : null}
         </View>
-        {load.status === 'done' ? (
-          <Text style={styles.summary}>{formatBookmarksSummary(saved.length, byRecipe ? counts.ready : null)}</Text>
-        ) : null}
-      </View>
 
-      <SearchField
-        label="Search bookmarks"
-        placeholder="Search your bookmarks…"
-        clearLabel="Clear search"
-        value={query}
-        onChangeText={setQuery}
-      />
+        <SearchField
+          label="Search bookmarks"
+          placeholder="Search your bookmarks…"
+          clearLabel="Clear search"
+          value={query}
+          onChangeText={setQuery}
+        />
 
-      {readiness.status === 'failed' ? <Text style={styles.pantryProblem}>Couldn't check your pantry.</Text> : null}
+        {readiness.status === 'failed' ? <Text style={styles.pantryProblem}>Couldn't check your pantry.</Text> : null}
+      </TapAwayToDismiss>
 
       {byRecipe ? <ReadinessFilterChips selected={filter} counts={counts} onSelect={setFilter} /> : null}
 
       {load.status === 'loading' ? (
-        <View style={styles.loading}>
+        <TapAwayToDismiss style={styles.loading}>
           <ActivityIndicator accessibilityLabel="Loading bookmarks" color={colors.accent} />
-        </View>
+        </TapAwayToDismiss>
       ) : load.status === 'failed' ? (
-        <StateMessage message="Couldn't load your bookmarks." />
+        <TapAwayToDismiss>
+          <StateMessage message="Couldn't load your bookmarks." />
+        </TapAwayToDismiss>
       ) : visible.length === 0 ? (
-        <EmptyState noneSaved={saved.length === 0} onBrowseRecipes={onBrowseRecipes} />
+        <TapAwayToDismiss>
+          <EmptyState noneSaved={saved.length === 0} onBrowseRecipes={onBrowseRecipes} />
+        </TapAwayToDismiss>
       ) : (
         <FlatList
           style={styles.list}
@@ -241,7 +249,7 @@ export function BookmarksScreen({
       ) : failures > 0 ? (
         <NoticeBar message="Couldn't update your bookmark." bottom={bottomClearance} />
       ) : null}
-    </TapAwayToDismiss>
+    </View>
   );
 }
 

@@ -320,43 +320,48 @@ export function PantryScreen({
   const listBottom = bottomClearance + FIND_BUTTON_SPACE + (hasTray ? TRAY_HANDLE_SPACE : 0);
 
   return (
-    <TapAwayToDismiss style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.title}>My Pantry</Text>
-        <Text style={styles.tagline} numberOfLines={1}>
-          {formatMealTagline(now().getHours())}
-        </Text>
-      </View>
-
-      <View
-        style={styles.addArea}
-        testID="add-area"
-        onLayout={(event) => {
-          const { y, height } = event.nativeEvent.layout;
-          setDropdownTop(y + height + spacing.sm);
-        }}
-      >
-        <View style={[styles.field, focused && styles.fieldFocused]}>
-          <Icon name="search" size={18} color={colors.textMuted} />
-          <TextInput
-            accessibilityLabel="Add an ingredient"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!loading}
-            onBlur={leaveField}
-            onChangeText={changeText}
-            onFocus={enterField}
-            onSubmitEditing={submit}
-            placeholder="Add an ingredient…"
-            placeholderTextColor={colors.textMuted}
-            returnKeyType="done"
-            style={styles.input}
-            submitBehavior="submit"
-            value={text}
-          />
-          {text ? <ClearFieldButton label="Clear ingredient" onPress={() => changeText('')} /> : null}
+    // The tap-away wrapper goes around the parts that don't scroll (the header and field, the dropdown), never around
+    // the list: a view that takes a touch on a blank spot would stop the list scrolling from that spot, and most of a
+    // row is blank (see TapAwayToDismiss). The list closes the keyboard for its own blank spots.
+    <View style={styles.screen}>
+      <TapAwayToDismiss fill={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>My Pantry</Text>
+          <Text style={styles.tagline} numberOfLines={1}>
+            {formatMealTagline(now().getHours())}
+          </Text>
         </View>
-      </View>
+  
+        <View
+          style={styles.addArea}
+          testID="add-area"
+          onLayout={(event) => {
+            const { y, height } = event.nativeEvent.layout;
+            setDropdownTop(y + height + spacing.sm);
+          }}
+        >
+          <View style={[styles.field, focused && styles.fieldFocused]}>
+            <Icon name="search" size={18} color={colors.textMuted} />
+            <TextInput
+              accessibilityLabel="Add an ingredient"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!loading}
+              onBlur={leaveField}
+              onChangeText={changeText}
+              onFocus={enterField}
+              onSubmitEditing={submit}
+              placeholder="Add an ingredient…"
+              placeholderTextColor={colors.textMuted}
+              returnKeyType="done"
+              style={styles.input}
+              submitBehavior="submit"
+              value={text}
+            />
+            {text ? <ClearFieldButton label="Clear ingredient" onPress={() => changeText('')} /> : null}
+          </View>
+        </View>
+      </TapAwayToDismiss>
 
       <ScrollView style={styles.list} contentContainerStyle={[styles.listContent, { paddingBottom: listBottom }]} keyboardShouldPersistTaps="handled">
         {catalogFailed ? <Text style={styles.hint}>Couldn’t load units and seasonings.</Text> : null}
@@ -442,7 +447,7 @@ export function PantryScreen({
         they're drawn over the list, the tray and the sheet, as the field's area was.
       */}
       {suggestions.length > 0 || notice ? (
-        <View style={[styles.dropdown, { top: dropdownTop }]} testID="field-dropdown">
+        <TapAwayToDismiss fill={false} style={[styles.dropdown, { top: dropdownTop }]} testID="field-dropdown">
           {suggestions.length > 0 ? <SuggestionList suggestions={suggestions} typed={text} onSelect={add} /> : null}
           {notice ? (
             // Android fades the notice as one picture, not its box and words separately (see AGENTS.md §5.2).
@@ -466,9 +471,9 @@ export function PantryScreen({
               )}
             </Animated.View>
           ) : null}
-        </View>
+        </TapAwayToDismiss>
       ) : null}
-    </TapAwayToDismiss>
+    </View>
   );
 }
 

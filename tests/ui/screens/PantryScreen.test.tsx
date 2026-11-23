@@ -9,7 +9,7 @@ import type { PantryCatalog } from '../../../src/domain/pantryCatalog';
 import type { PantryItem } from '../../../src/domain/pantry';
 import type { PantryRestoreChange, RestoredPantry } from '../../../src/domain/savedPantry';
 import { drag } from '../../support/drag';
-import { fadesAsOnePicture, layoutBoxOf, listContentStyle, shownIcons, shownText, styleOf, tapTwiceBeforeRedraw } from '../../support/screen';
+import { fadesAsOnePicture, layoutBoxOf, listContentStyle, shownIcons, shownOfType, shownText, styleOf, tapTwiceBeforeRedraw, touchClaimingAncestors } from '../../support/screen';
 
 const suggestion = (ingredient: string, matchedAlias: string | null = null) => ({ ingredient, matchedAlias });
 
@@ -527,6 +527,30 @@ describe('PantryScreen', () => {
       await press('Add tofu');
       expect(pantryNames()).toEqual(['tofu']);
       expect(dismiss).not.toHaveBeenCalled();
+    });
+  });
+
+  // A view that takes a touch landing on a blank spot (the tap-away wrapper) stops the list under it scrolling from
+  // that spot: iOS's scroll view won't scroll with an ancestor holding the touch, and on Android that view takes the
+  // swipe. The rows' names are plain text, so most of the list is blank spots. No list may sit inside such a view;
+  // the list closes the keyboard for its own blank spots.
+  describe('scrolling', () => {
+    it('has no view above the list that takes a touch on a blank spot', async () => {
+      await setup();
+      const lists = shownOfType('RCTScrollView');
+      expect(lists.length).toBeGreaterThan(0);
+      expect(lists.map((list) => touchClaimingAncestors(list).length)).toEqual(lists.map(() => 0));
+    });
+
+    it('has none above the list while the pantry has ingredients in it', async () => {
+      await setup();
+      await addIngredient('tofu');
+      expect(shownOfType('RCTScrollView').map((list) => touchClaimingAncestors(list).length)).toEqual([0]);
+    });
+
+    it('lets the list close the keyboard from its own blank spots', async () => {
+      await setup();
+      expect(shownOfType('RCTScrollView')[0].props.keyboardShouldPersistTaps).toBe('handled');
     });
   });
 

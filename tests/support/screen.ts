@@ -35,6 +35,20 @@ export function shownOfType(type: string): TestInstance[] {
   return screen.container.queryAll((node) => node.type === type);
 }
 
+/**
+ * The native views above this one that would take a touch landing on a spot where nothing else does (a screen-wide
+ * TouchableWithoutFeedback, say). React Native won't scroll a list under one: iOS's scroll view refuses to scroll
+ * when an ancestor holds the touch, and on Android the view holding it takes the swipe from the list. So a list's
+ * answer must be empty (see AGENTS.md §5.2, "Tapping away from a text field").
+ */
+export function touchClaimingAncestors(element: TestInstance): TestInstance[] {
+  const found: TestInstance[] = [];
+  for (let node = element.parent; node; node = node.parent) {
+    if (typeof node.type === 'string' && typeof node.props.onStartShouldSetResponder === 'function') found.push(node);
+  }
+  return found;
+}
+
 /** The touch event a finger sends to a button (React Native's responder events). */
 const touchEvent = () => ({
   nativeEvent: { timestamp: 0, pageX: 0, pageY: 0, locationX: 0, locationY: 0, touches: [], changedTouches: [] },

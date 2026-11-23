@@ -6,7 +6,17 @@ import type { RecipeSummary } from '../../../src/domain/recipe';
 import type { RecipeReadiness } from '../../../src/domain/recipeReadiness';
 import { RecipesScreen } from '../../../src/ui/screens/RecipesScreen';
 import { colors, dock } from '../../../src/ui/theme';
-import { isLoading, listContentStyle, listWindow, recipeCardNames, recipeCards, shownText, styleOf } from '../../support/screen';
+import {
+  isLoading,
+  listContentStyle,
+  listWindow,
+  recipeCardNames,
+  recipeCards,
+  shownOfType,
+  shownText,
+  styleOf,
+  touchClaimingAncestors,
+} from '../../support/screen';
 
 function makeSummary(id: number, name: string): RecipeSummary {
   return { id, name, totalTimeMinutes: 30, activeTimeMinutes: 15, servingsMin: 4, servingsMax: 4 };
@@ -635,6 +645,99 @@ describe('RecipesScreen', () => {
     it('does not show the no-recipes message when loading fails', async () => {
       await setup({ listAllRecipes: jest.fn().mockRejectedValue(new Error('database busy')) });
       expect(shownText()).not.toContain('No recipes yet.');
+    });
+  });
+});
+
+// Only a list closes the keyboard by itself (its scroll view); a plain View outside it takes no taps, so the parts of
+// the screen that don't scroll sit inside the tap-away wrapper. The wrapper must never hold a list: a view that takes
+// a touch landing on a blank spot stops the list under it scrolling from that spot (iOS's scroll view won't scroll
+// with an ancestor holding the touch, and on Android that view takes the swipe).
+describe('RecipesScreen tapping away and scrolling', () => {
+  const chili = makeSummary(1, 'Chili');
+  const quickSoup = makeSummary(2, 'Quick Soup');
+  const bothRecipes = () => jest.fn().mockResolvedValue([chili, quickSoup]);
+  /** Lets the Filters sheet finish sliding (its slide runs on timers). */
+  const settle = () =>
+    act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  describe('tapping away from the search field', () => {
+    let dismiss: jest.SpyInstance;
+    beforeEach(() => {
+      dismiss = jest.spyOn(Keyboard, 'dismiss');
+    });
+    afterEach(() => {
+      dismiss.mockRestore();
+    });
+
+    it('closes the keyboard when the title is tapped', async () => {
+      await setup({ listAllRecipes: bothRecipes() });
+      await fireEvent.press(screen.getByText('All Recipes'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the line under the title is tapped', async () => {
+      await setup({ listAllRecipes: bothRecipes() });
+      await fireEvent.press(screen.getByText('Every recipe in RecipeMaker'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the recipe count is tapped', async () => {
+      await setup({ listAllRecipes: bothRecipes() });
+      await fireEvent.press(screen.getByText('2 recipes'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the empty message is tapped', async () => {
+      await setup({ listAllRecipes: jest.fn().mockResolvedValue([]) });
+      await fireEvent.press(screen.getByText('No recipes yet.'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the failure message is tapped', async () => {
+      await setup({ listAllRecipes: jest.fn().mockRejectedValue(new Error('database busy')) });
+      await fireEvent.press(screen.getByText("Couldn't load recipes."));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('closes the keyboard when the screen is tapped while the recipes load', async () => {
+      await setup({ listAllRecipes: jest.fn(never) });
+      await fireEvent.press(screen.getByLabelText('Loading recipes'));
+      expect(dismiss).toHaveBeenCalled();
+    });
+
+    it('leaves a tap on a card to open its recipe', async () => {
+      const { onOpenRecipe } = await setup({ listAllRecipes: bothRecipes() });
+      await fireEvent.press(recipeCards()[0]);
+      expect(onOpenRecipe).toHaveBeenCalledWith(1);
+      expect(dismiss).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('scrolling', () => {
+    it('has no view above the list that takes a touch on a blank spot', async () => {
+      await setup({ listAllRecipes: bothRecipes() });
+      const lists = shownOfType('RCTScrollView');
+      expect(lists.length).toBeGreaterThan(0);
+      expect(lists.map((list) => touchClaimingAncestors(list).length)).toEqual(lists.map(() => 0));
+    });
+
+    it('has none above the Filters sheet or the list behind it while the sheet is open', async () => {
+      await setup({ listAllRecipes: bothRecipes() });
+      await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+      await settle();
+      const lists = shownOfType('RCTScrollView');
+      expect(lists.length).toBeGreaterThan(1);
+      expect(lists.map((list) => touchClaimingAncestors(list).length)).toEqual(lists.map(() => 0));
+    });
+
+    it('lets the list close the keyboard from its own blank spots, without swallowing the first tap on a card', async () => {
+      await setup({ listAllRecipes: bothRecipes() });
+      expect(shownOfType('RCTScrollView')[0].props.keyboardShouldPersistTaps).toBe('handled');
     });
   });
 });

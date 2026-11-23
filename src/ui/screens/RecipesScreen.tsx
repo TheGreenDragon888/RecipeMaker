@@ -208,70 +208,89 @@ export function RecipesScreen({
         ? load.recipes
         : [];
 
-  return (
-    <TapAwayToDismiss style={styles.screen} testID="recipes-screen">
-      <View style={styles.header}>
-        <Text style={styles.title}>All Recipes</Text>
-        <Text style={styles.subtitle}>Every recipe in RecipeMaker</Text>
-      </View>
-
-      <View style={styles.searchRow}>
-        <View style={[styles.field, searchFocused && styles.fieldFocused]}>
-          <Icon name="search" size={18} color={colors.textMuted} />
-          <TextInput
-            accessibilityLabel="Search recipes"
-            autoCapitalize="none"
-            autoCorrect={false}
-            onBlur={() => setSearchFocused(false)}
-            onChangeText={setSearchText}
-            onFocus={() => setSearchFocused(true)}
-            placeholder="Search all recipes…"
-            placeholderTextColor={colors.textMuted}
-            returnKeyType="search"
-            style={styles.input}
-            value={searchText}
-          />
-          {searchText ? <ClearFieldButton label="Clear search" onPress={() => setSearchText('')} /> : null}
-        </View>
-        <FiltersButton activeCount={filters.activeCount} onPress={filters.show} />
-      </View>
-
-      {readinessState === 'failed' ? <Text style={styles.pantryProblem}>Couldn't check your pantry.</Text> : null}
-
-      {load.status === 'loading' ? (
+  /** What fills the space in place of the list (loading, or a message), or null when the list shows. */
+  function inPlaceOfList(): React.ReactNode {
+    if (load.status === 'loading') {
+      return (
         <View style={styles.loading}>
           <ActivityIndicator accessibilityLabel="Loading recipes" color={colors.accent} />
         </View>
-      ) : load.status === 'failed' ? (
-        <StateMessage message="Couldn't load recipes." />
-      ) : searching && searchLoad.status === 'failed' ? (
-        <StateMessage message="Couldn't search recipes." />
-      ) : searching && searchLoad.status !== 'done' ? (
+      );
+    }
+    if (load.status === 'failed') return <StateMessage message="Couldn't load recipes." />;
+    if (searching && searchLoad.status === 'failed') return <StateMessage message="Couldn't search recipes." />;
+    if (searching && searchLoad.status !== 'done') {
+      return (
         <View style={styles.loading}>
           <ActivityIndicator accessibilityLabel="Searching recipes" color={colors.accent} />
         </View>
-      ) : filtersActive && !searching && filterLoad.status === 'failed' ? (
-        <StateMessage message="Couldn't load recipes." />
-      ) : filtersActive && !searching && filterLoad.status !== 'done' ? (
+      );
+    }
+    if (filtersActive && !searching && filterLoad.status === 'failed') return <StateMessage message="Couldn't load recipes." />;
+    if (filtersActive && !searching && filterLoad.status !== 'done') {
+      return (
         <View style={styles.loading}>
           <ActivityIndicator accessibilityLabel="Loading filtered recipes" color={colors.accent} />
         </View>
-      ) : visibleRecipes.length === 0 ? (
-        searching ? (
-          <StateMessage message="No recipes found." />
-        ) : filtersActive && appliedFilters ? (
-          <FilterNoMatches parts={filterParts(appliedFilters)} />
-        ) : (
-          <StateMessage message="No recipes yet." />
-        )
+      );
+    }
+    if (visibleRecipes.length > 0) return null;
+    if (searching) return <StateMessage message="No recipes found." />;
+    if (filtersActive && appliedFilters) return <FilterNoMatches parts={filterParts(appliedFilters)} />;
+    return <StateMessage message="No recipes yet." />;
+  }
+  const replacement = inPlaceOfList();
+
+  return (
+    // The tap-away wrapper goes around the parts that don't scroll, never around the list or the Filters sheet: a view
+    // that takes a touch on a blank spot would stop them scrolling from that spot (see TapAwayToDismiss). The list
+    // closes the keyboard for its own blank spots.
+    <View style={styles.screen} testID="recipes-screen">
+      <TapAwayToDismiss fill={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>All Recipes</Text>
+          <Text style={styles.subtitle}>Every recipe in RecipeMaker</Text>
+        </View>
+
+        <View style={styles.searchRow}>
+          <View style={[styles.field, searchFocused && styles.fieldFocused]}>
+            <Icon name="search" size={18} color={colors.textMuted} />
+            <TextInput
+              accessibilityLabel="Search recipes"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onBlur={() => setSearchFocused(false)}
+              onChangeText={setSearchText}
+              onFocus={() => setSearchFocused(true)}
+              placeholder="Search all recipes…"
+              placeholderTextColor={colors.textMuted}
+              returnKeyType="search"
+              style={styles.input}
+              value={searchText}
+            />
+            {searchText ? <ClearFieldButton label="Clear search" onPress={() => setSearchText('')} /> : null}
+          </View>
+          <FiltersButton activeCount={filters.activeCount} onPress={filters.show} />
+        </View>
+
+        {readinessState === 'failed' ? <Text style={styles.pantryProblem}>Couldn't check your pantry.</Text> : null}
+      </TapAwayToDismiss>
+
+      {replacement ? (
+        <TapAwayToDismiss>{replacement}</TapAwayToDismiss>
       ) : (
         <>
-          <Text style={styles.count}>{formatRecipeCount(visibleRecipes.length)}</Text>
+          <TapAwayToDismiss fill={false}>
+            <Text style={styles.count}>{formatRecipeCount(visibleRecipes.length)}</Text>
+          </TapAwayToDismiss>
           <FlatList
             style={styles.list}
             contentContainerStyle={listContentStyle}
             data={visibleRecipes}
             {...LIST_WINDOW}
+            // Closes the keyboard for a tap on a blank spot between the cards, and lets a card or its bookmark button
+            // work on the first tap with the keyboard up (the default would spend that tap on closing the keyboard).
+            keyboardShouldPersistTaps="handled"
             keyExtractor={recipeKey}
             renderItem={renderItem}
           />
@@ -289,7 +308,7 @@ export function RecipesScreen({
         dockSpot={spot}
         onCoversDockChange={setSheetCoversDock}
       />
-    </TapAwayToDismiss>
+    </View>
   );
 }
 

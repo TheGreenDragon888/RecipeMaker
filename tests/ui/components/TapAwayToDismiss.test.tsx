@@ -77,6 +77,18 @@ describe('TapAwayToDismiss', () => {
     expect(styleOf(screen.getByTestId('area')).flex).toBe(1);
   });
 
+  it('is only as big as what it holds when it is told not to fill, as a header-sized part of a screen is', async () => {
+    await render(<TapAwayToDismiss testID="area" fill={false} />);
+    expect(styleOf(screen.getByTestId('area')).flex).toBeUndefined();
+  });
+
+  it('still closes the keyboard when it does not fill', async () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss');
+    await render(<TapAwayToDismiss testID="area" fill={false} />);
+    await fireEvent.press(screen.getByTestId('area'));
+    expect(dismiss).toHaveBeenCalledTimes(1);
+  });
+
   it('takes a style that adds to filling the space', async () => {
     await render(<TapAwayToDismiss testID="area" style={{ backgroundColor: 'white' }} />);
     expect(styleOf(screen.getByTestId('area'))).toMatchObject({ flex: 1, backgroundColor: 'white' });
