@@ -41,6 +41,16 @@ describe('Icon', () => {
     expect([shownOfType('RNSVGPath').length, shownOfType('RNSVGLine').length]).toEqual([2, 3]);
   });
 
+  it("draws the Filters button's sliders from the board's shapes (two rails, each in two pieces around its knob)", async () => {
+    await render(<Icon name="filters" size={18} color="#000" />);
+    expect([shownOfType('RNSVGLine').length, shownOfType('RNSVGCircle').length]).toEqual([4, 2]);
+  });
+
+  it("draws the no-matches magnifier from the board's shapes (a glass, its handle and a cross)", async () => {
+    await render(<Icon name="searchOff" size={32} color="#000" />);
+    expect([shownOfType('RNSVGCircle').length, shownOfType('RNSVGLine').length]).toEqual([1, 3]);
+  });
+
   // react-native-svg draws a Polyline as a path through the same points.
   it.each([
     ['check', 'M5 13 10 18 19 7'],

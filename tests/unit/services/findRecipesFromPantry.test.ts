@@ -144,6 +144,24 @@ describe('findRecipesFromPantry', () => {
     ]);
   });
 
+  it('keeps recipes that serve at least the selected number of people', async () => {
+    const repo = new InMemoryRecipeRepository([
+      { id: 1, name: 'Serves one', servingsMin: 1, servingsMax: 1, ingredients: [{ ingredient: 'egg' }] },
+      { id: 2, name: 'Serves two to four', servingsMin: 2, servingsMax: 4, ingredients: [{ ingredient: 'egg' }] },
+      { id: 3, name: 'Serves six', servingsMin: 6, servingsMax: 6, ingredients: [{ ingredient: 'egg' }] },
+    ]);
+
+    expect(names(await findRecipesFromPantry(repo, ['egg'], { people: 2 }))).toEqual(['Serves six', 'Serves two to four']);
+  });
+
+  it('rejects a number of people that is not a positive whole number', async () => {
+    const repo = new InMemoryRecipeRepository([{ id: 1, ingredients: [{ ingredient: 'egg' }] }]);
+
+    await expect(findRecipesFromPantry(repo, ['egg'], { people: 0 })).rejects.toThrow(
+      'The number of people must be a positive whole number.',
+    );
+  });
+
   it('can require the Meal Prep tag without changing pantry match counts', async () => {
     const repo = new InMemoryRecipeRepository(
       [

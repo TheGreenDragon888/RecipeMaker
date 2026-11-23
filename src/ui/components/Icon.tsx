@@ -100,6 +100,29 @@ const shapes = {
       <Line x1="14" y1="11" x2="14" y2="16" />
     </>
   ),
+  /**
+   * The Filters button's two sliders. The board fills each knob with the button's own color so it hides the rail
+   * behind it; icons here are outlines only, so each rail is drawn in two pieces that stop at its knob.
+   */
+  filters: (
+    <>
+      <Line x1="4" y1="7" x2="6.6" y2="7" />
+      <Line x1="11.4" y1="7" x2="20" y2="7" />
+      <Line x1="4" y1="17" x2="12.6" y2="17" />
+      <Line x1="17.4" y1="17" x2="20" y2="17" />
+      <Circle cx="9" cy="7" r="2.4" />
+      <Circle cx="15" cy="17" r="2.4" />
+    </>
+  ),
+  /** The "No recipes match your filters" tile: a magnifier with a cross in its glass. */
+  searchOff: (
+    <>
+      <Circle cx="10.5" cy="10.5" r="6.5" />
+      <Line x1="15.5" y1="15.5" x2="20.5" y2="20.5" />
+      <Line x1="8" y1="8" x2="13" y2="13" />
+      <Line x1="13" y1="8" x2="8" y2="13" />
+    </>
+  ),
   check: <Polyline points="5,13 10,18 19,7" />,
   swap: (
     <>

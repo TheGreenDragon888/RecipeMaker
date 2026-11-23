@@ -1,30 +1,25 @@
-﻿// PRESENTATION LAYER: browse, search, and filter all recipes, without a pantry.
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Keyboard,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  type ListRenderItem,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+﻿// PRESENTATION LAYER: browse, search, and filter all recipes, without a pantry. The Filters button beside the search
+// field opens the board's Filters sheet (hands-on time, number of people, Meal Prep); closing it applies the choices.
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, type ListRenderItem, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { RecipeServices } from '../../createRecipeServices';
 import type { RecipeSummary } from '../../domain/recipe';
+import { activeFilterCount, type RecipeFilter } from '../../domain/recipeFilter';
 import type { RecipeReadiness } from '../../domain/recipeReadiness';
-import type { RecipeFilter } from '../../services/filterRecipes';
 import { ClearFieldButton } from '../components/ClearFieldButton';
+import { FilterNoMatches } from '../components/FilterNoMatches';
+import { FiltersButton } from '../components/FiltersButton';
+import { FiltersSheet } from '../components/FiltersSheet';
 import { Icon } from '../components/Icon';
-import { PressableScale } from '../components/PressableScale';
 import { NoticeBar } from '../components/NoticeBar';
 import { RecipeCard } from '../components/RecipeCard';
 import { StateMessage } from '../components/StateMessage';
 import { TapAwayToDismiss } from '../components/TapAwayToDismiss';
+import { filterParts, formatRecipeCount } from '../format/recipeFilters';
+import { dockSpot } from '../platform/dockLayout';
 import { colors, dock, fonts, fontSize, radii, spacing } from '../theme';
 import { useRecipeBookmarks } from '../useRecipeBookmarks';
+import { useRecipeFilters } from '../useRecipeFilters';
 import { useRecipeReadiness, type RecipeReadinessState } from '../useRecipeReadiness';
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -39,6 +34,10 @@ type Props = {
   onOpenRecipe: (recipeId: number) => void;
   /** Room to leave at the bottom for the tab bar (platform/dockLayout's dockClearance). Defaults to the board's. */
   bottomClearance?: number;
+  /** The safe area's bottom inset: where the dock sits, and the room the Filters sheet leaves under its content. */
+  bottomInset?: number;
+  /** Called with true while the Filters sheet is over the dock's spot, so the tabs layout can move the dock away. */
+  onSheetShownChange?: (shown: boolean) => void;
   /** Changes when the screen comes back into view, so bookmarks and pantry changes made elsewhere show here. */
   refreshKey?: number;
 };
@@ -78,22 +77,46 @@ export function RecipesScreen({
   services,
   onOpenRecipe,
   bottomClearance = dock.clearance,
+  bottomInset = 0,
+  onSheetShownChange,
   refreshKey = 0,
 }: Props) {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [searchText, setSearchText] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchLoad, setSearchLoad] = useState<SearchLoad>({ status: 'idle' });
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [minimumServings, setMinimumServings] = useState('');
-  const [maximumServings, setMaximumServings] = useState('');
-  const [maximumActiveMinutes, setMaximumActiveMinutes] = useState('');
-  const [mealPrepOnly, setMealPrepOnly] = useState(false);
-  const [appliedFilters, setAppliedFilters] = useState<RecipeFilter>();
-  const [filterError, setFilterError] = useState<string | null>(null);
   const [filterLoad, setFilterLoad] = useState<FilterLoad>({ status: 'idle' });
+  /** Whether the Filters sheet is over the dock's spot as it moves. */
+  const [sheetCoversDock, setSheetCoversDock] = useState(false);
   const { savedIds, toggle, saveFailed } = useRecipeBookmarks(services, refreshKey);
   const { readiness, state: readinessState, watch: watchReadiness } = useRecipeReadiness(services, refreshKey);
+
+  // How many recipes a set of choices in the Filters sheet would show, counted the way the list is: a search first.
+  const countFor = useCallback(
+    async (draft: RecipeFilter) => {
+      const filtered = activeFilterCount(draft) > 0;
+      if (searchText.trim()) {
+        const found = await (filtered ? services.searchRecipes(searchText, draft) : services.searchRecipes(searchText));
+        return found.length;
+      }
+      if (!filtered) return load.status === 'done' ? load.recipes.length : 0;
+      return (await services.filterRecipes(draft)).length;
+    },
+    [load, searchText, services],
+  );
+  const filters = useRecipeFilters(countFor);
+  const appliedFilters = filters.applied;
+  const filtersActive = filters.activeCount > 0;
+  const spot = useMemo(() => dockSpot(bottomInset), [bottomInset]);
+
+  // While the sheet is over the dock's spot, the dock must move out of its way; it comes back as soon as the sheet
+  // leaves it room. Leaving with the sheet open (the screen goes away) must not leave the dock hidden.
+  const latestOnSheetShownChange = useRef(onSheetShownChange);
+  latestOnSheetShownChange.current = onSheetShownChange;
+  useEffect(() => {
+    latestOnSheetShownChange.current?.(sheetCoversDock);
+  }, [sheetCoversDock]);
+  useEffect(() => () => latestOnSheetShownChange.current?.(false), []);
 
   useEffect(() => {
     // A reply that arrives after the screen is gone must not update it.
@@ -158,49 +181,6 @@ export function RecipesScreen({
     };
   }, [appliedFilters, searchText, services]);
 
-  const applyFilters = () => {
-    Keyboard.dismiss();
-    const min = minimumServings.trim() ? Number(minimumServings) : undefined;
-    const max = maximumServings.trim() ? Number(maximumServings) : undefined;
-    const activeMinutes = maximumActiveMinutes.trim() ? Number(maximumActiveMinutes) : undefined;
-    if (
-      (min !== undefined && (!Number.isInteger(min) || min < 1)) ||
-      (max !== undefined && (!Number.isInteger(max) || max < 1)) ||
-      (activeMinutes !== undefined && (!Number.isInteger(activeMinutes) || activeMinutes < 1))
-    ) {
-      setFilterError('Serving counts and active time must be positive whole numbers.');
-      return;
-    }
-    if ((min === undefined) !== (max === undefined)) {
-      setFilterError('Enter both the minimum and maximum servings.');
-      return;
-    }
-    if (min !== undefined && max !== undefined && max < min) {
-      setFilterError('Maximum servings must be at least the minimum.');
-      return;
-    }
-
-    const filters: RecipeFilter = {};
-    if (min !== undefined && max !== undefined) filters.servingRange = { min, max };
-    if (activeMinutes !== undefined) filters.maxActiveMinutes = activeMinutes;
-    if (mealPrepOnly) filters.mealPrepOnly = true;
-    setFilterError(null);
-    setAppliedFilters(Object.keys(filters).length > 0 ? filters : undefined);
-  };
-
-  const clearFilters = () => {
-    Keyboard.dismiss();
-    setMinimumServings('');
-    setMaximumServings('');
-    setMaximumActiveMinutes('');
-    setMealPrepOnly(false);
-    setFilterError(null);
-    setAppliedFilters(undefined);
-  };
-  const filtersActive = Boolean(
-    appliedFilters?.servingRange || appliedFilters?.maxActiveMinutes || appliedFilters?.mealPrepOnly,
-  );
-
   // The list redraws every card when these change, so they stay the same objects across the screen's redraws
   // (the tab redraws this screen each time it opens).
   const renderItem = useCallback<ListRenderItem<RecipeSummary>>(
@@ -217,12 +197,6 @@ export function RecipesScreen({
     [onOpenRecipe, readiness, savedIds, toggle, watchReadiness],
   );
   const listContentStyle = useMemo(() => [styles.listContent, { paddingBottom: bottomClearance }], [bottomClearance]);
-  const handleListScroll = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      if (filtersOpen && event.nativeEvent.contentOffset.y > 8) setFiltersOpen(false);
-    },
-    [filtersOpen],
-  );
 
   const searching = Boolean(searchText.trim());
   const visibleRecipes =
@@ -235,113 +209,31 @@ export function RecipesScreen({
         : [];
 
   return (
-    <TapAwayToDismiss style={styles.screen} testID="recipes-screen" onDismiss={() => setFiltersOpen(false)}>
+    <TapAwayToDismiss style={styles.screen} testID="recipes-screen">
       <View style={styles.header}>
         <Text style={styles.title}>All Recipes</Text>
-        <PressableScale
-          size="small"
-          accessibilityRole="button"
-          accessibilityLabel="Filters"
-          accessibilityState={{ expanded: filtersOpen }}
-          onPress={() => {
-            Keyboard.dismiss();
-            setFiltersOpen((open) => !open);
-          }}
-          style={({ pressed }) => [styles.filterToggle, filtersActive && styles.filterToggleActive, pressed && styles.controlPressed]}
-        >
-          <Text style={styles.filterToggleText}>{filtersActive ? 'Filters · Active' : 'Filters'}</Text>
-        </PressableScale>
+        <Text style={styles.subtitle}>Every recipe in RecipeMaker</Text>
       </View>
 
-      {filtersOpen ? (
-        <View style={styles.filterPanel}>
-          <Text style={styles.filterHeading}>People Recipe Serves</Text>
-          <View style={styles.servingFields}>
-            <TextInput
-              accessibilityLabel="Minimum servings"
-              keyboardType="number-pad"
-              onChangeText={setMinimumServings}
-              placeholder="Min"
-              placeholderTextColor={colors.textMuted}
-              style={styles.servingInput}
-              value={minimumServings}
-            />
-            <Text style={styles.rangeSeparator}>to</Text>
-            <TextInput
-              accessibilityLabel="Maximum servings"
-              keyboardType="number-pad"
-              onChangeText={setMaximumServings}
-              placeholder="Max"
-              placeholderTextColor={colors.textMuted}
-              style={styles.servingInput}
-              value={maximumServings}
-            />
-          </View>
-          <Text style={styles.filterHeading}>Maximum active time (minutes)</Text>
+      <View style={styles.searchRow}>
+        <View style={[styles.field, searchFocused && styles.fieldFocused]}>
+          <Icon name="search" size={18} color={colors.textMuted} />
           <TextInput
-            accessibilityLabel="Maximum active time in minutes"
-            keyboardType="number-pad"
-            onChangeText={setMaximumActiveMinutes}
-            placeholder="No limit"
+            accessibilityLabel="Search recipes"
+            autoCapitalize="none"
+            autoCorrect={false}
+            onBlur={() => setSearchFocused(false)}
+            onChangeText={setSearchText}
+            onFocus={() => setSearchFocused(true)}
+            placeholder="Search all recipes…"
             placeholderTextColor={colors.textMuted}
-            style={styles.servingInput}
-            value={maximumActiveMinutes}
+            returnKeyType="search"
+            style={styles.input}
+            value={searchText}
           />
-          <PressableScale
-            size="small"
-            accessibilityRole="button"
-            accessibilityLabel="Meal Prep only"
-            accessibilityState={{ selected: mealPrepOnly }}
-            onPress={() => setMealPrepOnly((selected) => !selected)}
-            style={({ pressed }) => [
-              styles.mealPrepToggle,
-              mealPrepOnly && styles.mealPrepSelected,
-              pressed && styles.controlPressed,
-            ]}
-          >
-            <Text style={[styles.mealPrepText, mealPrepOnly && styles.mealPrepSelectedText]}>Meal Prep only</Text>
-          </PressableScale>
-          <Text style={styles.filterDescription}>Recipes that serve 4+ and keep well when made ahead.</Text>
-          {filterError ? <Text accessibilityRole="alert" style={styles.filterError}>{filterError}</Text> : null}
-          <View style={styles.filterActions}>
-            <PressableScale
-              size="small"
-              accessibilityRole="button"
-              accessibilityLabel="Apply filters"
-              onPress={applyFilters}
-              style={({ pressed }) => [styles.applyButton, pressed && styles.controlPressed]}
-            >
-              <Text style={styles.applyText}>Apply filters</Text>
-            </PressableScale>
-            <PressableScale
-              size="small"
-              accessibilityRole="button"
-              accessibilityLabel="Clear filters"
-              onPress={clearFilters}
-              style={({ pressed }) => [styles.clearButton, pressed && styles.controlPressed]}
-            >
-              <Text style={styles.clearText}>Clear</Text>
-            </PressableScale>
-          </View>
+          {searchText ? <ClearFieldButton label="Clear search" onPress={() => setSearchText('')} /> : null}
         </View>
-      ) : null}
-
-      <View style={[styles.field, searchFocused && styles.fieldFocused]}>
-        <Icon name="search" size={18} color={colors.textMuted} />
-        <TextInput
-          accessibilityLabel="Search recipes"
-          autoCapitalize="none"
-          autoCorrect={false}
-          onBlur={() => setSearchFocused(false)}
-          onChangeText={setSearchText}
-          onFocus={() => setSearchFocused(true)}
-          placeholder="Search all recipes…"
-          placeholderTextColor={colors.textMuted}
-          returnKeyType="search"
-          style={styles.input}
-          value={searchText}
-        />
-        {searchText ? <ClearFieldButton label="Clear search" onPress={() => setSearchText('')} /> : null}
+        <FiltersButton activeCount={filters.activeCount} onPress={filters.show} />
       </View>
 
       {readinessState === 'failed' ? <Text style={styles.pantryProblem}>Couldn't check your pantry.</Text> : null}
@@ -365,27 +257,49 @@ export function RecipesScreen({
           <ActivityIndicator accessibilityLabel="Loading filtered recipes" color={colors.accent} />
         </View>
       ) : visibleRecipes.length === 0 ? (
-        <StateMessage message={filtersActive ? 'No recipes match your filters.' : searching ? 'No recipes found.' : 'No recipes yet.'} />
+        searching ? (
+          <StateMessage message="No recipes found." />
+        ) : filtersActive && appliedFilters ? (
+          <FilterNoMatches parts={filterParts(appliedFilters)} />
+        ) : (
+          <StateMessage message="No recipes yet." />
+        )
       ) : (
-        <FlatList
-          style={styles.list}
-          contentContainerStyle={listContentStyle}
-          data={visibleRecipes}
-          {...LIST_WINDOW}
-          keyExtractor={recipeKey}
-          onScroll={handleListScroll}
-          renderItem={renderItem}
-        />
+        <>
+          <Text style={styles.count}>{formatRecipeCount(visibleRecipes.length)}</Text>
+          <FlatList
+            style={styles.list}
+            contentContainerStyle={listContentStyle}
+            data={visibleRecipes}
+            {...LIST_WINDOW}
+            keyExtractor={recipeKey}
+            renderItem={renderItem}
+          />
+        </>
       )}
       {saveFailed ? <NoticeBar message="Couldn't update your bookmark." bottom={bottomClearance} /> : null}
+
+      <FiltersSheet
+        open={filters.open}
+        bottomInset={bottomInset}
+        value={appliedFilters ?? NO_FILTERS}
+        count={filters.count}
+        onChange={filters.onChange}
+        onClose={filters.onClose}
+        dockSpot={spot}
+        onCoversDockChange={setSheetCoversDock}
+      />
     </TapAwayToDismiss>
   );
 }
+
+const NO_FILTERS: RecipeFilter = {};
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: { paddingTop: spacing.screenTop, paddingHorizontal: spacing.screen, paddingBottom: spacing.xxs },
   title: { fontFamily: fonts.heading, fontSize: fontSize.screenTitle, color: colors.text },
+  subtitle: { marginTop: spacing.xs, fontFamily: fonts.regular, fontSize: fontSize.body, color: colors.textSecondary },
   pantryProblem: {
     marginTop: spacing.sm,
     marginHorizontal: spacing.screen,
@@ -393,72 +307,21 @@ const styles = StyleSheet.create({
     fontSize: fontSize.caption,
     color: colors.accent,
   },
-  filterToggle: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.pill,
-    backgroundColor: colors.surface,
-  },
-  filterToggleText: { fontFamily: fonts.semibold, fontSize: fontSize.body, color: colors.text },
-  filterToggleActive: { borderColor: colors.accent, backgroundColor: colors.accentTint },
-  filterPanel: {
-    marginHorizontal: spacing.screen,
-    marginBottom: spacing.sm,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-  },
-  filterHeading: { fontFamily: fonts.semibold, fontSize: fontSize.body, color: colors.text },
-  servingFields: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  servingInput: {
-    flex: 1,
-    minHeight: 42,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.sm,
-    backgroundColor: colors.background,
-    fontFamily: fonts.regular,
-    fontSize: fontSize.input,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  rangeSeparator: { fontFamily: fonts.regular, fontSize: fontSize.body, color: colors.textSecondary },
-  filterDescription: { fontFamily: fonts.regular, fontSize: fontSize.caption, color: colors.textSecondary },
-  mealPrepToggle: {
-    alignSelf: 'flex-start',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.pill,
-    backgroundColor: colors.background,
-  },
-  mealPrepSelected: { borderColor: colors.accent, backgroundColor: colors.accentTint },
-  mealPrepText: { fontFamily: fonts.semibold, fontSize: fontSize.body, color: colors.text },
-  mealPrepSelectedText: { color: colors.accent },
-  filterError: { fontFamily: fonts.regular, fontSize: fontSize.caption, color: colors.accent },
-  filterActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs },
-  applyButton: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg, borderRadius: radii.md, backgroundColor: colors.accent },
-  applyText: { fontFamily: fonts.bold, fontSize: fontSize.body, color: colors.onAccent },
-  clearButton: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
-  clearText: { fontFamily: fonts.semibold, fontSize: fontSize.body, color: colors.textSecondary },
-  controlPressed: { opacity: 0.8 },
-  field: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    minHeight: 44,
     marginTop: spacing.lg,
     marginBottom: spacing.xs,
     marginHorizontal: spacing.screen,
+  },
+  field: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 48,
     paddingHorizontal: spacing.lg,
     borderWidth: 1,
     borderColor: colors.border,
@@ -474,11 +337,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 0,
   },
+  count: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.screen + 2,
+    fontFamily: fonts.heavy,
+    fontSize: fontSize.body,
+    color: colors.text,
+  },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { flex: 1 },
   listContent: {
     gap: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.md,
     paddingHorizontal: spacing.screen,
     // The bottom padding, set in the JSX, keeps the last card clear of the dock.
   },

@@ -8,7 +8,7 @@ import { Keyboard, StyleSheet, TouchableWithoutFeedback, View, type StyleProp, t
 
 type Props = {
   children?: ReactNode;
-  /** Runs after the keyboard is told to close: a screen closes what else it floats (Recipes' filter panel). */
+  /** Runs after the keyboard is told to close, for a screen that floats something over its content and closes it too. */
   onDismiss?: () => void;
   /** Added to the wrapper's own style, which fills the space the screen gives it. */
   style?: StyleProp<ViewStyle>;

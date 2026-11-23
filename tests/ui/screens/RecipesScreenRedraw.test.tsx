@@ -24,6 +24,7 @@ const checkRecipesReadiness = jest.fn();
 const services = {
   listAllRecipes: jest.fn().mockResolvedValue(recipes),
   searchRecipes: jest.fn(),
+  filterRecipes: jest.fn().mockResolvedValue([]),
   listBookmarkIds: jest.fn().mockResolvedValue([]),
   addBookmark: jest.fn().mockResolvedValue(undefined),
   checkRecipesReadiness,
@@ -60,6 +61,23 @@ describe('RecipesScreen card redraws', () => {
     jest.mocked(formatDuration).mockClear();
     await rerender(screenWith(110));
     expect(formatDuration).not.toHaveBeenCalled();
+  });
+
+  // The sheet keeps its choices to itself until it closes, so changing them doesn't touch the list behind it.
+  it('does not redraw the cards while the Filters sheet is open and its choices change', async () => {
+    jest.useFakeTimers();
+    try {
+      await render(screenWith(110));
+      jest.mocked(formatDuration).mockClear();
+      await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
+      await fireEvent.press(screen.getByRole('switch', { name: 'Meal Prep' }));
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+      expect(formatDuration).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it('does not redraw the cards when a bookmark is tapped', async () => {

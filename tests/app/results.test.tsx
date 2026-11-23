@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, render, screen } from '@testing-library/react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RecipeServices } from '../../src/createRecipeServices';
 import { RecipeServicesProvider } from '../../src/ui/RecipeServicesContext';
 import { ResultsScreen } from '../../src/ui/screens/ResultsScreen';
@@ -12,6 +13,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: jest.fn(),
   useFocusEffect: jest.fn(),
 }));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: jest.fn() }));
 jest.mock('../../src/ui/screens/ResultsScreen', () => {
   const { recordProps } = jest.requireActual('../support/recordProps');
   const actual = jest.requireActual('../../src/ui/screens/ResultsScreen');
@@ -36,9 +38,19 @@ async function renderRoute(params: Record<string, string>) {
 
 const screenProps = () => lastProps(ResultsScreen);
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.mocked(useSafeAreaInsets).mockReturnValue({ top: 47, right: 0, bottom: 34, left: 0 });
+});
 
 describe('results route', () => {
+  // The root layout gives this screen no bottom padding, so the filters sheet can stand on the screen's bottom edge;
+  // the screen leaves room for the home indicator itself.
+  it('passes the bottom inset, so the screen leaves room for the home indicator itself', async () => {
+    await renderRoute({ pantry: '["tomato"]' });
+    expect(screenProps().bottomInset).toBe(34);
+  });
+
   it('renders the results screen with the started services', async () => {
     await renderRoute({ pantry: '["tomato"]' });
     expect(screenProps().services).toBe(services);

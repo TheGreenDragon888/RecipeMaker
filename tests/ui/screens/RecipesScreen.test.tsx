@@ -1,4 +1,5 @@
 ﻿import React from 'react';
+import { Keyboard } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { RecipeServices } from '../../../src/createRecipeServices';
 import type { RecipeSummary } from '../../../src/domain/recipe';
@@ -21,6 +22,7 @@ async function setup({
   removeBookmark = jest.fn().mockResolvedValue(undefined),
   checkRecipesReadiness = jest.fn().mockResolvedValue(null),
   bottomClearance,
+  onSheetShownChange,
 }: {
   listAllRecipes?: jest.Mock;
   searchRecipes?: jest.Mock;
@@ -30,6 +32,7 @@ async function setup({
   removeBookmark?: jest.Mock;
   checkRecipesReadiness?: jest.Mock;
   bottomClearance?: number;
+  onSheetShownChange?: jest.Mock;
 } = {}) {
   const services = {
     listAllRecipes,
@@ -42,7 +45,13 @@ async function setup({
   } as unknown as RecipeServices;
   const onOpenRecipe = jest.fn();
   const screenFor = (refreshKey: number) => (
-    <RecipesScreen services={services} onOpenRecipe={onOpenRecipe} bottomClearance={bottomClearance} refreshKey={refreshKey} />
+    <RecipesScreen
+      services={services}
+      onOpenRecipe={onOpenRecipe}
+      bottomClearance={bottomClearance}
+      onSheetShownChange={onSheetShownChange}
+      refreshKey={refreshKey}
+    />
   );
   await render(screenFor(0));
   /** Redraws the screen as its route does when it comes back into view. */
@@ -111,57 +120,235 @@ describe('RecipesScreen bookmarks', () => {
 });
 
 describe('RecipesScreen filters', () => {
-  it('shows the filter controls', async () => {
+  const chili = makeSummary(1, 'Chili');
+  const quickSoup = makeSummary(2, 'Quick Soup');
+  const bothRecipes = () => jest.fn().mockResolvedValue([chili, quickSoup]);
+  /** Lets replies arrive and the sheet finish sliding (its slide runs on timers). */
+  const settle = () =>
+    act(async () => {
+      jest.advanceTimersByTime(1000);
+    });
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+  const filtersButton = (name = 'Filters') => screen.getByRole('button', { name });
+  const openFilters = async () => {
+    await fireEvent.press(filtersButton());
+    await settle();
+  };
+  const choose = (name: string) => fireEvent.press(screen.getByRole('button', { name }));
+  /** The sheet's wide button, which closes it: "Show 2 recipes". */
+  const showRecipes = (count: number) => screen.getByRole('button', { name: `Show ${count} ${count === 1 ? 'recipe' : 'recipes'}` });
+
+  it('puts a Filters button beside the search field', async () => {
     await setup();
-    await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
-    expect(screen.getByLabelText('Minimum servings')).toBeTruthy();
-    expect(screen.getByLabelText('Maximum servings')).toBeTruthy();
-    expect(screen.getByLabelText('Maximum active time in minutes')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Meal Prep only' })).toBeTruthy();
+    expect(filtersButton()).toBeOnTheScreen();
+    expect(screen.getByLabelText('Search recipes')).toBeOnTheScreen();
   });
 
-  it('applies the selected filters', async () => {
-    const filterRecipes = jest.fn().mockResolvedValue([makeSummary(2, 'Meal Prep')]);
-    const { filterRecipes: service } = await setup({
-      listAllRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'Regular')]),
-      filterRecipes,
-    });
-    await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
-    await fireEvent.changeText(screen.getByLabelText('Minimum servings'), '2');
-    await fireEvent.changeText(screen.getByLabelText('Maximum servings'), '4');
-    await fireEvent.changeText(screen.getByLabelText('Maximum active time in minutes'), '30');
-    await fireEvent.press(screen.getByRole('button', { name: 'Meal Prep only' }));
-    await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
-    expect(service).toHaveBeenLastCalledWith({
-      servingRange: { min: 2, max: 4 },
-      maxActiveMinutes: 30,
-      mealPrepOnly: true,
-    });
-    await waitFor(() => expect(recipeCardNames()).toEqual(['Meal Prep']));
+  it('says what the list holds', async () => {
+    await setup({ listAllRecipes: bothRecipes() });
+    expect(shownText()).toContain('2 recipes');
   });
 
-  it('rejects an invalid serving range', async () => {
-    const { filterRecipes } = await setup();
-    await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
-    await fireEvent.changeText(screen.getByLabelText('Minimum servings'), '5');
-    await fireEvent.changeText(screen.getByLabelText('Maximum servings'), '3');
-    await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
-    expect(filterRecipes).not.toHaveBeenCalled();
-    expect(shownText()).toContain('Maximum servings must be at least the minimum.');
+  it('says one recipe in the singular', async () => {
+    await setup({ listAllRecipes: jest.fn().mockResolvedValue([chili]) });
+    expect(shownText()).toContain('1 recipe');
   });
 
-  it('clears filters and restores the full list', async () => {
-    const filterRecipes = jest.fn().mockResolvedValue([makeSummary(2, 'Filtered')]);
-    await setup({
-      listAllRecipes: jest.fn().mockResolvedValue([makeSummary(1, 'All Recipes')]),
-      filterRecipes,
+  describe('the sheet', () => {
+    it('is closed until the Filters button is tapped', async () => {
+      await setup();
+      expect(shownText()).not.toContain('Hands-on cooking time');
     });
-    await fireEvent.press(screen.getByRole('button', { name: 'Filters' }));
-    await fireEvent.changeText(screen.getByLabelText('Maximum active time in minutes'), '30');
-    await fireEvent.press(screen.getByRole('button', { name: 'Apply filters' }));
-    await waitFor(() => expect(recipeCardNames()).toEqual(['Filtered']));
-    await fireEvent.press(screen.getByRole('button', { name: 'Clear filters' }));
-    expect(recipeCardNames()).toEqual(['All Recipes']);
+
+    it('offers hands-on time, number of people and Meal Prep', async () => {
+      await setup();
+      await openFilters();
+      expect(shownText()).toEqual(expect.arrayContaining(['Hands-on cooking time', 'Number of people', 'Meal Prep']));
+      expect(screen.getByRole('switch', { name: 'Meal Prep' })).toBeOnTheScreen();
+    });
+
+    it('has no text fields to fill in', async () => {
+      await setup();
+      await openFilters();
+      expect(screen.queryByLabelText('Minimum servings')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Apply filters' })).toBeNull();
+    });
+
+    it('closes the keyboard as it opens, since it covers where the keyboard was', async () => {
+      const dismiss = jest.spyOn(Keyboard, 'dismiss');
+      await setup();
+      await openFilters();
+      expect(dismiss).toHaveBeenCalled();
+      dismiss.mockRestore();
+    });
+
+    it('says the dock should move out of its way once the sheet is over it', async () => {
+        const onSheetShownChange = jest.fn();
+        await setup({ onSheetShownChange });
+        await openFilters();
+        await act(async () => {
+          jest.advanceTimersByTime(1000);
+        });
+        expect(onSheetShownChange).toHaveBeenLastCalledWith(true);
+    });
+
+    it('says the dock can come back when the screen goes away with the sheet open', async () => {
+        const onSheetShownChange = jest.fn();
+        await setup({ onSheetShownChange });
+        await openFilters();
+        await act(async () => {
+          jest.advanceTimersByTime(1000);
+        });
+        await screen.unmount();
+        expect(onSheetShownChange).toHaveBeenLastCalledWith(false);
+    });
+  });
+
+  describe('counting', () => {
+    it('counts the whole list when nothing is selected, without asking the service', async () => {
+      const { filterRecipes } = await setup({ listAllRecipes: bothRecipes() });
+      await openFilters();
+      expect(showRecipes(2)).toBeOnTheScreen();
+      expect(filterRecipes).not.toHaveBeenCalled();
+    });
+
+    it('counts the recipes the choices show', async () => {
+      const filterRecipes = jest.fn().mockResolvedValue([quickSoup]);
+      await setup({ listAllRecipes: bothRecipes(), filterRecipes });
+      await openFilters();
+      await choose('30 min');
+      await settle();
+      expect(filterRecipes).toHaveBeenLastCalledWith({ maxActiveMinutes: 30 });
+      expect(showRecipes(1)).toBeOnTheScreen();
+    });
+
+    it('counts a search with the choices', async () => {
+        const searchRecipes = jest.fn().mockResolvedValue([quickSoup]);
+        await setup({ listAllRecipes: bothRecipes(), searchRecipes });
+        await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'soup');
+        await act(async () => {
+          jest.advanceTimersByTime(250);
+        });
+        await openFilters();
+        await choose('30 min');
+        await settle();
+        expect(searchRecipes).toHaveBeenLastCalledWith('soup', { maxActiveMinutes: 30 });
+    });
+  });
+
+  describe('applying', () => {
+    const applyThirtyMinutes = async () => {
+      await openFilters();
+      await choose('30 min');
+      await settle();
+      await fireEvent.press(showRecipes(1));
+    };
+
+    it('lists the recipes the choices show once the sheet closes', async () => {
+      const filterRecipes = jest.fn().mockResolvedValue([quickSoup]);
+      await setup({ listAllRecipes: bothRecipes(), filterRecipes });
+      await applyThirtyMinutes();
+      expect(filterRecipes).toHaveBeenLastCalledWith({ maxActiveMinutes: 30 });
+      await waitFor(() => expect(recipeCardNames()).toEqual(['Quick Soup']));
+    });
+
+    it('says what the list holds after filtering', async () => {
+      await setup({ listAllRecipes: bothRecipes(), filterRecipes: jest.fn().mockResolvedValue([quickSoup]) });
+      await applyThirtyMinutes();
+      await waitFor(() => expect(shownText()).toContain('1 recipe'));
+    });
+
+    it('keeps the choices when the sheet is closed from its backdrop', async () => {
+      await setup({ listAllRecipes: bothRecipes(), filterRecipes: jest.fn().mockResolvedValue([quickSoup]) });
+      await openFilters();
+      await choose('30 min');
+      await fireEvent.press(screen.getAllByRole('button', { name: 'Close filters' })[0]);
+      await waitFor(() => expect(recipeCardNames()).toEqual(['Quick Soup']));
+    });
+
+    it('shows on the Filters button how many are selected', async () => {
+      await setup({ listAllRecipes: bothRecipes(), filterRecipes: jest.fn().mockResolvedValue([quickSoup]) });
+      await openFilters();
+      await choose('30 min');
+      await fireEvent.press(screen.getByRole('switch', { name: 'Meal Prep' }));
+      await settle();
+      await fireEvent.press(showRecipes(1));
+      expect(filtersButton('Filters, 2 active')).toBeOnTheScreen();
+    });
+
+    it('filters a search too', async () => {
+        const searchRecipes = jest.fn().mockResolvedValue([quickSoup]);
+        await setup({ listAllRecipes: bothRecipes(), searchRecipes });
+        await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'soup');
+        await act(async () => {
+          jest.advanceTimersByTime(250);
+        });
+        await openFilters();
+        await choose('30 min');
+        await settle();
+        await fireEvent.press(showRecipes(1));
+        await act(async () => {
+          jest.advanceTimersByTime(250);
+        });
+        expect(searchRecipes).toHaveBeenLastCalledWith('soup', { maxActiveMinutes: 30 });
+    });
+
+    it('brings back the full list when the choices are reset', async () => {
+      await setup({ listAllRecipes: bothRecipes(), filterRecipes: jest.fn().mockResolvedValue([quickSoup]) });
+      await applyThirtyMinutes();
+      await waitFor(() => expect(recipeCardNames()).toEqual(['Quick Soup']));
+      await fireEvent.press(filtersButton('Filters, 1 active'));
+      await settle();
+      await fireEvent.press(screen.getByRole('button', { name: 'Reset filters' }));
+      await settle();
+      await fireEvent.press(showRecipes(2));
+      await settle();
+      expect(recipeCardNames()).toEqual(['Chili', 'Quick Soup']);
+      expect(filtersButton()).toBeOnTheScreen();
+    });
+  });
+
+  describe('when no recipe fits', () => {
+    const noMatches = async () => {
+      await setup({ listAllRecipes: bothRecipes(), filterRecipes: jest.fn().mockResolvedValue([]) });
+      await openFilters();
+      await choose('15 min');
+      await settle();
+      await fireEvent.press(showRecipes(0));
+    };
+
+    it('says no recipes match the filters', async () => {
+      await noMatches();
+      await waitFor(() => expect(shownText()).toContain('No recipes match your filters'));
+    });
+
+    it('names the filters that leave nothing', async () => {
+      await noMatches();
+      await waitFor(() => expect(screen.getByText('No recipe fits 15 min hands-on.')).toBeOnTheScreen());
+    });
+
+    it('keeps the Filters button, now with a count, so the filters can be loosened', async () => {
+      await noMatches();
+      await waitFor(() => expect(filtersButton('Filters, 1 active')).toBeOnTheScreen());
+    });
+
+    it('says no recipes were found, not that the filters are too strict, while a search is typed', async () => {
+        await setup({
+          listAllRecipes: bothRecipes(),
+          searchRecipes: jest.fn().mockResolvedValue([]),
+          filterRecipes: jest.fn().mockResolvedValue([]),
+        });
+        await openFilters();
+        await choose('15 min');
+        await settle();
+        await fireEvent.press(showRecipes(0));
+        await fireEvent.changeText(screen.getByLabelText('Search recipes'), 'soup');
+        await act(async () => {
+          jest.advanceTimersByTime(250);
+        });
+        expect(shownText()).toContain('No recipes found.');
+    });
   });
 });
 
@@ -222,7 +409,7 @@ describe('RecipesScreen readiness', () => {
   it('shows plain cards with an empty pantry', async () => {
     await setup({ listAllRecipes: listAllRecipes() });
     await settle();
-    expect(shownText()).toEqual(['All Recipes', 'Filters', 'Chili', '30 min']);
+    expect(shownText()).toEqual(['All Recipes', 'Every recipe in RecipeMaker', 'Filters', '1 recipe', 'Chili', '30 min']);
   });
 
   it('says so when the pantry cannot be checked', async () => {
